@@ -1,0 +1,21 @@
+{
+ "kind": "urgent_order",
+ "at": "13:30",
+ "description": "В 13:30 поступила срочная авария в Кузьминках: окно 15:00–17:00, час работ, нужен аварийный навык.",
+ "new_order": {
+  "id": "URGENT-001",
+  "lat": 55.704846,
+  "lon": 37.788219,
+  "address": "Москва, ул.Юных Ленинцев, д. 5",
+  "district": "Кузьминки",
+  "duration_min": 60,
+  "window_start": "15:00",
+  "window_end": "17:00",
+  "priority": "Срочная",
+  "required_skill": "Аварийные работы",
+  "required_vehicle": null,
+  "type_bk": "Глобальная проблема",
+  "type_hd": "Авария",
+  "geocode_precision": "manual"
+ }
+}

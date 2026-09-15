@@ -1,0 +1,567 @@
+/* Тема: ночь по умолчанию — это диспетчерский экран, за ним сидят сменами.
+   День и «как в системе» переключаются кнопками в шапке; выбор запоминается.
+   Ни один цвет ниже не задаётся мимо токенов, иначе одна из тем поедет. */
+:root{
+  color-scheme:dark;
+
+  --bg:#0e1420; --panel:#151d2c; --panel-2:#1b2536; --line:#26324a;
+  --text:#e8edf6; --muted:#93a2bd; --dim:#7d8da8;
+
+  --accent:#ffcc00; --accent-hover:#ffd633; --accent-ink:#1a1200;
+  --accent-2:#7c5cff;
+  --ok:#3ddc97; --warn:#ffb020; --bad:#ff6b6b;
+
+  /* интерактивные состояния */
+  --hover:#202b40; --hover-strong:#242f48;
+  --btn-hover:#243149; --btn-hover-line:#3a4a6b;
+
+  /* карта */
+  --map-bg:#0b111b; --pin-ink:#12161f; --pin-ring:#0e1420;
+  --legend-bg:rgba(21,29,44,.94);
+  --marker-shadow:rgba(0,0,0,.6);
+  --scrim:rgba(6,10,17,.82);
+  --toast-shadow:rgba(0,0,0,.5);
+
+  /* смысловые тона для меток, плашек и строк таблиц */
+  --t-good-bg:#1f3a2c;    --t-good-fg:#8fe0b4;  --t-good-line:#2c4433;
+  --t-warn-bg:#4a3a20;    --t-warn-fg:#ffcf8f;  --t-warn-line:#5c4a28;
+  --t-bad-bg:#4a1f26;     --t-bad-fg:#ff9a9a;   --t-bad-line:#4a2c33;
+  --t-info-bg:#20354a;    --t-info-fg:#8fc4ff;  --t-info-line:#2b4763;
+  --t-violet-bg:#3a2440;  --t-violet-fg:#e0a6f0;
+  --t-cyan-bg:#1f3a3a;    --t-cyan-fg:#8fe0e0;
+  --t-neutral-bg:#2a2a35; --t-neutral-fg:#a6a6c0;
+  --t-good-soft:#1d2a20;  --t-bad-soft:#2c1c1f;
+
+  --radius:10px;
+}
+
+/* Дневная палитра: холодная бумага под тот же навигационный синий,
+   янтарь притушен до читаемого на светлом. */
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+
+    --bg:#eef1f6; --panel:#ffffff; --panel-2:#f5f7fb; --line:#d3dae6;
+    --text:#131b28; --muted:#566880; --dim:#617185;
+
+    --accent:#e8a200; --accent-hover:#f5b21c; --accent-ink:#1a1200;
+    --accent-2:#5b3fd6;
+    --ok:#0f8a5f; --warn:#a96800; --bad:#c4362b;
+
+    --hover:#e9eef7; --hover-strong:#e4ebf6;
+    --btn-hover:#e9eef7; --btn-hover-line:#b6c3d8;
+
+    --map-bg:#e9ebee; --pin-ink:#12161f; --pin-ring:#ffffff;
+    --legend-bg:rgba(255,255,255,.95);
+    --marker-shadow:rgba(23,34,54,.35);
+    --scrim:rgba(18,26,40,.5);
+    --toast-shadow:rgba(23,34,54,.22);
+
+    --t-good-bg:#dff2e8;    --t-good-fg:#0b6b4a;  --t-good-line:#a8d9c4;
+    --t-warn-bg:#fcefd6;    --t-warn-fg:#8a5600;  --t-warn-line:#e6c890;
+    --t-bad-bg:#fbe3e0;     --t-bad-fg:#a32a20;   --t-bad-line:#eab5ae;
+    --t-info-bg:#dfeaf9;    --t-info-fg:#1d5a9e;  --t-info-line:#b3cbe8;
+    --t-violet-bg:#eee2f7;  --t-violet-fg:#6a30a0;
+    --t-cyan-bg:#d9f0f2;    --t-cyan-fg:#0a6a72;
+    --t-neutral-bg:#e6e9f0; --t-neutral-fg:#566880;
+    --t-good-soft:#eaf6ef;  --t-bad-soft:#fdeeec;
+  }
+}
+
+/* Явный выбор «День» побеждает системную ночь. */
+:root[data-theme="light"]{
+  color-scheme:light;
+
+  --bg:#eef1f6; --panel:#ffffff; --panel-2:#f5f7fb; --line:#d3dae6;
+  --text:#131b28; --muted:#566880; --dim:#617185;
+
+  --accent:#e8a200; --accent-hover:#f5b21c; --accent-ink:#1a1200;
+  --accent-2:#5b3fd6;
+  --ok:#0f8a5f; --warn:#a96800; --bad:#c4362b;
+
+  --hover:#e9eef7; --hover-strong:#e4ebf6;
+  --btn-hover:#e9eef7; --btn-hover-line:#b6c3d8;
+
+  --map-bg:#e9ebee; --pin-ink:#12161f; --pin-ring:#ffffff;
+  --legend-bg:rgba(255,255,255,.95);
+  --marker-shadow:rgba(23,34,54,.35);
+  --scrim:rgba(18,26,40,.5);
+  --toast-shadow:rgba(23,34,54,.22);
+
+  --t-good-bg:#dff2e8;    --t-good-fg:#0b6b4a;  --t-good-line:#a8d9c4;
+  --t-warn-bg:#fcefd6;    --t-warn-fg:#8a5600;  --t-warn-line:#e6c890;
+  --t-bad-bg:#fbe3e0;     --t-bad-fg:#a32a20;   --t-bad-line:#eab5ae;
+  --t-info-bg:#dfeaf9;    --t-info-fg:#1d5a9e;  --t-info-line:#b3cbe8;
+  --t-violet-bg:#eee2f7;  --t-violet-fg:#6a30a0;
+  --t-cyan-bg:#d9f0f2;    --t-cyan-fg:#0a6a72;
+  --t-neutral-bg:#e6e9f0; --t-neutral-fg:#566880;
+  --t-good-soft:#eaf6ef;  --t-bad-soft:#fdeeec;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* ---------- верхняя панель ---------- */
+.topbar{
+  display:flex; align-items:center; gap:24px; flex-wrap:wrap;
+  padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--line);
+}
+.brand{display:flex; align-items:center; gap:12px}
+.brand-mark{
+  width:34px; height:34px; border-radius:9px; flex:none;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-2) 100%);
+}
+.brand-title{font-weight:650; letter-spacing:-.01em}
+.brand-sub{color:var(--muted); font-size:12px}
+
+.controls{display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-left:auto}
+.field{display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--muted)}
+.field.narrow{max-width:110px}
+.field input[type=time]{min-width:104px}
+.field span{text-transform:uppercase; letter-spacing:.04em; font-size:10px}
+select,input{
+  background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+  border-radius:8px; padding:7px 9px; font:inherit; font-size:13px; min-width:0;
+}
+select:focus,input:focus{outline:2px solid var(--accent-2); outline-offset:-1px}
+button{
+  background:var(--panel-2); color:var(--text); border:1px solid var(--line);
+  border-radius:8px; padding:8px 14px; font:inherit; font-size:13px; cursor:pointer;
+  transition:background .12s,border-color .12s;
+}
+button:hover{background:var(--btn-hover); border-color:var(--btn-hover-line)}
+button.primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600}
+button.primary:hover{background:var(--accent-hover)}
+button:disabled{opacity:.5; cursor:progress}
+
+/* Разделитель отделяет то, чем пользуются каждый раз, от того,
+   к чему обращаются изредка. */
+.controls-divider{
+  width:1px; align-self:stretch; background:var(--line); margin:0 2px;
+}
+
+.menu{position:relative}
+.menu > button::after{content:" ▾"; opacity:.6; font-size:10px}
+.menu-list{
+  position:absolute; right:0; top:calc(100% + 6px); z-index:600;
+  background:var(--panel); border:1px solid var(--line); border-radius:8px;
+  padding:4px; display:flex; flex-direction:column; min-width:210px;
+  box-shadow:0 8px 24px var(--toast-shadow);
+}
+.menu-list button{
+  border:0; border-radius:6px; background:transparent; text-align:left;
+  padding:8px 10px; font-size:13px;
+}
+.menu-list button:hover{background:var(--btn-hover)}
+
+.theme-switch{
+  display:flex; gap:0; border:1px solid var(--line); border-radius:8px;
+  overflow:hidden; background:var(--panel-2); flex:none;
+}
+.theme-switch button{
+  border:0; border-radius:0; background:transparent; color:var(--muted);
+  padding:7px 11px; font-size:12px; line-height:1.2; white-space:nowrap;
+}
+.theme-switch button + button{border-left:1px solid var(--line)}
+.theme-switch button:hover{background:var(--btn-hover); color:var(--text)}
+.theme-switch button[aria-pressed="true"]{
+  background:var(--accent); color:var(--accent-ink); font-weight:600;
+}
+
+/* ---------- метрики и предупреждения ---------- */
+/* Полоса предупреждений под метриками: статус расчёта и точность адресов.
+   Появляется только когда есть что сказать, иначе занимает ноль высоты. */
+.plan-notes{
+  display:flex; flex-direction:column; gap:6px;
+  padding:8px 18px; background:var(--panel-2);
+  border-bottom:1px solid var(--line);
+}
+.note{
+  display:flex; gap:8px; align-items:flex-start;
+  padding:7px 10px; border-radius:8px; font-size:12px; line-height:1.45;
+  background:var(--t-neutral-bg); color:var(--t-neutral-fg);
+  border:1px solid transparent;
+}
+.note::before{content:'i'; font-weight:700; font-style:italic; flex:none; width:12px; text-align:center}
+.note-warn{background:var(--t-warn-bg); color:var(--t-warn-fg); border-color:var(--t-warn-line)}
+.note-warn::before{content:'!'}
+.note-bad{background:var(--t-bad-bg); color:var(--t-bad-fg); border-color:var(--t-bad-line)}
+.note-bad::before{content:'!'}
+.note-text{flex:1; min-width:0}
+
+.menu-sep{display:block; height:1px; margin:4px 0; background:var(--line)}
+
+.metrics{
+  display:flex; gap:10px; flex-wrap:wrap; padding:10px 18px;
+  background:var(--panel-2); border-bottom:1px solid var(--line);
+}
+.metric{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:8px 14px; min-width:120px;
+}
+.metric .k{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
+.metric .v{font-size:19px; font-weight:650; margin-top:2px}
+.metric .v small{font-size:12px; font-weight:400; color:var(--muted)}
+.metric.good .v{color:var(--ok)}
+.metric.warn .v{color:var(--warn)}
+.metric.plain{flex:1; min-width:260px}
+.metric.plain .v{font-size:13px; font-weight:400; line-height:1.45}
+/* Неназначенные заявки — не метрика, а повод открыть вкладку с причинами. */
+.metric.alert{
+  text-align:left; cursor:pointer; border-color:var(--t-bad-line);
+  background:var(--t-bad-soft); font:inherit;
+}
+.metric.alert:hover{border-color:var(--bad)}
+.metric.alert .v{color:var(--bad); font-size:19px; font-weight:650; margin-top:2px}
+.metric.alert .v small{color:var(--muted); font-size:12px; font-weight:400}
+
+/* ---------- раскладка ---------- */
+.layout{flex:1; display:grid; grid-template-columns:340px 1fr 380px; min-height:0}
+.panel{background:var(--panel); display:flex; flex-direction:column; min-height:0; min-width:0}
+.panel.left{border-right:1px solid var(--line)}
+.panel.right{border-left:1px solid var(--line); overflow-y:auto; padding:0}
+.tabs{display:flex; border-bottom:1px solid var(--line); flex:none}
+.tab{
+  flex:1; border:0; border-radius:0; background:transparent; color:var(--muted);
+  padding:11px 6px; font-size:12px; border-bottom:2px solid transparent;
+}
+.tab:hover{background:var(--panel-2)}
+.tab.active{color:var(--text); border-bottom-color:var(--accent); background:transparent}
+.tab em{font-style:normal; background:var(--line); border-radius:9px; padding:1px 6px; font-size:11px}
+.tab-body{flex:1; overflow-y:auto; padding:10px}
+
+/* ---------- маршруты ---------- */
+.route{
+  border:1px solid var(--line); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden; background:var(--panel-2);
+}
+.route-head{
+  display:flex; align-items:center; gap:9px; padding:9px 11px; cursor:pointer;
+  border-left:4px solid var(--dot,var(--accent));
+}
+.route-head:hover{background:var(--hover)}
+.route-name{font-weight:600; font-size:13px; flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.route-stat{font-size:11px; color:var(--muted); white-space:nowrap}
+.route-body{padding:0 11px 9px; display:none}
+.route.open .route-body{display:block}
+.route-summary{font-size:12px; color:var(--muted); padding:7px 0 9px; border-bottom:1px dashed var(--line)}
+.stop{
+  display:flex; gap:9px; padding:7px 0; border-bottom:1px dashed var(--line);
+  cursor:pointer; font-size:12px;
+}
+.stop:last-child{border-bottom:0}
+.stop:hover{background:var(--hover)}
+.stop.selected{background:var(--hover-strong); box-shadow:inset 3px 0 0 var(--accent)}
+.stop-n{
+  width:20px; height:20px; border-radius:50%; flex:none; font-size:10px; font-weight:700;
+  display:grid; place-items:center; background:var(--dot,var(--accent)); color:var(--pin-ink);
+}
+.stop-time{font-variant-numeric:tabular-nums; color:var(--text); font-weight:600}
+.stop-where{color:var(--muted); margin-top:1px}
+.stop-meta{color:var(--muted); margin-top:1px; font-size:11px}
+.badge{
+  display:inline-block; padding:1px 6px; border-radius:6px; font-size:10px;
+  background:var(--t-neutral-bg); color:var(--t-neutral-fg);
+  margin-left:5px; vertical-align:1px;
+}
+.badge.urgent{background:var(--t-bad-bg); color:var(--t-bad-fg)}
+.badge.car{background:var(--t-info-bg); color:var(--t-info-fg)}
+.badge.pinned{background:var(--t-violet-bg); color:var(--t-violet-fg)}
+.badge.approx{background:var(--t-warn-bg); color:var(--t-warn-fg)}
+
+.risk-dot{
+  width:8px; height:8px; border-radius:50%; flex:none; display:inline-block;
+  margin-right:5px; vertical-align:0;
+}
+.risk-высокий{background:var(--bad)}
+.risk-средний{background:var(--warn)}
+.risk-низкий{background:var(--ok)}
+.badge.risk{background:var(--t-neutral-bg); color:var(--t-neutral-fg)}
+.badge.risk.высокий{background:var(--t-bad-bg); color:var(--t-bad-fg)}
+.badge.risk.средний{background:var(--t-warn-bg); color:var(--t-warn-fg)}
+.slider-row{display:flex; align-items:center; gap:12px; margin:14px 0 6px}
+.slider-row input[type=range]{flex:1; accent-color:var(--accent)}
+.slider-row output{
+  font-variant-numeric:tabular-nums; min-width:62px; font-weight:600;
+}
+
+/* ---------- не назначены ---------- */
+.card{
+  border:1px solid var(--line); border-radius:var(--radius); padding:10px 11px;
+  margin-bottom:8px; background:var(--panel-2); cursor:pointer; font-size:12px;
+}
+.card:hover{background:var(--hover)}
+.card .card-id{font-weight:650; font-size:13px}
+.card .card-why{color:var(--warn); margin-top:5px; line-height:1.4}
+.card .card-meta{color:var(--muted); margin-top:4px}
+
+/* ---------- допущения ---------- */
+.assumption{border-left:3px solid var(--accent-2); padding:2px 0 2px 11px; margin-bottom:13px}
+.assumption h4{margin:0 0 3px; font-size:12px; letter-spacing:.01em}
+.assumption p{margin:0; font-size:12px; color:var(--muted); line-height:1.5}
+
+/* ---------- карта ---------- */
+.map-wrap{position:relative; min-width:0}
+#map{position:absolute; inset:0; background:var(--map-bg)}
+
+/* ---------- схематическая карта ---------- */
+.scheme-lines{position:absolute; inset:0; width:100%; height:100%}
+.scheme-grid line{stroke:var(--line); stroke-width:1; opacity:.35}
+.scheme-routes path{fill:none; stroke-width:3; stroke-linejoin:round;
+  stroke-linecap:round; opacity:.85}
+.scheme-markers{position:absolute; inset:0; pointer-events:none}
+.scheme-markers > *{pointer-events:auto}
+.scheme-label{
+  position:absolute; transform:translate(-50%,-50%); pointer-events:none;
+  font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); white-space:nowrap; opacity:.7;
+  text-shadow:0 1px 3px var(--bg), 0 0 6px var(--bg);
+}
+.scheme-controls{
+  position:absolute; left:10px; top:10px; z-index:500;
+  display:flex; flex-direction:column; gap:4px;
+}
+.scheme-controls button{
+  width:30px; height:30px; padding:0; font-size:15px; line-height:1;
+  background:var(--panel); border:1px solid var(--line);
+}
+.scheme-scale{
+  position:absolute; left:10px; bottom:10px; z-index:500;
+  display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted);
+}
+.scheme-scale-bar{
+  height:6px; border:1px solid var(--muted); border-top:0; display:block;
+}
+.scheme-note{
+  position:absolute; right:10px; top:10px; z-index:500; max-width:230px;
+  font-size:10px; line-height:1.4; color:var(--muted); text-align:right; opacity:.8;
+}
+.map-source{
+  position:absolute; left:50%; transform:translateX(-50%); bottom:10px; z-index:500;
+  font-size:10px; color:var(--muted); background:var(--legend-bg);
+  border:1px solid var(--line); border-radius:12px; padding:3px 10px;
+}
+.loading{
+  position:absolute; inset:0; z-index:600; display:grid; place-items:center;
+  background:color-mix(in srgb,var(--bg) 72%,transparent); gap:12px;
+  grid-auto-flow:row; align-content:center; text-align:center; padding:20px;
+}
+@supports not (background:color-mix(in srgb,red 50%,transparent)){
+  .loading{background:var(--bg); opacity:.92}
+}
+.loading .spinner{
+  width:30px; height:30px; border-radius:50%; justify-self:center;
+  border:3px solid var(--line); border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.loading .spinner{animation-duration:2.4s}}
+.loading .what{font-size:14px; color:var(--text)}
+.loading .how-long{font-size:12px; color:var(--muted)}
+
+.map-hint{
+  position:absolute; inset:auto 0 50% 0; text-align:center; color:var(--muted);
+  pointer-events:none; font-size:14px;
+}
+.legend{
+  position:absolute; right:12px; bottom:12px; z-index:500; max-height:42%;
+  overflow-y:auto; background:var(--legend-bg); border:1px solid var(--line);
+  border-radius:var(--radius); padding:9px 11px; font-size:11px; max-width:230px;
+}
+.legend-row{display:flex; align-items:center; gap:7px; padding:2px 0; cursor:pointer}
+.legend-row:hover{color:var(--accent)}
+.legend-row.off{opacity:.35}
+.legend-dot{width:10px; height:10px; border-radius:50%; flex:none}
+.legend-title{
+  color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+  font-size:10px; background:transparent; border:0; padding:0; cursor:pointer;
+  font-family:inherit; text-align:left; width:100%;
+}
+.legend-title::before{content:"▸ "}
+.legend-title[aria-expanded="true"]{margin-bottom:5px}
+.legend-title[aria-expanded="true"]::before{content:"▾ "}
+.legend-title:hover{color:var(--accent); background:transparent}
+
+/* Один и тот же вид метки и на Яндекс Картах, и на схеме. */
+.scheme-pin{
+  position:absolute; transform:translate(-50%,-50%);
+  width:19px; height:19px; border-radius:50%; border:2px solid var(--pin-ring);
+  display:grid; place-items:center; font-size:9px; font-weight:700;
+  color:var(--pin-ink); box-shadow:0 1px 4px var(--marker-shadow); cursor:pointer;
+}
+.scheme-pin.selected{
+  outline:2px solid var(--accent); outline-offset:2px; z-index:5;
+}
+.scheme-pin.scheme-base{
+  width:13px; height:13px; border-radius:3px; cursor:default;
+  transform:translate(-50%,-50%) rotate(45deg);
+}
+.scheme-pin.scheme-loose{
+  background:var(--bad); color:#fff; border-style:dashed; z-index:4;
+}
+.scheme-pin.scheme-pick{background:var(--accent); color:var(--accent-ink); z-index:6}
+
+/* ---------- карточка заявки ---------- */
+.detail-head{padding:14px 16px 12px; border-bottom:1px solid var(--line)}
+.detail-head h3{margin:0 0 4px; font-size:15px; line-height:1.35}
+.detail-head .sub{color:var(--muted); font-size:12px}
+.detail-section{padding:13px 16px; border-bottom:1px solid var(--line)}
+.detail-section h4{
+  margin:0 0 8px; font-size:10px; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--muted); font-weight:600;
+}
+.summary-box{
+  background:var(--t-good-soft); border:1px solid var(--t-good-line);
+  border-left:3px solid var(--ok);
+  border-radius:8px; padding:10px 12px; font-size:12.5px; line-height:1.55;
+}
+.summary-box.bad{background:var(--t-bad-soft); border-color:var(--t-bad-line);
+  border-left-color:var(--bad)}
+.facts{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:12px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0}
+.reason-line{font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:6px}
+.alt{
+  display:flex; align-items:baseline; gap:8px; font-size:12px;
+  padding:6px 0; border-bottom:1px dashed var(--line);
+}
+.alt:last-child{border-bottom:0}
+.alt-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.alt-why{color:var(--dim); font-size:11px; flex:2; min-width:0}
+.alt-tag{font-size:10px; padding:1px 6px; border-radius:6px; white-space:nowrap}
+.alt-tag.skill{background:var(--t-violet-bg); color:var(--t-violet-fg)}
+.alt-tag.res{background:var(--t-info-bg); color:var(--t-info-fg)}
+.alt-tag.time{background:var(--t-warn-bg); color:var(--t-warn-fg)}
+.alt-tag.ok{background:var(--t-good-bg); color:var(--t-good-fg)}
+.empty{padding:28px 20px; color:var(--muted)}
+.empty h3{margin:0 0 8px; color:var(--text); font-size:14px}
+.empty p{margin:0; font-size:12.5px; line-height:1.55}
+/* Ряд «поле + кнопка». В блоке решений полей два, и на узкой панели ряд
+   обязан переноситься, иначе кнопка уезжает за край. */
+.reassign{display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap}
+.reassign .field{flex:1 1 130px; min-width:0}
+.reassign button{flex:0 0 auto; margin-left:auto}
+
+/* ---------- перепланирование ---------- */
+.replan{
+  background:var(--panel); border-top:1px solid var(--line); padding:10px 18px 12px;
+  flex:none; max-height:36vh; overflow-y:auto;
+}
+.replan-head{
+  display:flex; align-items:baseline; gap:10px; cursor:pointer;
+  list-style:none; padding:2px 0; user-select:none;
+}
+.replan-head::-webkit-details-marker{display:none}
+.replan-head::before{
+  content:"▸"; color:var(--muted); font-size:11px; transition:transform .15s;
+  display:inline-block;
+}
+.replan[open] .replan-head::before{transform:rotate(90deg)}
+.replan-head:hover strong{color:var(--accent)}
+.replan-head strong{font-size:13px}
+.replan-head .hint{color:var(--muted); font-size:11px}
+.replan[open] .replan-controls{margin-top:10px}
+.replan-note{
+  margin:8px 0 0; font-size:12px; color:var(--muted); max-width:78ch; line-height:1.45;
+}
+.replan-controls,.urgent-form{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap}
+.urgent-form{
+  margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+}
+.pick-hint{color:var(--accent); font-size:11px; align-self:center}
+
+/* ---------- модальное окно ---------- */
+.modal{
+  position:fixed; inset:0; background:var(--scrim); z-index:1000;
+  display:grid; place-items:center; padding:24px;
+}
+.modal-box{
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  max-width:1000px; width:100%; max-height:86vh; overflow-y:auto;
+  padding:22px 26px; position:relative;
+}
+.modal-close{
+  position:absolute; top:12px; right:12px; border:0; background:transparent;
+  color:var(--muted); font-size:24px; line-height:1; padding:4px 9px;
+}
+.modal h2{margin:0 0 4px; font-size:17px}
+.modal .lead{color:var(--muted); font-size:12.5px; margin:0 0 18px; line-height:1.55}
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th,td{padding:9px 10px; text-align:left; border-bottom:1px solid var(--line)}
+th{color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.05em;
+   font-weight:600}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+tr.highlight td{background:var(--t-good-soft)}
+tr.fact td{color:var(--muted)}
+.delta{font-size:11px; margin-left:6px}
+.delta.good{color:var(--ok)}
+.delta.bad{color:var(--bad)}
+details.how{
+  margin-top:16px; border:1px solid var(--line); border-radius:8px;
+  background:var(--panel-2);
+}
+details.how > summary{
+  cursor:pointer; padding:10px 14px; font-size:12.5px; color:var(--muted);
+  list-style:none; user-select:none;
+}
+details.how > summary::-webkit-details-marker{display:none}
+details.how > summary::before{content:"▸ "; font-size:10px}
+details.how[open] > summary::before{content:"▾ "}
+details.how > summary:hover{color:var(--text)}
+details.how .how-body{
+  padding:0 14px 12px; font-size:12.5px; color:var(--muted); line-height:1.6;
+}
+details.how .how-body p{margin:0 0 9px}
+details.how .how-body p:last-child{margin-bottom:0}
+
+.note{
+  margin-top:16px; padding:12px 14px; background:var(--panel-2);
+  border-left:3px solid var(--warn); border-radius:8px;
+  font-size:12px; color:var(--muted); line-height:1.6;
+}
+.diff-list{margin:12px 0 0; padding:0; list-style:none; font-size:12px}
+.diff-list li{padding:6px 0; border-bottom:1px dashed var(--line)}
+.diff-badge{
+  display:inline-block; min-width:118px; font-size:10px; padding:1px 7px;
+  border-radius:6px; margin-right:9px; text-align:center;
+}
+.b-added{background:var(--t-good-bg); color:var(--t-good-fg)}
+.b-cancelled{background:var(--t-bad-bg); color:var(--t-bad-fg)}
+.b-moved{background:var(--t-info-bg); color:var(--t-info-fg)}
+.b-resequenced{background:var(--t-warn-bg); color:var(--t-warn-fg)}
+.b-dropped{background:var(--t-bad-bg); color:var(--t-bad-fg)}
+.b-rescued{background:var(--t-cyan-bg); color:var(--t-cyan-fg)}
+.b-frozen{background:var(--t-neutral-bg); color:var(--t-neutral-fg)}
+.narrative{margin:0 0 14px; padding:0; list-style:none}
+.narrative li{
+  padding:8px 12px; background:var(--panel-2); border-left:3px solid var(--accent-2);
+  border-radius:6px; margin-bottom:6px; font-size:12.5px; line-height:1.55;
+}
+
+/* ---------- уведомление ---------- */
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
+  background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--bad);
+  border-radius:9px; padding:11px 16px; font-size:13px; z-index:2000; max-width:560px;
+  box-shadow:0 8px 28px var(--toast-shadow);
+}
+
+@media (max-width:1280px){
+  .layout{grid-template-columns:300px 1fr 330px}
+}
+@media (max-width:1024px){
+  body{overflow:auto}
+  .layout{grid-template-columns:1fr; height:auto}
+  .panel.left,.panel.right{max-height:340px}
+  .map-wrap{height:460px}
+  #map{position:relative; height:460px}
+}
+
+/* Атрибут hidden должен побеждать любые display из классов выше:
+   иначе скрытое модальное окно продолжает перехватывать клики по странице. */
+[hidden]{display:none!important}

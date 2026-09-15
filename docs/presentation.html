@@ -1,0 +1,662 @@
+<title>Планировщик выездных работ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=PT+Sans:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap">
+
+<style>
+:root{
+  --ground:#f5f6f8;
+  --panel:#ffffff;
+  --edge:#dfe3ea;
+  --ink:#141a24;
+  --body:#3c475a;
+  --muted:#6f7d95;
+  --signal:#e08a00;
+  --signal-soft:#fff3d6;
+  --signal-edge:#f0c377;
+  --route:#0f8a63;
+  --route-soft:#e2f4ed;
+  --alert:#c2392c;
+  --alert-soft:#fbe8e5;
+  --rail:#c9d0dc;
+  --shadow:0 1px 2px rgba(20,26,36,.06), 0 8px 24px rgba(20,26,36,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0d121b;
+    --panel:#151d29;
+    --edge:#26303f;
+    --ink:#eef2f8;
+    --body:#b9c4d6;
+    --muted:#8494ad;
+    --signal:#ffc531;
+    --signal-soft:#332807;
+    --signal-edge:#5c4a12;
+    --route:#5ad1a5;
+    --route-soft:#0d2b22;
+    --alert:#ff7a6c;
+    --alert-soft:#2e1512;
+    --rail:#2d3848;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0d121b;
+  --panel:#151d29;
+  --edge:#26303f;
+  --ink:#eef2f8;
+  --body:#b9c4d6;
+  --muted:#8494ad;
+  --signal:#ffc531;
+  --signal-soft:#332807;
+  --signal-edge:#5c4a12;
+  --route:#5ad1a5;
+  --route-soft:#0d2b22;
+  --alert:#ff7a6c;
+  --alert-soft:#2e1512;
+  --rail:#2d3848;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-snap-type:y proximity; scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+body{
+  margin:0; background:var(--ground); color:var(--body);
+  font:17px/1.55 "PT Sans","Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+
+h1,h2,h3,.eyebrow,.num{font-family:Oswald,"Arial Narrow",sans-serif; font-weight:500}
+h1,h2,h3{color:var(--ink); text-wrap:balance; margin:0}
+h1{font-size:clamp(34px,6vw,62px); line-height:1.02; letter-spacing:-.01em; font-weight:600}
+h2{font-size:clamp(25px,3.6vw,40px); line-height:1.1}
+h3{font-size:clamp(17px,1.9vw,21px); line-height:1.25}
+p{margin:0}
+strong{color:var(--ink)}
+em{font-style:italic; color:var(--ink)}
+
+.eyebrow{
+  font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); display:flex; align-items:center; gap:10px;
+}
+.eyebrow::before{
+  content:""; width:22px; height:2px; background:var(--signal); flex:none;
+}
+
+.num{font-family:"JetBrains Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- каркас слайдов ---------- */
+.slide{
+  scroll-snap-align:start;
+  min-height:100svh;
+  display:flex; flex-direction:column; justify-content:center;
+  gap:clamp(18px,2.6vh,30px);
+  padding-block:clamp(40px,5.5vh,66px) clamp(58px,7vh,84px);
+  padding-inline:clamp(20px,6vw,88px);
+  max-width:1180px; margin:0 auto;
+  position:relative;
+}
+.slide + .slide{border-top:1px solid var(--edge)}
+
+.rail{
+  position:fixed; right:14px; top:50%; transform:translateY(-50%);
+  display:flex; flex-direction:column; gap:9px; z-index:50;
+}
+.rail a{
+  width:8px; height:8px; border-radius:50%; background:var(--rail);
+  display:block; transition:background .2s, transform .2s;
+}
+.rail a:hover,.rail a:focus-visible{background:var(--signal); transform:scale(1.4)}
+.rail a[aria-current="true"]{background:var(--signal); transform:scale(1.35)}
+.page-no{
+  position:absolute; top:clamp(20px,4vh,38px); right:clamp(20px,6vw,88px);
+  font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--muted);
+}
+
+a{color:var(--ink)}
+:focus-visible{outline:2px solid var(--signal); outline-offset:3px; border-radius:3px}
+
+/* ---------- титул ---------- */
+.hero-case{
+  font-size:13px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); font-family:Oswald,sans-serif;
+}
+.hero-lede{
+  font-size:clamp(18px,2.2vw,23px); line-height:1.45; max-width:44ch; color:var(--body);
+}
+.hero-figures{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--edge); border:1px solid var(--edge);
+  border-radius:4px; overflow:hidden;
+}
+.figure{background:var(--panel); padding:18px 20px}
+.figure .v{
+  font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:clamp(26px,3.4vw,38px); font-weight:700; color:var(--ink);
+  line-height:1; display:block;
+}
+.figure .v span{font-size:.5em; font-weight:400; color:var(--muted); margin-left:2px}
+.figure .k{
+  font-size:12px; color:var(--muted); margin-top:7px; display:block;
+  letter-spacing:.02em;
+}
+.figure.win .v{color:var(--route)}
+
+/* ---------- сетки ---------- */
+.cols{display:grid; gap:clamp(16px,2.4vw,30px)}
+.cols-2{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.cols-3{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+
+.block{
+  background:var(--panel); border:1px solid var(--edge); border-radius:4px;
+  padding:20px 22px; display:flex; flex-direction:column; gap:10px;
+}
+.block h3{display:flex; align-items:baseline; gap:9px}
+.block p{font-size:15.5px; line-height:1.5}
+.block .tag{
+  font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--muted);
+  font-weight:400;
+}
+
+/* Полоса слева — только там, где она означает статус, а не украшение */
+.block.limit{border-left:3px solid var(--signal)}
+.block.gap{border-left:3px solid var(--alert)}
+.block.done{border-left:3px solid var(--route)}
+
+.lead{font-size:clamp(17px,1.9vw,20px); line-height:1.5; max-width:62ch}
+.note{
+  font-size:14.5px; line-height:1.5; color:var(--muted);
+  border-left:2px solid var(--edge); padding-left:16px; max-width:70ch;
+}
+.callout{
+  background:var(--signal-soft); border:1px solid var(--signal-edge);
+  border-radius:4px; padding:16px 20px; font-size:15.5px; line-height:1.5;
+  max-width:74ch;
+}
+.callout strong{color:var(--ink)}
+
+/* ---------- таблицы ---------- */
+.table-wrap{overflow-x:auto; border:1px solid var(--edge); border-radius:4px}
+table{width:100%; border-collapse:collapse; background:var(--panel); font-size:14.5px}
+th,td{padding:9px 14px; text-align:left; border-bottom:1px solid var(--edge)}
+tbody tr:last-child td{border-bottom:0}
+th{
+  font-family:Oswald,sans-serif; font-weight:500; font-size:11.5px;
+  letter-spacing:.09em; text-transform:uppercase; color:var(--muted);
+  white-space:nowrap;
+}
+td.n,th.n{
+  text-align:right; font-family:"JetBrains Mono",monospace;
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+tr.best td{background:var(--route-soft)}
+tr.best td:first-child{font-weight:700; color:var(--ink)}
+tr.fact td{color:var(--muted); font-style:italic}
+.region-head td{
+  font-family:Oswald,sans-serif; letter-spacing:.09em; text-transform:uppercase;
+  font-size:11.5px; color:var(--muted); background:var(--ground); padding-block:11px 9px;
+}
+.delta{font-size:12.5px; color:var(--route); margin-left:5px}
+.delta.bad{color:var(--alert)}
+
+/* ---------- диаграмма ---------- */
+.chart{width:100%; height:auto; max-height:42svh; display:block}
+.chart text{font-family:"JetBrains Mono",monospace; font-size:11px; fill:var(--muted)}
+.chart text.name{font-family:Oswald,sans-serif; font-size:13px; fill:var(--ink); letter-spacing:.04em}
+.chart text.val{fill:var(--ink); font-weight:700; font-size:12px}
+.legend{display:flex; gap:20px; flex-wrap:wrap; font-size:14px; color:var(--muted)}
+.legend span{display:flex; align-items:center; gap:8px}
+.swatch{width:13px; height:13px; border-radius:2px; flex:none}
+
+/* ---------- списки ---------- */
+.steps{list-style:none; margin:0; padding:0; display:grid; gap:12px}
+.steps li{
+  display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:baseline;
+  font-size:15.5px; line-height:1.5;
+}
+.steps li .n{
+  font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--signal);
+  font-weight:700; padding-top:2px;
+}
+.plain{list-style:none; margin:0; padding:0; display:grid; gap:9px; font-size:15.5px}
+.plain li{display:grid; grid-template-columns:auto 1fr; gap:11px; line-height:1.5}
+.plain li::before{content:"—"; color:var(--signal)}
+
+.quote{
+  font-size:clamp(19px,2.4vw,26px); line-height:1.4; color:var(--ink);
+  font-family:Oswald,sans-serif; font-weight:400; max-width:24ch;
+}
+
+.kbd{
+  font-family:"JetBrains Mono",monospace; font-size:12px; border:1px solid var(--edge);
+  border-bottom-width:2px; border-radius:3px; padding:2px 6px; color:var(--muted);
+  background:var(--panel);
+}
+.hint{
+  position:fixed; right:34px;
+  bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  font-size:11px; color:var(--muted); background:var(--panel);
+  border:1px solid var(--edge); border-radius:20px; padding:5px 12px; z-index:50;
+  display:flex; gap:7px; align-items:center; opacity:.8;
+}
+@media (max-width:760px){
+  .rail,.hint{display:none}
+  .slide{min-height:auto; justify-content:flex-start}
+}
+</style>
+
+<nav class="rail" aria-label="Слайды">
+  <a href="#s1" aria-label="Слайд 1"></a><a href="#s2" aria-label="Слайд 2"></a>
+  <a href="#s3" aria-label="Слайд 3"></a><a href="#s4" aria-label="Слайд 4"></a>
+  <a href="#s5" aria-label="Слайд 5"></a><a href="#s6" aria-label="Слайд 6"></a>
+  <a href="#s7" aria-label="Слайд 7"></a><a href="#s8" aria-label="Слайд 8"></a>
+  <a href="#s9" aria-label="Слайд 9"></a><a href="#s10" aria-label="Слайд 10"></a>
+  <a href="#s11" aria-label="Слайд 11"></a><a href="#s12" aria-label="Слайд 12"></a>
+  <a href="#s13" aria-label="Слайд 13"></a>
+</nav>
+
+<main>
+
+<!-- 1 -->
+<section class="slide" id="s1">
+  <span class="page-no">01 / 13</span>
+  <div class="hero-case">Кейс «Билайн Бизнес» · планирование маршрутов выездных инженеров</div>
+  <h1>Планировщик<br>выездных работ</h1>
+  <p class="hero-lede">Помощник диспетчера: раздаёт заявки, строит маршруты,
+    перестраивает день после события и объясняет каждое решение словами.</p>
+  <div class="hero-figures">
+    <div class="figure"><span class="v">205</span><span class="k">заявок в трёх районах</span></div>
+    <div class="figure"><span class="v">35</span><span class="k">бригад за один день</span></div>
+    <div class="figure win"><span class="v">15<span>с</span></span><span class="k">на полный план района</span></div>
+    <div class="figure win"><span class="v">−5</span><span class="k">бригад против живого диспетчера за три района</span></div>
+  </div>
+  <p class="note">Работаем на реальных обезличенных выгрузках организаторов за 17 августа.
+    Ничего не придумывали: файлы читаются как есть.</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" id="s2">
+  <span class="page-no">02 / 13</span>
+  <div class="eyebrow">Задача</div>
+  <h2>Утро диспетчера</h2>
+  <p class="lead">Сто заявок, дюжина бригад. У каждой бригады свои навыки, свой транспорт
+    и своя смена. У каждой заявки адрес, длительность и двухчасовое окно, в которое
+    надо успеть начать. К обеду приходит авария, одну заявку отменяют, одна бригада
+    выходит из строя. Новый план нужен за минуты.</p>
+  <div class="cols cols-3">
+    <div class="block"><h3>Навык</h3>
+      <p>Аварийную заявку нельзя отдать бригаде, которая аварии не делает.</p></div>
+    <div class="block"><h3>Время</h3>
+      <p>Начало работ обязано попасть в окно, а вся работа с дорогой — в смену.</p></div>
+    <div class="block"><h3>Ресурс</h3>
+      <p>Бухту кабеля пешком не принесёшь: часть заявок требует машины.</p></div>
+  </div>
+  <p class="callout"><strong>Что мы делаем.</strong> Не промышленную FSM-платформу, а прототип,
+    который предлагает выполнимый план и простыми словами объясняет, почему он такой.</p>
+</section>
+
+<!-- 3 -->
+<section class="slide" id="s3">
+  <span class="page-no">03 / 13</span>
+  <div class="eyebrow">Данные</div>
+  <h2>Что дали и чего в данных нет</h2>
+  <div class="cols cols-2">
+    <div class="block done">
+      <h3>Есть в выгрузках</h3>
+      <ul class="plain">
+        <li>Номер, тип работ и категория заявки</li>
+        <li>Адрес и район</li>
+        <li>Границы временного окна</li>
+        <li>Статус наряда</li>
+        <li><strong>Бригада, которая выполняла заявку по факту</strong></li>
+      </ul>
+    </div>
+    <div class="block gap">
+      <h3>Нет и пришлось достроить</h3>
+      <ul class="plain">
+        <li>Длительность работ</li>
+        <li>Навыки исполнителей</li>
+        <li>Тип транспорта</li>
+        <li>Границы смены</li>
+        <li>Стартовые точки бригад</li>
+      </ul>
+    </div>
+  </div>
+  <p class="callout">Колонка «Бригада» — это <strong>реальное решение живого диспетчера</strong>
+    за тот же день. Мы получили не только вход, но и эталон, с которым можно честно
+    сравниться. Ни одна метрика в этой презентации не взята с потолка.</p>
+</section>
+
+<!-- 4 -->
+<section class="slide" id="s4">
+  <span class="page-no">04 / 13</span>
+  <div class="eyebrow">Допущения</div>
+  <h2>Мы ничего не прячем</h2>
+  <p class="lead">Всё достроенное собрано в одном модуле, показано в интерфейсе на
+    отдельной вкладке и меняется одной строкой. Ключевой приём — не выдумывать,
+    а выводить из данных.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Чего нет в данных</th><th>Откуда взяли</th></tr></thead>
+      <tbody>
+        <tr><td>Навык заявки</td><td>Из категории работ — соответствие справочнику ТЗ получилось один в один</td></tr>
+        <tr><td><strong>Навыки бригады</strong></td><td>Из факта: бригада умеет то, что реально делала за день. Вышло от 1 до 3 навыков — ровно как требует ТЗ</td></tr>
+        <tr><td><strong>Тип транспорта</strong></td><td>Из географии её точек: разлёт свыше 6 км — машина, до 1.5 км — пешком, центр со средним разлётом — метро</td></tr>
+        <tr><td>Стартовая точка</td><td>Центр тяжести реальных точек бригады за день</td></tr>
+        <tr><td>Смена</td><td>Из диапазона окон выполненных заявок, минимум восемь часов</td></tr>
+        <tr><td>Длительность работ</td><td>Норматив по 18 типам работ, 30–120 минут — единственное, что взято извне данных</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide" id="s5">
+  <span class="page-no">05 / 13</span>
+  <div class="eyebrow">Алгоритм</div>
+  <h2>Что оптимизируем</h2>
+  <p class="lead">Задача коммивояжёра с временными окнами, навыками и разнородным
+    транспортом. Решаем через OR-Tools: своя матрица времени на каждый тип транспорта,
+    окна и смены как временнóе измерение, снятие заявки как штрафуемая альтернатива.</p>
+  <ol class="steps">
+    <li><span class="n">01</span><span><strong>Назначить как можно больше заявок.</strong>
+      Снять срочную стоит вчетверо дороже обычной.</span></li>
+    <li><span class="n">02</span><span><strong>Задействовать как можно меньше людей.</strong>
+      Первая обязательная метрика ТЗ.</span></li>
+    <li><span class="n">03</span><span><strong>Проехать как можно меньше километров.</strong>
+      Вторая обязательная метрика.</span></li>
+  </ol>
+  <p class="note">Веса заданы явно: вывод ещё одного человека на смену мы оценили
+    в 120 км пробега. Персонал дороже бензина, но не любой ценой — и эту границу
+    видно в коде, а не только в словах.</p>
+</section>
+
+<!-- 6 -->
+<section class="slide" id="s6">
+  <span class="page-no">06 / 13</span>
+  <div class="eyebrow">Честность сравнения</div>
+  <h2>Три варианта, а не два</h2>
+  <div class="cols cols-3">
+    <div class="block"><h3>Базовый <span class="tag">по ТЗ</span></h3>
+      <p>Реализован дословно: заявки по порядку поступления, первому подходящему
+        исполнителю, объезд в порядке назначения.</p></div>
+    <div class="block limit"><h3>Жадная эвристика <span class="tag">наш выбор</span></h3>
+      <p>Сортировка от срочных и ранних окон, вставка в позицию с минимальным
+        приростом пробега. Добавлена намеренно.</p></div>
+    <div class="block done"><h3>Оптимизатор <span class="tag">OR-Tools</span></h3>
+      <p>Полная модель со всеми ограничениями и лимитом времени в 15 секунд.</p></div>
+  </div>
+  <p class="callout">Базовый вариант из ТЗ намеренно наивен, и сравнивать оптимизатор
+    только с ним было бы нечестно. Поэтому мы <strong>сами написали себе сильного
+    соперника</strong> — и всё равно выигрываем у него.</p>
+</section>
+
+<!-- 7 -->
+<section class="slide" id="s7">
+  <span class="page-no">07 / 13</span>
+  <div class="eyebrow">Результаты</div>
+  <h2>Три района, один рабочий день</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Вариант</th><th class="n">Назначено</th><th class="n">Людей</th>
+        <th class="n">Пробег, км</th><th class="n">Км на заявку</th></tr></thead>
+      <tbody>
+        <tr class="region-head"><td colspan="5">Восток · 66 заявок · 12 бригад</td></tr>
+        <tr><td>Базовый по ТЗ</td><td class="n">16</td><td class="n">12</td><td class="n">70.2</td><td class="n">4.39</td></tr>
+        <tr><td>Жадная эвристика</td><td class="n">56</td><td class="n">12</td><td class="n">221.6</td><td class="n">3.96</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">62</td><td class="n">11</td><td class="n">145.5</td><td class="n">2.35</td></tr>
+        <tr class="fact"><td>Живой диспетчер</td><td class="n">64</td><td class="n">12</td><td class="n">233.3</td><td class="n">3.65</td></tr>
+
+        <tr class="region-head"><td colspan="5">Юго-восток · 83 заявки · 12 бригад</td></tr>
+        <tr><td>Базовый по ТЗ</td><td class="n">35</td><td class="n">11</td><td class="n">364.7</td><td class="n">10.42</td></tr>
+        <tr><td>Жадная эвристика</td><td class="n">63</td><td class="n">11</td><td class="n">355.5</td><td class="n">5.64</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">70</td><td class="n">12</td><td class="n">169.4</td><td class="n">2.42</td></tr>
+        <tr class="fact"><td>Живой диспетчер</td><td class="n">83</td><td class="n">12</td><td class="n">265.4</td><td class="n">3.20</td></tr>
+
+        <tr class="region-head"><td colspan="5">Югоцентр · 56 заявок · 11 бригад</td></tr>
+        <tr><td>Базовый по ТЗ</td><td class="n">27</td><td class="n">11</td><td class="n">159.5</td><td class="n">5.91</td></tr>
+        <tr><td>Жадная эвристика</td><td class="n">49</td><td class="n">11</td><td class="n">166.1</td><td class="n">3.39</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">53</td><td class="n">9</td><td class="n">116.6</td><td class="n">2.20</td></tr>
+        <tr class="fact"><td>Живой диспетчер</td><td class="n">56</td><td class="n">11</td><td class="n">148.1</td><td class="n">2.64</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Суммарный пробег между вариантами напрямую несопоставим: план,
+    раздавший вдвое меньше заявок, «экономит» километры просто потому, что многого
+    не делает. Сопоставима удельная величина — последний столбец.</p>
+</section>
+
+<!-- 8 -->
+<section class="slide" id="s8">
+  <span class="page-no">08 / 13</span>
+  <div class="eyebrow">Против живого диспетчера</div>
+  <h2>Километры на одну заявку</h2>
+  <svg class="chart" viewBox="0 0 760 290" role="img"
+       aria-label="Километры на заявку: живой диспетчер против оптимизатора. Восток 3.65 против 2.35, Юго-восток 3.20 против 2.42, Югоцентр 2.64 против 2.20 — оптимизатор меньше во всех трёх районах.">
+    <g stroke="var(--edge)" stroke-width="1">
+      <line x1="150" y1="20" x2="150" y2="250"/>
+      <line x1="150" y1="250" x2="730" y2="250"/>
+    </g>
+    <g>
+      <line x1="295" y1="20" x2="295" y2="250" stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 4"/>
+      <line x1="440" y1="20" x2="440" y2="250" stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 4"/>
+      <line x1="585" y1="20" x2="585" y2="250" stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 4"/>
+      <line x1="730" y1="20" x2="730" y2="250" stroke="var(--edge)" stroke-width="1" stroke-dasharray="3 4"/>
+      <text x="150" y="268" text-anchor="middle">0</text>
+      <text x="295" y="268" text-anchor="middle">1,0</text>
+      <text x="440" y="268" text-anchor="middle">2,0</text>
+      <text x="585" y="268" text-anchor="middle">3,0</text>
+      <text x="730" y="268" text-anchor="middle">4,0 км</text>
+    </g>
+
+    <text class="name" x="140" y="46" text-anchor="end">ВОСТОК</text>
+    <rect x="150" y="30" width="529" height="20" rx="2" fill="var(--muted)" opacity=".45"/>
+    <text class="val" x="689" y="45">3,65</text>
+    <rect x="150" y="56" width="341" height="20" rx="2" fill="var(--route)"/>
+    <text class="val" x="501" y="71">2,35</text>
+
+    <text class="name" x="140" y="126" text-anchor="end">ЮГО-ВОСТОК</text>
+    <rect x="150" y="110" width="464" height="20" rx="2" fill="var(--muted)" opacity=".45"/>
+    <text class="val" x="624" y="125">3,20</text>
+    <rect x="150" y="136" width="351" height="20" rx="2" fill="var(--route)"/>
+    <text class="val" x="511" y="151">2,42</text>
+
+    <text class="name" x="140" y="206" text-anchor="end">ЮГОЦЕНТР</text>
+    <rect x="150" y="190" width="383" height="20" rx="2" fill="var(--muted)" opacity=".45"/>
+    <text class="val" x="543" y="205">2,64</text>
+    <rect x="150" y="216" width="319" height="20" rx="2" fill="var(--route)"/>
+    <text class="val" x="479" y="231">2,20</text>
+  </svg>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--muted);opacity:.45"></i>Живой диспетчер</span>
+    <span><i class="swatch" style="background:var(--route)"></i>Наш оптимизатор</span>
+  </div>
+  <p class="callout"><strong>И сразу честно.</strong> По числу заявок с фактом сравнивать
+    нельзя: диспетчер ставил одной бригаде до семи заявок в одно двухчасовое окно, а начать
+    семь работ внутри окна физически невозможно. Остаются люди и километры. По километрам
+    на заявку мы лучше во всех трёх районах, по людям — в двух: Восток −1 бригада,
+    Югоцентр −2, а на плотном Юго-востоке занято столько же, сокращать там нечем.</p>
+</section>
+
+<!-- 9 -->
+<section class="slide" id="s9">
+  <span class="page-no">09 / 13</span>
+  <div class="eyebrow">Объяснимость</div>
+  <h2>Почему эта заявка у этой бригады</h2>
+  <div class="cols cols-2">
+    <div>
+      <p class="lead" style="margin-bottom:18px">Мы не пересказываем код. Для каждой заявки
+        планировщик <strong>реально пробует вставить её в маршрут каждой бригады</strong>
+        и показывает, что именно отсекло остальных и во сколько километров обошёлся бы
+        любой другой вариант.</p>
+      <p class="note">Для неназначенной заявки причина называется словами:
+        «все подходящие исполнители в окне 20:00–22:00 уже заняты», а не код ошибки.</p>
+    </div>
+    <div class="block" style="gap:14px">
+      <div class="eyebrow" style="font-size:11px">Карточка заявки 305883073</div>
+      <p style="font-size:15px;line-height:1.5">Выбран исполнитель «Бригада Белузин»:
+        есть навык «Аварийные работы», начало работ в 11:07 попадает в окно 10:00–12:00,
+        работа укладывается в смену 11:00–22:30 с перерывом 45 минут.</p>
+      <p style="font-size:15px;line-height:1.5;color:var(--muted)">Остальные не подошли:
+        <strong>8</strong> без нужного навыка, <strong>1</strong> не успевал по времени.
+        Ближайшая альтернатива — «Бригада Каушнян»: её маршрут вырос бы на
+        <strong>12,2 км</strong>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide" id="s10">
+  <span class="page-no">10 / 13</span>
+  <div class="eyebrow">Перепланирование</div>
+  <h2>Событие в середине дня</h2>
+  <p class="lead">Все три события из ТЗ и четвёртое сверх него — бригада задерживается.
+    <strong>Прошлое не переписываем:</strong> всё, к чему бригады уже приступили,
+    заморожено, заново планируется только остаток дня.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Режим</th><th>Что делает</th><th class="n">Перестановок</th><th class="n">Пробег</th></tr></thead>
+      <tbody>
+        <tr class="best"><td>Минимальная правка</td><td>Встраивает изменение, не трогая остальные назначения</td><td class="n">3</td><td class="n">115.3 км</td></tr>
+        <tr><td>Полная переоптимизация</td><td>Пересобирает весь остаток дня</td><td class="n">22</td><td class="n">126.4 км</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="callout">Срочная заявка на Востоке встаёт <strong>тремя перестановками</strong>,
+    и бригадам почти не надо рассылать новый маршрут. Полная переоптимизация делает
+    двадцать две перестановки и здесь проигрывает: на одну заявку меньше и на 11 км
+    больше. В других событиях выигрывает она. <strong>Мы показываем обе цены до
+    применения и оставляем выбор диспетчеру.</strong> А если место для аварии есть
+    только ценой снятия другой аварии — сервис говорит об этом прямо, а не решает
+    за человека.</p>
+</section>
+
+<!-- 11 -->
+<section class="slide" id="s11">
+  <span class="page-no">11 / 13</span>
+  <div class="eyebrow">Прогноз опозданий</div>
+  <h2>Где план порвётся первым</h2>
+  <p class="lead">План по нормативам всегда выглядит выполнимым. В реальном дне работы
+    затягиваются. Считаем запас прочности прямым пересчётом маршрута: при какой задержке
+    начало работ перестаёт попадать в окно.</p>
+  <div class="cols cols-3">
+    <div class="block gap"><h3>2 мин</h3>
+      <p>запас у самого хрупкого маршрута на Юго-востоке — он сорвётся почти от любой задержки</p></div>
+    <div class="block limit"><h3>14 визитов</h3>
+      <p>с высоким риском: запас меньше 20 минут</p></div>
+    <div class="block"><h3>18 из 70</h3>
+      <p>заявок под угрозой, если каждая работа затянется всего на 10 минут</p></div>
+  </div>
+  <p class="note">Никаких вероятностных моделей: только «при какой задержке правило ТЗ
+    перестаёт выполняться». Цифру можно проверить руками — и диспетчер видит слабое
+    место заранее, а не по факту срыва.</p>
+</section>
+
+<!-- 12 -->
+<section class="slide" id="s12">
+  <span class="page-no">12 / 13</span>
+  <div class="eyebrow">Проверка</div>
+  <h2>А ограничения точно соблюдаются?</h2>
+  <p class="lead">Этот вопрос эксперты задают первым. У нас на него машинный ответ:
+    отдельный модуль пересчитывает готовый план с нуля, ничего не зная о том,
+    как он был построен.</p>
+  <div class="hero-figures">
+    <div class="figure win"><span class="v">33</span><span class="k">плана проверено</span></div>
+    <div class="figure win"><span class="v">0</span><span class="k">нарушений найдено</span></div>
+    <div class="figure"><span class="v">8</span><span class="k">настоящих дефектов нашли эти проверки</span></div>
+  </div>
+  <p class="lead">Три района × три стратегии, плюс четыре события перепланирования
+    в обоих режимах. Сверх этого — 908 проверок инвариантов на 25 вырожденных наборах
+    и 80 кривых обращений к API. Проверка встроена и в интерфейс кнопкой, и в скрипты,
+    которые падают с ошибкой, если найдут хоть одно нарушение.</p>
+  <p class="callout">Аудит окупился сразу. Он нашёл <strong>дубликат номера заявки</strong>
+    в исходной выгрузке — один адрес, одна бригада, но два разных окна, то есть два
+    визита. Без этого одна из двух работ терялась бы при любом поиске по номеру.</p>
+</section>
+
+<!-- 13 -->
+<section class="slide" id="s13">
+  <span class="page-no">13 / 13</span>
+  <div class="eyebrow">Границы</div>
+  <h2>Чего здесь нет — и куда это растёт</h2>
+  <div class="cols cols-2">
+    <div class="block limit">
+      <h3>Честные ограничения прототипа</h3>
+      <ul class="plain">
+        <li>Расстояния оцениваются по прямой с коэффициентом, без дорожной сети и пробок</li>
+        <li>Длительности работ — норматив, а не факт: на проде нужна калибровка по истории нарядов</li>
+        <li>Состояние плана живёт в памяти процесса — это прототип для одного диспетчера; рабочий день сохраняется на диск вручную, базы нет</li>
+        <li>Оптимум не доказывается: эвристический поиск с лимитом времени</li>
+      </ul>
+    </div>
+    <div class="block done">
+      <h3>Куда развивать</h3>
+      <ul class="plain">
+        <li>Реальная матрица расстояний и пробки по времени суток</li>
+        <li>Калибровка нормативов по закрытым нарядам</li>
+        <li>Оборудование на борту как отдельный ресурс</li>
+        <li>Одновременная обработка нескольких событий, а не цепочкой по одному</li>
+        <li>Мультидневное планирование и перенос заявок на завтра</li>
+      </ul>
+    </div>
+  </div>
+  <p class="quote">Хороший результат — это не самая сложная архитектура,
+    а завершённый прототип, который уверенно решает заявленный сценарий.</p>
+  <p class="note">Запуск одной командой, README с инструкцией, сценарий демонстрации
+    и самопроверка — в репозитории.</p>
+</section>
+
+</main>
+
+<div class="hint"><span class="kbd">←</span><span class="kbd">→</span> листать слайды</div>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var dots = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+
+  function current() {
+    var best = 0, bestDist = Infinity;
+    for (var i = 0; i < slides.length; i++) {
+      var d = Math.abs(slides[i].getBoundingClientRect().top);
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+  }
+
+  function go(delta) {
+    var next = Math.min(slides.length - 1, Math.max(0, current() + delta));
+    slides[next].scrollIntoView({ block: 'start' });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault(); go(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault(); go(-1);
+    } else if (e.key === 'Home') {
+      e.preventDefault(); slides[0].scrollIntoView({ block: 'start' });
+    } else if (e.key === 'End') {
+      e.preventDefault(); slides[slides.length - 1].scrollIntoView({ block: 'start' });
+    }
+  });
+
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var index = slides.indexOf(entry.target);
+        dots.forEach(function (dot, i) {
+          dot.setAttribute('aria-current', i === index ? 'true' : 'false');
+        });
+      });
+    }, { threshold: 0.5 });
+    slides.forEach(function (slide) { observer.observe(slide); });
+  }
+})();
+</script>

@@ -1,0 +1,18 @@
+services:
+  dispatcher:
+    build: .
+    ports:
+      - "8000:8000"
+    # Ключ Яндекс Карт. Compose сам читает .env рядом с файлом и подставляет
+    # значение сюда; файла может не быть — тогда ключ пустой, и интерфейс
+    # покажет собственную схему, честно назвав причину. Такая форма работает
+    # на всех версиях Compose v2, в отличие от «env_file: required: false».
+    environment:
+      YANDEX_MAPS_API_KEY: "${YANDEX_MAPS_API_KEY:-}"
+      # Ключ геокодера сервису не нужен — он пригодится, только если запускать
+      # scripts/geocode.py внутри контейнера. Пробрасываем из того же .env,
+      # чтобы «ключи лежат в .env» было правдой и здесь.
+      YANDEX_GEOCODER_API_KEY: "${YANDEX_GEOCODER_API_KEY:-}"
+    volumes:
+      # кэш геокодирования можно обновлять снаружи, не пересобирая образ
+      - ./data/geo_cache.json:/app/data/geo_cache.json:ro

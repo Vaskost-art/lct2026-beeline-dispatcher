@@ -16,3 +16,5 @@ services:
     volumes:
       # кэш геокодирования можно обновлять снаружи, не пересобирая образ
       - ./data/geo_cache.json:/app/data/geo_cache.json:ro
+      # сохранённые рабочие дни переживают пересоздание контейнера
+      - ./data/saved:/app/data/saved

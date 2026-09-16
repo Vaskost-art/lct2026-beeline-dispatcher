@@ -808,6 +808,7 @@ async function showCompare() {
   const sign = (x) => (x >= 0 ? '+' : '') + x;
   const pctText = (x) => (x !== null && x !== undefined ? sign(x) + '%' : '—');
 
+  if (data.basis) html += `<div class="modal-note">${esc(data.basis)}</div>`;
   html += `<div class="modal-note">
     <b>Оптимальный план против распределения без планировщика:</b>
     заявок ${sign(vb.orders_assigned_delta)},

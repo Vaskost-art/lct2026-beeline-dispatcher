@@ -5,4 +5,5 @@ __pycache__/
 node_modules/
 .env
 .env.local
-data/saved/
+data/saved/*
+!data/saved/.gitkeep

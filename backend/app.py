@@ -25,7 +25,7 @@ from domain import Plan, Route, hhmm, parse_hhmm
 from explain import explain_assignment, explain_plan, explain_route
 from dataset import (DatasetError, engineer_from_json, engineer_to_json,
                      load_upload, order_from_json, order_to_json,
-                     scenario_to_json)
+                     scenario_from_json, scenario_to_json)
 from ingest import REGIONS, Scenario, load_all
 from metrics import compare, control_plan, plan_metrics
 from risk import overrun_impact, plan_risk
@@ -380,8 +380,16 @@ def current_plan(region: str) -> dict:
 
 @app.get("/api/compare/{region}")
 def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC) -> dict:
-    """Сравнение всех вариантов плана и фактического распределения диспетчера."""
+    """Сравнение всех вариантов плана и фактического распределения диспетчера.
+
+    Сравнение всегда считается по исходному дню района, а не по текущему
+    состоянию: факт диспетчера известен только для него, и подставлять
+    в сравнение день, изменённый событиями, значило бы сопоставлять планы
+    на разных наборах заявок. Об этом говорится в ответе полем `basis`.
+    """
     scenario = _scenario(region)
+    state = CURRENT.get(region) or {}
+    changed = bool(state.get("history"))
     rows = []
 
     fact, fact_report = control_plan(scenario.orders, scenario.engineers)
@@ -407,6 +415,11 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
                  "metrics": fact_metrics, "report": fact_report},
         "vs_baseline": compare(optimized["metrics"], baseline["metrics"]),
         "vs_fact": compare(optimized["metrics"], fact_metrics),
+        "basis": ("Сравнение посчитано по исходному дню района: в текущем плане "
+                  "уже применены изменения, а факт диспетчера известен только "
+                  "для исходного набора заявок."
+                  if changed else
+                  "Сравнение посчитано по тому же дню, что показан на экране."),
     }
 
 
@@ -746,8 +759,12 @@ def save_plan(request: SavePlanRequest) -> dict:
     os.makedirs(SAVED_DIR, exist_ok=True)
     path = _saved_path(request.region)
     data = _state_to_json(scenario, state, request.name)
-    with open(path, "w", encoding="utf-8") as fh:
+    # Пишем рядом и переименовываем: прямая запись усекает файл до того,
+    # как в него лягут данные, и обрыв на этом месте стирает сохранённый день.
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
     return {"saved": True, "name": data["name"], "saved_at": data["saved_at"],
             "path": os.path.relpath(path, ROOT)}
 
@@ -772,8 +789,21 @@ def saved_plan_info(region: str) -> dict:
 @app.post("/api/plan/restore")
 def restore_plan(request: RegionRequest) -> dict:
     """Поднимает сохранённый рабочий день и пересчитывает по нему маршруты."""
-    scenario = _scenario(request.region)
     path = _saved_path(request.region)
+    # Загруженный набор живёт в памяти процесса и после перезапуска сервиса
+    # не известен, а в файле сохранения лежит всё нужное, чтобы поднять район
+    # заново. Иначе интерфейс предлагает «Восстановить» и получает 404.
+    if request.region not in SCENARIOS and os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                saved = json.load(fh)
+            restored_scenario, _ = scenario_from_json(
+                saved, region_key=request.region,
+                region_name=saved.get("region_name") or request.region)
+            SCENARIOS[request.region] = restored_scenario
+        except (OSError, ValueError, DatasetError) as exc:
+            raise HTTPException(400, f"Файл сохранения повреждён: {exc}")
+    scenario = _scenario(request.region)
     if not os.path.exists(path):
         raise HTTPException(404, "Сохранённого плана для этого района нет")
     try:

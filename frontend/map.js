@@ -385,6 +385,21 @@
     let drawn = [];
     let pickMarker = null;
     let selected = null;
+    let fitted = false;
+    let lastBounds = [];
+
+    function fitBounds(points) {
+      const lons = points.map((p) => p[0]);
+      const lats = points.map((p) => p[1]);
+      map.update({
+        location: {
+          bounds: [
+            [Math.min(...lons), Math.max(...lats)],
+            [Math.max(...lons), Math.min(...lats)],
+          ],
+        },
+      });
+    }
     const markerNodes = new Map();
 
     map.addChild(new window.ymaps3.YMapListener({
@@ -450,17 +465,14 @@
         if (pickMarker) {
           addMarker(pickMarker, '+', 'scheme-pin scheme-pick');
         }
-        if (bounds.length > 1) {
-          const lons = bounds.map((b) => b[0]);
-          const lats = bounds.map((b) => b[1]);
-          map.update({
-            location: {
-              bounds: [
-                [Math.min(...lons), Math.max(...lats)],
-                [Math.max(...lons), Math.min(...lats)],
-              ],
-            },
-          });
+        /* Масштаб подбираем только при первой отрисовке плана. Дальше карту
+           двигает диспетчер: иначе клик по легенде или выбор точки аварии
+           отбрасывал бы приближенный квартал обратно на весь район.
+           Общий вид возвращается методом fit() и штатным зумом карты. */
+        lastBounds = bounds;
+        if (bounds.length > 1 && !fitted) {
+          fitted = true;
+          fitBounds(bounds);
         }
         if (selected) this.focusOrder(selected);
       },
@@ -477,6 +489,10 @@
         pickMarker = { lat, lon, title: 'Новая срочная заявка' };
       },
       clearPickMarker() { pickMarker = null; },
+      /* Вернуть общий вид: карта сама масштаб больше не сбрасывает. */
+      fit() {
+        if (lastBounds.length > 1) fitBounds(lastBounds);
+      },
       destroy() { try { map.destroy(); } catch (_) { /* уже уничтожена */ } },
     };
   }

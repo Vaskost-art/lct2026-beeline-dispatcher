@@ -123,6 +123,13 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     new_orders, new_engineers = apply_event(orders, engineers, event)
 
     frozen = _frozen_prefixes(current, now)
+    # Событие могло убрать заявку из дня (отмена). Оставить её в префиксе
+    # значит сдвинуть границу «уже начатого» и заморозить следующий визит,
+    # к которому бригада ещё не подъезжала.
+    alive = {o.id for o in new_orders}
+    frozen = {eid: [oid for oid in ids if oid in alive]
+              for eid, ids in frozen.items()}
+    frozen = {eid: ids for eid, ids in frozen.items() if ids}
     if event.kind == KIND_UNAVAILABLE:
         # Выбывший исполнитель доводит до конца то, к чему уже приступил,
         # и больше ничего не берёт. Обрезать смену ровно моментом события
@@ -141,11 +148,12 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
                 # уехать ниже начала: смена просто становится нулевой.
                 engineer.shift_end = max(engineer.shift_start,
                                          min(engineer.shift_end, last_end))
-                # Обед укоротившейся смене уже не нужен: бригада не работает
-                # весь день, а вычитать из остатка полный перерыв — значит
-                # отнять у неё время, которое она реально отработала.
-                engineer.break_min = norms.break_minutes(engineer.shift_start,
-                                                         engineer.shift_end)
+                # Обед из укороченного дня не вычитается: он либо уже был
+                # внутри отработанного куска, либо не состоится вовсе.
+                # Вычесть его здесь значит отнять у бригады время, которое
+                # она реально отработала, и начатая работа перестанет
+                # помещаться в собственную смену.
+                engineer.break_min = 0
         frozen.setdefault(event.engineer_id, [])
 
     elif event.kind == KIND_DELAYED:
@@ -161,13 +169,30 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         prefix = frozen.get(event.engineer_id) or []
         if prefix:
             last_id = prefix[-1]
-            new_orders = [replace(o, duration_min=o.duration_min + delay)
+            route = next((r for r in current.routes
+                          if r.engineer_id == event.engineer_id), None)
+            last_stop = next((s for s in (route.stops if route else [])
+                              if s.order_id == last_id), None)
+            # Бригада освободится через delay минут после того, как закончит
+            # текущую работу, а если она уже закончена — через delay минут от
+            # момента звонка. Держать её можно только длительностью последнего
+            # начатого визита: это единственный рычаг, поэтому у такого визита
+            # в плане показано время окончания, когда бригада снова свободна.
+            if last_stop is not None:
+                free_at = max(last_stop.end, now) + delay
+                extra = max(0, free_at - last_stop.end)
+            else:
+                extra = delay
+            new_orders = [replace(o, duration_min=o.duration_min + extra)
                           if o.id == last_id else o for o in new_orders]
         else:
             for engineer in new_engineers:
                 if engineer.id == event.engineer_id:
+                    # Отсчёт от начала смены, если бригада ещё не выехала:
+                    # «выедем на час позже» в 06:00 при смене с 09:00 должно
+                    # давать 10:00, а не оставлять смену нетронутой.
                     engineer.shift_start = min(
-                        max(engineer.shift_start, now + delay),
+                        max(engineer.shift_start, now) + delay,
                         engineer.shift_end)
 
     frozen_ids = {oid for ids in frozen.values() for oid in ids}
@@ -186,12 +211,35 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         else:
             plannable.append(order)
 
+    # Работа, к которой бригада уже приступила, обязана помещаться в её
+    # рабочее время. Иначе замороженный префикс не проходит пересчёт, и весь
+    # день бригады пропадает из плана, а закрытые утром заявки всплывают
+    # среди неназначенных.
+    frozen_end: dict[str, int] = {}
+    plannable_by_id = {o.id: o for o in new_orders}
+    for route in current.routes:
+        ids = frozen.get(route.engineer_id) or []
+        for stop in route.stops:
+            if stop.order_id not in ids:
+                continue
+            order = plannable_by_id.get(stop.order_id)
+            # длительность могла вырасти: задержка записывается в неё
+            end = stop.start + (order.duration_min if order else
+                                stop.end - stop.start)
+            frozen_end[route.engineer_id] = max(
+                frozen_end.get(route.engineer_id, 0), end)
+
     # Исполнители, у которых ничего не заморожено, начинают остаток дня «сейчас».
     adjusted: list[Engineer] = []
     for engineer in new_engineers:
         e = deepcopy(engineer)
         if not frozen.get(e.id):
             e.shift_start = max(e.shift_start, min(now, e.shift_end))
+        need = frozen_end.get(e.id)
+        if need is not None and e.work_end < need:
+            # Ровно столько, чтобы начатое поместилось: свободного места
+            # после него не появляется.
+            e.shift_end = need + e.break_min
         adjusted.append(e)
 
     if mode == MODE_MINIMAL:

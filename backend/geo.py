@@ -25,6 +25,11 @@ from norms import DETOUR_FACTOR, SPEED_KMH
 PRECISION_EXACT = "exact"              # из кэша, реальный геокодер
 PRECISION_APPROX = "approx_district"   # центроид района + смещение
 
+# Дальше этого от центра своего района адрес быть не может: столько не бывает
+# даже у подмосковных районов выгрузки, а «улица того же названия в соседнем
+# городе» отстоит на десятки километров.
+MAX_DISTRICT_RADIUS_KM = 15.0
+
 # Центроиды районов и городов, встречающихся в выгрузках (WGS84).
 DISTRICT_CENTROIDS = {
     "Академический": (55.6870, 37.5730),
@@ -112,18 +117,39 @@ class Geocoder:
             with open(cache_path, encoding="utf-8") as f:
                 self.cache = json.load(f)
         self.stats = {PRECISION_EXACT: 0, PRECISION_APPROX: 0}
+        # координаты из кэша, которым мы не поверили
+        self.rejected: list[dict] = []
 
     def locate(self, address: str, district: str) -> tuple[float, float, str]:
         """Возвращает (lat, lon, точность)."""
         key = normalize_address(address)
         hit = self.cache.get(key)
         if hit and hit.get("lat") is not None:
-            self.stats[PRECISION_EXACT] += 1
-            return float(hit["lat"]), float(hit["lon"]), PRECISION_EXACT
+            lat, lon = float(hit["lat"]), float(hit["lon"])
+            if self._plausible(lat, lon, district):
+                self.stats[PRECISION_EXACT] += 1
+                return lat, lon, PRECISION_EXACT
+            # Геокодер умеет отдать улицу того же названия в другом городе.
+            # Такая точка помечена как точная, но уводит маршрут на десятки
+            # километров и меняет профиль бригады, поэтому ей не верим.
+            self.rejected.append({"address": key, "lat": lat, "lon": lon,
+                                  "district": district})
 
         lat, lon = self._approximate(key, district)
         self.stats[PRECISION_APPROX] += 1
         return lat, lon, PRECISION_APPROX
+
+    def _plausible(self, lat: float, lon: float, district: str) -> bool:
+        """Похожа ли координата на адрес в этом районе.
+
+        Центроиды районов заданы с точностью до пары километров, а сами районы
+        невелики, поэтому отклонение в десятки километров означает не
+        неточность, а другой населённый пункт.
+        """
+        center = DISTRICT_CENTROIDS.get(normalize_district(district))
+        if center is None:
+            return True
+        return haversine_km(center[0], center[1], lat, lon) <= MAX_DISTRICT_RADIUS_KM
 
     def _approximate(self, key: str, district: str) -> tuple[float, float]:
         """Центроид района + детерминированное смещение по хэшу адреса.
@@ -155,6 +181,10 @@ class Geocoder:
             "coverage": round(self.coverage, 3),
             "cache_path": self.cache_path,
             "cache_size": len(self.cache),
+            # координаты, которым не поверили: лежат в кэше как точные, но
+            # указывают далеко за пределы своего района
+            "rejected": len(self.rejected),
+            "rejected_addresses": [r["address"] for r in self.rejected],
         }
 
 

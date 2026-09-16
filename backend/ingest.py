@@ -66,6 +66,9 @@ class Scenario:
     cancelled_ids: list[str] = field(default_factory=list)
     geo_report: dict = field(default_factory=dict)
     duplicate_ids: list[str] = field(default_factory=list)
+    # строки выгрузки, которые не удалось разобрать: их нет в плане, и знать
+    # об этом должен диспетчер, а не только автор кода
+    skipped_rows: list[dict] = field(default_factory=list)
 
     @property
     def order_by_id(self) -> dict[str, Order]:
@@ -95,6 +98,7 @@ class Scenario:
             "total_work_hours": round(sum(o.duration_min for o in self.orders) / 60, 1),
             "geocoding": self.geo_report,
             "duplicate_ids": self.duplicate_ids,
+            "skipped_rows": self.skipped_rows,
         }
 
 
@@ -121,6 +125,12 @@ def decode_csv(raw: bytes) -> str:
     return raw.decode(RAW_ENCODING, errors="replace")
 
 
+def _cell(row: dict, name: str) -> str:
+    """Значение колонки строкой. В короткой строке CSV недостающие ключи
+    приходят как None, поэтому .get(name, "") от падения не спасает."""
+    return (row.get(name) or "").strip()
+
+
 def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
                       region_name: str | None = None) -> Scenario:
     """Разбирает выгрузку в формате организаторов из байтов файла."""
@@ -140,27 +150,34 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
     # в отдельные заявки, иначе одна из них потерялась бы при любом поиске по id.
     seen_ids: dict[str, int] = {}
     duplicates: list[str] = []
+    skipped: list[dict] = []
 
     for row in rows:
-        order_id = row["Заявка"].strip()
+        order_id = _cell(row, "Заявка")
+        district = _cell(row, "Район")
+        address = _clean_address(_cell(row, "Адрес"))
+        start = _parse_dt(_cell(row, "Начало"))
+        end = _parse_dt(_cell(row, "Окончание"))
+        if start is None or end is None:
+            # Время не разобрано, в план заявку взять нельзя. Молча потерять
+            # её тоже нельзя: план выглядел бы полным, а наряда в нём нет.
+            skipped.append({"order_id": order_id,
+                            "start": _cell(row, "Начало"),
+                            "end": _cell(row, "Окончание")})
+            continue
+
         seen_ids[order_id] = seen_ids.get(order_id, 0) + 1
         if seen_ids[order_id] > 1:
             duplicates.append(order_id)
             order_id = f"{order_id}-{seen_ids[order_id]}"
-        district = row.get("Район", "").strip()
-        address = _clean_address(row.get("Адрес", ""))
-        start = _parse_dt(row.get("Начало", ""))
-        end = _parse_dt(row.get("Окончание", ""))
-        if start is None or end is None:
-            continue
         if end <= start:                      # окно «0:01–23:59» и прочие сутки
             end = 23 * 60 + 59
 
-        type_bk = row.get("Тип заявки BK", "").strip()
-        type_hd = row.get("Тип заявки HD", "").strip()
-        status_bk = row.get("Статус BK", "").strip()
-        gigabit = row.get("Гигабитное подключение", "").strip().lower() == "да"
-        crew = (row.get("Бригада", "") or "").strip()
+        type_bk = _cell(row, "Тип заявки BK")
+        type_hd = _cell(row, "Тип заявки HD")
+        status_bk = _cell(row, "Статус BK")
+        gigabit = _cell(row, "Гигабитное подключение").lower() == "да"
+        crew = _cell(row, "Бригада")
 
         lat, lon, precision = geocoder.locate(address, district)
         order = Order(
@@ -204,6 +221,7 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
         cancelled_ids=cancelled,
         geo_report=geocoder.report(),
         duplicate_ids=sorted(set(duplicates)),
+        skipped_rows=skipped,
     )
 
 

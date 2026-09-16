@@ -185,8 +185,15 @@ def _request(url: str) -> dict | None:
 
 
 def geocode_nominatim(query: str, _key: str) -> tuple[float, float] | None:
+    """Первый ответ геокодера на адрес.
+
+    Берём несколько вариантов, а не один: улица с тем же названием есть
+    и в соседнем городе, и при `limit=1` в кэш однажды попала «улица
+    Талалихина» из Щербинки вместо Таганского района. Правдоподобность
+    выбранной точки проверяет `backend/geo.py` при чтении кэша.
+    """
     params = urllib.parse.urlencode({
-        "q": query, "format": "json", "limit": 1, "countrycodes": "ru",
+        "q": query, "format": "json", "limit": 5, "countrycodes": "ru",
     })
     data = _request(f"{NOMINATIM}?{params}")
     if not data:

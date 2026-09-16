@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from copy import deepcopy
@@ -109,7 +110,7 @@ def _undo_labels(state: dict[str, Any]) -> list[str]:
 def _plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                   extra: dict | None = None) -> dict:
     by_id = scenario.order_by_id
-    engineer_by_id = scenario.engineer_by_id
+    engineer_by_id = {e.id: e for e in _all_engineers(scenario)}
     # заявки, появившиеся после события, тоже должны попасть в ответ
     for route in plan.routes:
         for stop in route.stops:
@@ -132,12 +133,12 @@ def _plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         "undo": _undo_labels(CURRENT.get(scenario.region_key) or {}),
         "metrics": metrics,
         "explanation": explain_plan(plan, _all_orders(scenario, plan),
-                                    scenario.engineers, metrics),
+                                    _all_engineers(scenario), metrics),
         "engineers": [
             {**engineer.to_dict(),
              "used": any(r.engineer_id == engineer.id and r.is_used
                          for r in plan.routes)}
-            for engineer in scenario.engineers
+            for engineer in _all_engineers(scenario)
         ],
         "orders": [
             {**order.to_dict(), "assigned_to": assignment.get(order.id)}
@@ -147,12 +148,12 @@ def _plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         "unassigned": [u.to_dict() for u in plan.unassigned],
         "route_summaries": [
             explain_route(engineer, plan, _all_orders(scenario, plan))
-            for engineer in scenario.engineers
+            for engineer in _all_engineers(scenario)
             if any(r.engineer_id == engineer.id and r.is_used for r in plan.routes)
         ],
         # прогноз опозданий считается вместе с планом: он дешёвый, а в
         # интерфейсе риск нужен сразу рядом с каждым визитом
-        "risk": plan_risk(plan, _all_orders(scenario, plan), scenario.engineers),
+        "risk": plan_risk(plan, _all_orders(scenario, plan), _all_engineers(scenario)),
         "geo": _geo_warning(_all_orders(scenario, plan)),
     }
     if extra:
@@ -199,6 +200,19 @@ def _all_orders(scenario: Scenario, plan: Plan) -> list:
     if state and state.get("orders"):
         return state["orders"]
     return scenario.orders
+
+
+def _all_engineers(scenario: Scenario) -> list:
+    """Исполнители рабочего дня, а не исходного сценария.
+
+    События смещают смены: выбывшему бригадиру смена обрезается, остальным
+    двигается начало. Ответ, собранный по исходному сценарию, показал бы
+    прежние смены и посчитал бы по ним запас прочности.
+    """
+    state = CURRENT.get(scenario.region_key)
+    if state and state.get("engineers"):
+        return state["engineers"]
+    return scenario.engineers
 
 
 # --- модели запросов ---------------------------------------------------------
@@ -464,8 +478,26 @@ def do_replan(request: ReplanRequest) -> dict:
                         engineer_id=request.engineer_id, new_order=new_order,
                         delay_min=request.delay_min)
 
-    result = replan(orders, engineers, state["plan"], event, mode=request.mode,
-                    time_limit_sec=request.time_limit_sec)
+    # Предпросмотр и применение обязаны показывать один и тот же план.
+    # Поиск ограничен временем и второй запуск даёт другой результат, поэтому
+    # применяем сохранённый вариант, а не считаем заново. Привязка к объекту
+    # плана делает устаревший предпросмотр недействительным сама собой.
+    signature = (request.kind, at, request.order_id, request.engineer_id,
+                 request.delay_min, request.mode,
+                 new_order.id if new_order is not None else None)
+    preview = state.get("replan_preview")
+    if (request.apply and preview
+            and preview["signature"] == signature
+            and preview["base"] is state["plan"]):
+        result = preview["result"]
+    else:
+        result = replan(orders, engineers, state["plan"], event,
+                        mode=request.mode,
+                        time_limit_sec=request.time_limit_sec)
+        if not request.apply:
+            state["replan_preview"] = {"signature": signature,
+                                       "base": state["plan"],
+                                       "result": result}
 
     # Списки после события берём у самого переплана, а не пересобираем здесь:
     # событие может менять не только состав заявок, но и их поля (задержка
@@ -485,6 +517,7 @@ def do_replan(request: ReplanRequest) -> dict:
         # смены сдвинулись: остаток дня начинается с момента события,
         # у выбывшего исполнителя смена закрыта
         state["engineers"] = new_engineers
+        state.pop("replan_preview", None)
 
     payload_scenario = scenario
     saved_orders = CURRENT[request.region]["orders"]
@@ -515,6 +548,15 @@ def reassign(request: ReassignRequest) -> dict:
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
         raise HTTPException(404, f"Заявка {request.order_id} не найдена")
+
+    # Ручной перенос — это решение диспетчера, и оно должно пережить пересчёт.
+    # Оставить закрепление на прежней бригаде значит вернуть заявку обратно при
+    # первом же планировании и молча отменить то, что человек только что сделал.
+    locked = state.setdefault("locked", {})
+    if request.engineer_id:
+        locked[request.order_id] = request.engineer_id
+    else:
+        locked.pop(request.order_id, None)
 
     by_id = {o.id: o for o in orders}
     engineer_by_id = {e.id: e for e in engineers}
@@ -663,9 +705,14 @@ def undo(request: RegionRequest) -> dict:
 def _saved_path(region: str) -> str:
     # Имя файла собираем сами из ключа района: подставленный путь не должен
     # уводить запись за пределы каталога.
-    safe = "".join(ch for ch in region if ch.isalnum() or ch in "-_")[:64]
+    safe = "".join(ch for ch in region if ch.isalnum() or ch in "-_")
     if not safe:
         raise HTTPException(400, "Недопустимое имя района")
+    if len(safe) > 48:
+        # Обрезка длинного ключа сводила разные районы в один файл, и день
+        # одного района восстанавливался под именем другого.
+        digest = hashlib.sha256(region.encode("utf-8")).hexdigest()[:12]
+        safe = f"{safe[:48]}-{digest}"
     return os.path.join(SAVED_DIR, f"{safe}.json")
 
 

@@ -19,6 +19,7 @@ JSON либо использовать встроенный демонстрац
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 import norms
@@ -106,15 +107,31 @@ def scenario_to_json(scenario: Scenario, events: list[dict] | None = None) -> di
 # --- чтение -------------------------------------------------------------------
 
 def _require(data: dict, key: str, where: str) -> Any:
+    if not isinstance(data, dict):
+        raise DatasetError(f"{where}: ожидался объект с полями, получено "
+                           f"«{data}»")
     if key not in data or data[key] in (None, ""):
         raise DatasetError(f"{where}: не заполнено обязательное поле «{key}»")
     return data[key]
 
 
+# Сутки: время в наборе задаётся минутами от полуночи либо строкой ЧЧ:ММ.
+DAY_MINUTES = 24 * 60
+
+
 def _time(value: Any, where: str, key: str) -> int:
     """Принимает «ЧЧ:ММ» или число минут от полуночи."""
+    if isinstance(value, bool):
+        raise DatasetError(f"{where}: поле «{key}» должно быть временем")
     if isinstance(value, (int, float)):
-        return int(value)
+        minutes = int(value)
+        # Иначе набор с временем -100000 грузится успешно, а планирование
+        # по нему падает на попытке задать диапазон решателю.
+        if not 0 <= minutes <= DAY_MINUTES:
+            raise DatasetError(
+                f"{where}: поле «{key}» вне суток: {minutes} мин "
+                f"(допустимо от 0 до {DAY_MINUTES})")
+        return minutes
     try:
         return parse_hhmm(str(value))
     except (ValueError, AttributeError):
@@ -125,9 +142,18 @@ def _time(value: Any, where: str, key: str) -> int:
 
 def _coords(data: dict, where: str) -> tuple[float, float]:
     try:
-        return float(_require(data, "lat", where)), float(_require(data, "lon", where))
+        lat = float(_require(data, "lat", where))
+        lon = float(_require(data, "lon", where))
     except (TypeError, ValueError):
         raise DatasetError(f"{where}: координаты «lat» и «lon» должны быть числами")
+    # NaN и Infinity json.loads принимает молча, а дальше они расходятся по
+    # расстояниям и метрикам: план строится, но выгрузить его уже нельзя.
+    if not (math.isfinite(lat) and math.isfinite(lon)):
+        raise DatasetError(f"{where}: координаты «lat» и «lon» должны быть "
+                           f"конечными числами")
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise DatasetError(f"{where}: координаты вне карты: {lat}, {lon}")
+    return lat, lon
 
 
 def order_from_json(data: dict) -> Order:

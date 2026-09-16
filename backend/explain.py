@@ -154,11 +154,21 @@ def _alternatives(order: Order, plan: Plan, by_id: dict[str, Order],
 
         if best_delta is None:
             km = road_km(engineer.lat, engineer.lon, order.lat, order.lon)
-            arrival = engineer.shift_start + travel_minutes(km, engineer.vehicle)
+            travel = travel_minutes(km, engineer.vehicle)
+            arrival = engineer.shift_start + travel
+            # Причина называется по тому, что действительно отсекло. Сказать
+            # «маршрут занят» бригаде с пустым маршрутом значит отправить
+            # диспетчера разгружать того, кто и так простаивает.
             if arrival > order.window_end:
                 why = (f"не успевает в окно {order.window_text}: "
-                       f"даже с базы дорога занимает "
-                       f"{travel_minutes(km, engineer.vehicle)} мин")
+                       f"даже с базы дорога занимает {travel} мин")
+            elif max(arrival, order.window_start) + order.duration_min > engineer.work_end:
+                why = (f"работа на {order.duration_min} мин не помещается "
+                       f"в смену ({engineer.shift_text}) даже первой в маршруте")
+            elif not route.stops:
+                why = (f"не может взять заявку даже с пустым маршрутом: "
+                       f"окно {order.window_text} не сходится со сменой "
+                       f"({engineer.shift_text})")
             else:
                 why = (f"маршрут уже занят — заявка не встаёт ни в одну позицию "
                        f"без нарушения окон или конца смены "

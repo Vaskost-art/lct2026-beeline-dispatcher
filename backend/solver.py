@@ -19,6 +19,12 @@ from dataclasses import dataclass
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
+_STATUS_VALUES = [
+    value
+    for enum_type in routing_enums_pb2.RoutingSearchStatus.DESCRIPTOR.enum_types
+    for value in enum_type.values
+]
+
 import norms
 from domain import Engineer, Order, Plan, Route, Unassigned
 from geo import road_km, travel_minutes
@@ -82,7 +88,9 @@ def diagnose(order: Order, engineers: list[Engineer]) -> Unassigned:
         start = max(arrival, order.window_start)
         if start <= order.window_end:
             reachable = True
-            if start + order.duration_min <= e.shift_end:
+            # work_end: заявка, не влезающая именно из-за обеда, иначе
+            # получит причину «все исполнители заняты» при пустом маршруте
+            if start + order.duration_min <= e.work_end:
                 fits_shift = True
                 break
 
@@ -179,6 +187,19 @@ class _Model:
     order_nodes: list[int]
 
 
+def _status_name(code: int) -> str:
+    """Имя статуса решателя по его номеру.
+
+    Номера в OR-Tools между версиями сдвигались, поэтому имена берём у самой
+    библиотеки: зашитая таблица показывала бы «решение не найдено» там, где
+    план на самом деле построен.
+    """
+    for value in _STATUS_VALUES:
+        if value.number == code:
+            return value.name
+    return str(code)
+
+
 def solve_optimized(orders: list[Order], engineers: list[Engineer],
                     time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
                     locked: dict[str, str] | None = None,
@@ -216,14 +237,20 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
                                            start_nodes, [end_node] * n_vehicles)
     routing = pywrapcp.RoutingModel(manager)
 
-    # --- матрица расстояний (метры, целые) ---
+    # --- матрицы расстояний: целые метры для стоимости, точные километры
+    # для времени. Время обязано считаться из того же километража, что и в
+    # routing.py: расхождение даже в минуту делает маршрут невыполнимым при
+    # пересчёте, и весь маршрут исполнителя пропадает.
     size = len(coords)
     dist_m = [[0] * size for _ in range(size)]
+    km_exact = [[0.0] * size for _ in range(size)]
     for i in range(size):
         for j in range(size):
             if i == j or i == end_node or j == end_node:
                 continue                      # дуги в фиктивный финиш бесплатны
-            dist_m[i][j] = int(round(road_km(*coords[i], *coords[j]) * 1000))
+            km = road_km(*coords[i], *coords[j])
+            km_exact[i][j] = km
+            dist_m[i][j] = int(round(km * 1000))
 
     def distance_cb(from_index: int, to_index: int) -> int:
         return dist_m[manager.IndexToNode(from_index)][manager.IndexToNode(to_index)]
@@ -240,7 +267,7 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
                 service = orders[i].duration_min if i < n_orders else 0
                 if i == end_node or j == end_node:
                     return service
-                travel = travel_minutes(dist_m[i][j] / 1000.0, eng.vehicle)
+                travel = travel_minutes(km_exact[i][j], eng.vehicle)
                 return service + travel
             return time_cb
         cb_idx = routing.RegisterTransitCallback(make_cb(engineer))
@@ -328,10 +355,7 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     solution = routing.SolveWithParameters(params)
     elapsed = round(time.perf_counter() - started, 3)
 
-    status_name = {
-        0: "ROUTING_NOT_SOLVED", 1: "ROUTING_SUCCESS", 2: "ROUTING_FAIL",
-        3: "ROUTING_FAIL_TIMEOUT", 4: "ROUTING_INVALID",
-    }.get(routing.status(), str(routing.status()))
+    status_name = _status_name(routing.status())
 
     if solution is None:
         plan = Plan(routes=[Route(engineer_id=e.id) for e in engineers],
@@ -350,6 +374,11 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
                 sequence.append(orders[node])
             index = solution.Value(routing.NextVar(index))
         route, _ = evaluate_sequence(engineer, sequence)
+        while route is None and sequence:
+            # Страховка: если пересчёт всё же не сошёлся с моделью, отдаём
+            # столько заявок, сколько помещается, а не теряем весь маршрут.
+            sequence = sequence[:-1]
+            route, _ = evaluate_sequence(engineer, sequence)
         routes.append(route if route is not None else Route(engineer_id=engineer.id))
 
     plan = Plan(routes=routes, strategy="optimized",
@@ -459,6 +488,13 @@ _STATUS_TEXT = {
                              "вариант. Увеличьте время расчёта.", "bad"),
     "ROUTING_INVALID": ("Модель некорректна — это ошибка сервиса, "
                         "а не данных.", "bad"),
+    "ROUTING_PARTIAL_SUCCESS_LOCAL_OPTIMUM_NOT_REACHED": (
+        "Решение найдено, но время вышло раньше, чем поиск дошёл до локального "
+        "оптимума — больше секунд может дать чуть короче маршруты.", "ok"),
+    "ROUTING_OPTIMAL": ("Решение найдено и доказано оптимальным при заданных "
+                        "ограничениях.", "ok"),
+    "ROUTING_INFEASIBLE": ("При заданных ограничениях плана не существует.",
+                           "bad"),
     "EMPTY": ("Планировать нечего: нет заявок или нет исполнителей.", "neutral"),
 }
 

@@ -64,7 +64,7 @@ def _simulate(engineer: Engineer, sequence: list[Order],
             return index
 
         end = start + order.duration_min + overrun_per_job
-        if end > engineer.shift_end:
+        if end > engineer.work_end:
             return index
 
         clock = end

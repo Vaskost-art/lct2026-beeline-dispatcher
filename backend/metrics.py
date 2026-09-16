@@ -23,7 +23,9 @@ def plan_metrics(plan: Plan, orders: list[Order],
         if not route.is_used:
             continue
         engineer = engineer_by_id.get(route.engineer_id)
-        shift_len = (engineer.shift_end - engineer.shift_start) if engineer else 0
+        # рабочее время без обеда: иначе загрузка занижена и маршрут,
+        # упёршийся в потолок смены, выглядит как «есть куда добавить»
+        shift_len = (engineer.work_end - engineer.shift_start) if engineer else 0
         busy = route.total_work_min + route.total_travel_min
         per_engineer.append({
             "engineer_id": route.engineer_id,
@@ -149,13 +151,15 @@ def control_plan(orders: list[Order], engineers: list[Engineer]) -> tuple[Plan, 
                     "planned_start": hhmm(stop.start),
                     "late_by_min": stop.start - order.window_end,
                 })
-            if engineer and stop.end > engineer.shift_end:
+            # work_end, а не shift_end: наши планы проверяются именно им, и
+            # судить факт более мягким правилом значит давать ему фору в обед
+            if engineer and stop.end > engineer.work_end:
                 shift_overflow.append({
                     "order_id": order.id,
                     "engineer_id": route.engineer_id,
-                    "shift_end": hhmm(engineer.shift_end),
+                    "shift_end": hhmm(engineer.work_end),
                     "planned_end": hhmm(stop.end),
-                    "over_by_min": stop.end - engineer.shift_end,
+                    "over_by_min": stop.end - engineer.work_end,
                 })
 
     # Сколько заявок фактически ставилось одной бригаде в одно окно.

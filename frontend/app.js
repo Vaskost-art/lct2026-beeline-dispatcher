@@ -140,11 +140,16 @@ function toast(message) {
 }
 
 async function busy(button, fn) {
-  const label = button ? button.textContent : null;
+  /* Подпись запоминается один раз за жизнь кнопки: если взять её текущий
+     текст, второй параллельный запрос запомнит «Считаем…» и оставит это
+     на кнопке навсегда. */
+  if (button && !button.dataset.label) button.dataset.label = button.textContent;
   if (button) { button.disabled = true; button.textContent = 'Считаем…'; }
   try { return await fn(); }
   catch (err) { toast(err.message || String(err)); return null; }
-  finally { if (button) { button.disabled = false; button.textContent = label; } }
+  finally {
+    if (button) { button.disabled = false; button.textContent = button.dataset.label; }
+  }
 }
 
 /* ---------- карта ---------- */
@@ -462,7 +467,10 @@ function renderLegend() {
 
 /* ---------- карточка заявки с объяснением ---------- */
 
+let explainGeneration = 0;
+
 async function selectOrder(orderId) {
+  const generation = ++explainGeneration;
   S.selected = orderId;
   document.querySelectorAll('.stop').forEach((n) => {
     n.classList.toggle('selected', n.dataset.orderId === orderId);
@@ -473,7 +481,17 @@ async function selectOrder(orderId) {
     method: 'POST',
     body: JSON.stringify({ region: S.region, order_id: orderId }),
   }));
-  if (data) renderDetail(data);
+  if (data && generation === explainGeneration) renderDetail(data);
+}
+
+/* Возврат панели к исходному виду: то же, что лежит в разметке до первого
+   выбора заявки. */
+function clearDetail() {
+  $('detail').innerHTML =
+    `<div class="empty">
+       <h3>Объяснение назначения</h3>
+       <p>Выберите заявку на карте или в списке маршрутов.</p>
+     </div>`;
 }
 
 function renderDetail(data) {
@@ -629,6 +647,10 @@ function renderDetail(data) {
 
 function setPlan(plan) {
   S.plan = plan;
+  /* Объяснение относится к прежнему плану: оставить его на экране значит
+     показывать диспетчеру исполнителя и время, которых больше нет. */
+  if (S.selected && !plan.orders.some((o) => o.id === S.selected)) S.selected = null;
+  clearDetail();
   plan.engineers.forEach((e, i) => { if (!COLORS.has(e.id)) COLORS.set(e.id, colorOf(i)); });
   renderMetrics();
   renderPlanNotes();
@@ -641,7 +663,13 @@ function setPlan(plan) {
   fillEventSelectors();
 }
 
+/* Номер поколения: ответ запроса, запущенного для прежнего района или
+   отменённого более свежим запуском, применять нельзя. */
+let planGeneration = 0;
+
 async function runPlan(options) {
+  const generation = ++planGeneration;
+  const requestedRegion = S.region;
   const limit = Number($('timeLimit').value) || 15;
   const title = $('strategy').selectedOptions[0]
     ? $('strategy').selectedOptions[0].text.toLowerCase() : 'план';
@@ -657,9 +685,12 @@ async function runPlan(options) {
         reset: Boolean(options && options.reset),
       }),
     }));
-    if (plan) { S.hidden.clear(); setPlan(plan); }
+    if (plan && generation === planGeneration && requestedRegion === S.region) {
+      S.hidden.clear();
+      setPlan(plan);
+    }
   } finally {
-    setLoading(false);
+    if (generation === planGeneration) setLoading(false);
   }
 }
 
@@ -685,9 +716,11 @@ async function undoStep() {
 }
 
 async function savePlan() {
-  const data = await api('/api/plan/save', {
+  /* Без обработчика отказ выглядит как «ничего не произошло», и диспетчер
+     уходит с мыслью, что день сохранён. */
+  const data = await busy($('btnSave'), () => api('/api/plan/save', {
     method: 'POST', body: JSON.stringify({ region: S.region }),
-  });
+  }));
   if (data) toast(`Рабочий день сохранён (${data.path})`);
 }
 
@@ -775,7 +808,7 @@ async function showCompare() {
   const sign = (x) => (x >= 0 ? '+' : '') + x;
   const pctText = (x) => (x !== null && x !== undefined ? sign(x) + '%' : '—');
 
-  html += `<div class="note">
+  html += `<div class="modal-note">
     <b>Оптимальный план против распределения без планировщика:</b>
     заявок ${sign(vb.orders_assigned_delta)},
     людей ${sign(vb.used_engineers_delta)} (${pctText(vb.used_engineers_pct)}),
@@ -825,7 +858,7 @@ async function showRisk(overrun) {
     </div>`;
 
   const cs = data.custom_scenario;
-  html += `<div class="note" id="overrunNote">${esc(cs.text)}</div>`;
+  html += `<div class="modal-note" id="overrunNote">${esc(cs.text)}</div>`;
 
   if (cs.broken.length) {
     html += `<table style="margin-top:14px"><thead><tr><th>Заявка</th>
@@ -944,9 +977,15 @@ function applyDatasetEvent() {
     if (order.window_end) $('uTo').value = order.window_end;
     if (order.required_skill) $('uSkill').value = order.required_skill;
     $('uVehicle').value = order.required_vehicle || '';
-    $('pickHint').textContent =
-      `Точка из набора: ${Number(order.lat).toFixed(4)}, ${Number(order.lon).toFixed(4)}`;
-    if (map) { map.setPickMarker(Number(order.lat), Number(order.lon)); drawPlan(); }
+    /* Координаты приходят из присланного файла: без проверки NaN уезжает
+       в разметку схемы и гасит её целиком до перезагрузки страницы. */
+    const lat = Number(order.lat);
+    const lon = Number(order.lon);
+    const hasPoint = Number.isFinite(lat) && Number.isFinite(lon);
+    $('pickHint').textContent = hasPoint
+      ? `Точка из набора: ${lat.toFixed(4)}, ${lon.toFixed(4)}`
+      : 'В событии из набора нет координат — укажите точку на карте.';
+    if (map && hasPoint) { map.setPickMarker(lat, lon); drawPlan(); }
   }
   toast('Событие из набора подставлено в форму');
 }
@@ -1012,10 +1051,15 @@ function fillEventSelectors() {
                                  && meta.dataset_events.length);
 
   const districtSelect = $('uDistrict');
-  if (!districtSelect.options.length) {
-    [...new Set(S.plan.orders.map((o) => o.district))].sort().forEach((d) => {
-      districtSelect.appendChild(new Option(d, d));
-    });
+  /* Список собирается заново под текущий план: иначе после смены района или
+     загрузки набора срочная заявка уйдёт с районом из прежних данных. */
+  const districtsNow = [...new Set(S.plan.orders.map((o) => o.district))].sort();
+  const districtsWere = [...districtSelect.options].map((o) => o.value);
+  if (String(districtsWere) !== String(districtsNow)) {
+    const chosen = districtSelect.value;
+    districtSelect.innerHTML = '';
+    districtsNow.forEach((d) => districtSelect.appendChild(new Option(d, d)));
+    if (districtsNow.includes(chosen)) districtSelect.value = chosen;
   }
 }
 

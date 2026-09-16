@@ -519,7 +519,10 @@ details.how .how-body{
 details.how .how-body p{margin:0 0 9px}
 details.how .how-body p:last-child{margin-bottom:0}
 
-.note{
+/* Примечание внутри модального окна. Имя отдельное: под классом .note выше
+   живёт полоса предупреждений над планом, и общее имя гасило её цвета —
+   «адрес разрешён приблизительно» и отказ решателя выглядели одинаково. */
+.modal-note{
   margin-top:16px; padding:12px 14px; background:var(--panel-2);
   border-left:3px solid var(--warn); border-radius:8px;
   font-size:12px; color:var(--muted); line-height:1.6;

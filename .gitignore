@@ -7,3 +7,6 @@ node_modules/
 .env.local
 data/saved/*
 !data/saved/.gitkeep
+
+# Снимки экрана содержат адреса заявок: за контур репозитория им нельзя
+reports/shots/

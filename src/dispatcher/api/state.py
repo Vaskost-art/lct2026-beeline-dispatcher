@@ -61,6 +61,15 @@ class DayStore:
         self._days = {key: DayState(scenario=value)
                       for key, value in scenarios.items()}
 
+    def reset(self, scenarios: dict[str, Scenario]) -> None:
+        """Наполняет хранилище участками, не подменяя сам объект.
+
+        Подмена объекта на старте оставила бы ручки со ссылкой на пустое
+        хранилище: они берут его один раз, при импорте.
+        """
+        self._days = {key: DayState(scenario=value)
+                      for key, value in scenarios.items()}
+
     def regions(self) -> list[str]:
         return list(self._days)
 

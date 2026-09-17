@@ -21,7 +21,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from dispatcher.infrastructure.ingest import load_all  # noqa: E402
 from dispatcher.services.control import control_plan  # noqa: E402
 from dispatcher.services.dataset import scenario_from_json, scenario_to_json  # noqa: E402
 from dispatcher.services.impact import plan_risk  # noqa: E402
@@ -38,6 +37,7 @@ from dispatcher.services.replanning.events import (  # noqa: E402
     make_urgent_order,
 )
 from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL  # noqa: E402
+from dispatcher.services.scenario import load_all  # noqa: E402
 from dispatcher.services.validate import validate  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")

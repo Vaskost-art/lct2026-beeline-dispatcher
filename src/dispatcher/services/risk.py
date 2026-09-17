@@ -18,6 +18,8 @@
 """
 from __future__ import annotations
 
+from typing import TypedDict
+
 from dispatcher.domain import Engineer, Order
 from dispatcher.domain.distance import road_km, travel_minutes
 
@@ -88,6 +90,17 @@ def _max_delay(engineer: Engineer, sequence: list[Order],
     return low
 
 
+class StopRisk(TypedDict):
+    """Запас прочности одного визита."""
+
+    order_id: str
+    position: int
+    tolerance_min: int
+    risk: str
+    breaks_order_id: str | None
+    window: str
+
+
 def route_risk(engineer: Engineer, sequence: list[Order]) -> dict:
     """Запас прочности маршрута целиком и каждого визита в нём."""
     if not sequence:
@@ -98,7 +111,7 @@ def route_risk(engineer: Engineer, sequence: list[Order]) -> dict:
     # отдельно — запас в каждой точке маршрута.
     start_tolerance = _max_delay(engineer, sequence, 0)
 
-    stops = []
+    stops: list[StopRisk] = []
     for index, order in enumerate(sequence):
         stop_tolerance = _max_delay(engineer, sequence, index)
         stop_break = simulate(engineer, sequence, stop_tolerance + 1, index)
@@ -131,7 +144,7 @@ def route_risk(engineer: Engineer, sequence: list[Order]) -> dict:
     }
 
 
-def _route_text(engineer: Engineer, tolerance: int, weakest: dict) -> str:
+def _route_text(engineer: Engineer, tolerance: int, weakest: StopRisk) -> str:
     """Текст показывается внутри блока самого маршрута, поэтому имя
     исполнителя в нём не повторяется."""
     if tolerance >= DELAY_CAP_MIN:

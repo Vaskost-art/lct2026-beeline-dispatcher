@@ -9,7 +9,22 @@
 """
 from __future__ import annotations
 
+from typing import TypedDict
+
 from dispatcher.domain import Engineer, Order, Plan, hhmm
+
+
+class EngineerRow(TypedDict):
+    """Пробег и загрузка одного исполнителя."""
+
+    engineer_id: str
+    orders: int
+    km: float
+    travel_min: int
+    work_min: int
+    first_start: str
+    last_end: str
+    utilization: float
 
 
 def plan_metrics(plan: Plan, orders: list[Order],
@@ -17,7 +32,7 @@ def plan_metrics(plan: Plan, orders: list[Order],
     engineer_by_id = {e.id: e for e in engineers}
     total = len(orders)
 
-    per_engineer = []
+    per_engineer: list[EngineerRow] = []
     for route in plan.routes:
         if not route.is_used:
             continue
@@ -64,7 +79,7 @@ def plan_metrics(plan: Plan, orders: list[Order],
     }
 
 
-def compare(candidate: dict, reference: dict) -> dict:
+def compare(candidate: dict[str, float], reference: dict[str, float]) -> dict:
     """Разница по обязательным метрикам: «наш план против точки отсчёта»."""
     def delta(key: str) -> float:
         return round(candidate[key] - reference[key], 2)

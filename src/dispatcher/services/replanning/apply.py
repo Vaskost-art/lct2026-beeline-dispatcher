@@ -4,7 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import replace
 
-from dispatcher.domain import Engineer, Order, Plan, Unassigned, hhmm, norms
+from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Unassigned, hhmm
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.optimizer import solve_optimized
 from dispatcher.services.replanning.diff import build_diff, describe_diff
@@ -62,7 +62,8 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
                 # она реально отработала, и начатая работа перестанет
                 # помещаться в собственную смену.
                 engineer.break_min = 0
-        frozen.setdefault(event.engineer_id, [])
+        if event.engineer_id:
+            frozen.setdefault(event.engineer_id, [])
 
     elif event.kind == KIND_DELAYED:
         # Бригада не выбывает — она сдвигается во времени.
@@ -74,7 +75,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         # Для бригады, которая ещё не приступала, достаточно сдвинуть
         # начало смены: результат тот же, а модель проще.
         delay = max(0, int(event.delay_min))
-        prefix = frozen.get(event.engineer_id) or []
+        prefix = frozen.get(event.engineer_id or "") or []
         if prefix:
             last_id = prefix[-1]
             route = next((r for r in current.routes
@@ -130,9 +131,9 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         for stop in route.stops:
             if stop.order_id not in ids:
                 continue
-            order = plannable_by_id.get(stop.order_id)
+            planned = plannable_by_id.get(stop.order_id)
             # длительность могла вырасти: задержка записывается в неё
-            end = stop.start + (order.duration_min if order else
+            end = stop.start + (planned.duration_min if planned else
                                 stop.end - stop.start)
             frozen_end[route.engineer_id] = max(
                 frozen_end.get(route.engineer_id, 0), end)
@@ -179,7 +180,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     # называем причину и говорим, чем за неё придётся заплатить.
     assigned_ids = {s.order_id for r in new_plan.routes for s in r.stops}
     stuck = [o for o in new_orders
-             if o.priority == norms.PRIORITY_URGENT and o.id not in assigned_ids]
+             if o.priority == PRIORITY_URGENT and o.id not in assigned_ids]
     if stuck and mode == MODE_MINIMAL:
         # Причину берём из диагностики, а не придумываем: она может быть
         # любой — от отсутствия навыка до занятого окна.

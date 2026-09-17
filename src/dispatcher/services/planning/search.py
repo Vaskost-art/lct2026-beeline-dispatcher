@@ -72,5 +72,5 @@ def _status_name(code: int) -> str:
     """
     for value in _STATUS_VALUES:
         if value.number == code:
-            return value.name
+            return str(value.name)
     return str(code)

@@ -90,7 +90,7 @@ def solve_greedy(orders: list[Order], engineers: list[Engineer],
                     continue
                 # штраф за вывод нового исполнителя — метрика «персонал» важнее пробега
                 score = delta + (ENGINEER_FIXED_COST / 1000.0 if not route.is_used else 0.0)
-                if best is None or score < best[0]:
+                if new_route is not None and (best is None or score < best[0]):
                     best = (score, engineer.id, new_route)
         if best is not None:
             routes[best[1]] = best[2]

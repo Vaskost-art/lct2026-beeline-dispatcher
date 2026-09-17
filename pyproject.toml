@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+# Тесты репозиториев асинхронные: режим автоматический, чтобы не помечать
+# каждый из них вручную.
+asyncio_mode = "auto"
 
 [tool.mypy]
 python_version = "3.13"
@@ -18,10 +21,14 @@ mypy_path = "src"
 module = "ortools.*"
 ignore_missing_imports = true
 
-# minimal: строгий режим уже выполняется ядром (domain, infrastructure) и
-# проверяется командой `mypy src/dispatcher/domain src/dispatcher/infrastructure`.
-# Слои services и api к нему приводятся вместе с разрезом ручек на схемы
-# Pydantic: до этого момента словари, уходящие в JSON, описаны как `dict`.
+# Модели Pydantic построены на Any внутри самой библиотеки: запрет явного Any
+# срабатывает на объявлении класса, а не на нашем коде.
+[[tool.mypy.overrides]]
+module = "dispatcher.api.schemas"
+disallow_any_explicit = false
+
+# Словари, уходящие в JSON, описаны как `dict` там, где их форму задаёт
+# получатель. Ядро (domain, infrastructure) проверяется без послаблений.
 [[tool.mypy.overrides]]
 module = ["dispatcher.services.*", "dispatcher.api.*"]
 disallow_any_generics = false

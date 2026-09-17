@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain.catalog import VEHICLE_CAR, VEHICLE_FOOT
-from dispatcher.domain.norms import DETOUR_FACTOR, DURATION_BY_TYPE_HD, GIGABIT_EXTRA_MIN, SPEED_KMH
+from dispatcher.domain.norms import BASE_NORM_BY_TYPE_BK, DETOUR_FACTOR, ROAD_IN_NORM_MIN, SPEED_KMH
 from dispatcher.domain.shifts import (
                                      BREAK_MIN,
                                      BREAK_MIN_SHIFT_MIN,
@@ -17,8 +17,12 @@ ASSUMPTIONS = [
      "Выводится из колонки «Тип заявки BK»: локальная заявка → локальные работы, "
      "подключение и дозаказ → работы на подключение, глобальная проблема → аварийные работы."),
     ("Длительность работ",
-     f"В данных её нет. Задана нормативом по «Тип заявки HD» ({len(DURATION_BY_TYPE_HD)} типов, "
-     f"30–120 мин), гигабитное подключение добавляет {GIGABIT_EXTRA_MIN} мин на протяжку кабеля."),
+     "В данных её нет. Взята из таблицы нормативов заказчика по типу заявки: "
+     + ", ".join(f"{name.lower()} {value} мин"
+                 for name, value in BASE_NORM_BY_TYPE_BK.items())
+     + f". Дорога ({ROAD_IN_NORM_MIN} мин) уже входит в эти нормативы, поэтому "
+       "на адресе бригада проводит норматив минус дорога, а сама дорога "
+       "считается по расстоянию и транспорту."),
     ("Навыки исполнителя",
      "Восстановлены из контрольного распределения: бригада умеет то, что реально "
      "выполняла в течение дня (от 1 до 3 навыков по ТЗ)."),

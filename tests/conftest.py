@@ -11,6 +11,6 @@ CACHE = os.path.join(ROOT, "data", "geo_cache.json")
 @pytest.fixture(scope="session")
 def scenarios():
     """Все участки, загруженные из выгрузок заказчика."""
-    from dispatcher.infrastructure.ingest import load_all
+    from dispatcher.services.scenario import load_all
 
     return load_all(RAW_DIR, CACHE)

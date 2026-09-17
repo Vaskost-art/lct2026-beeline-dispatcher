@@ -5,8 +5,17 @@
 """
 from __future__ import annotations
 
-from dispatcher.domain import Engineer, Order, hhmm, norms
-from dispatcher.infrastructure.ingest import Scenario
+from dispatcher.domain import (
+    PRIORITY_NORMAL,
+    PRIORITY_URGENT,
+    SKILL_LOCAL,
+    VEHICLE_CAR,
+    Engineer,
+    Order,
+    hhmm,
+    norms,
+)
+from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import DatasetError
 from dispatcher.services.dataset.fields import _coords, _require, _time
 
@@ -16,7 +25,7 @@ def order_from_json(data: dict) -> Order:
     where = f"Заявка {order_id}"
     lat, lon = _coords(data, where)
 
-    skill = str(data.get("required_skill") or norms.SKILL_LOCAL)
+    skill = str(data.get("required_skill") or SKILL_LOCAL)
     if skill not in norms.SKILL_BY_TYPE_BK.values():
         raise DatasetError(
             f"{where}: навык «{skill}» отсутствует в справочнике. "
@@ -28,14 +37,14 @@ def order_from_json(data: dict) -> Order:
             f"{where}: транспорт «{vehicle}» отсутствует в справочнике. "
             f"Допустимы: {', '.join(norms.SPEED_KMH)}")
 
-    priority = str(data.get("priority") or norms.PRIORITY_NORMAL)
-    if priority not in (norms.PRIORITY_NORMAL, norms.PRIORITY_URGENT):
+    priority = str(data.get("priority") or PRIORITY_NORMAL)
+    if priority not in (PRIORITY_NORMAL, PRIORITY_URGENT):
         raise DatasetError(
             f"{where}: приоритет «{priority}» отсутствует в справочнике. "
-            f"Допустимы: {norms.PRIORITY_NORMAL}, {norms.PRIORITY_URGENT}")
+            f"Допустимы: {PRIORITY_NORMAL}, {PRIORITY_URGENT}")
 
     try:
-        duration = int(_require(data, "duration_min", where))
+        duration = int(str(_require(data, "duration_min", where)))
     except (TypeError, ValueError) as error:
         raise DatasetError(f"{where}: «duration_min» должно быть числом минут") from error
     if duration <= 0:
@@ -80,7 +89,7 @@ def engineer_from_json(data: dict, allow_empty_shift: bool = False) -> Engineer:
         raise DatasetError(
             f"{where}: навыки {', '.join(unknown)} отсутствуют в справочнике")
 
-    vehicle = str(data.get("vehicle") or norms.VEHICLE_CAR)
+    vehicle = str(data.get("vehicle") or VEHICLE_CAR)
     if vehicle not in norms.SPEED_KMH:
         raise DatasetError(
             f"{where}: транспорт «{vehicle}» отсутствует в справочнике. "

@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from dispatcher.domain import parse_hhmm
 
 RAW_ENCODING = "cp1251"
@@ -26,7 +28,7 @@ def decode_csv(raw: bytes) -> str:
     return raw.decode(RAW_ENCODING, errors="replace")
 
 
-def _cell(row: dict[str, str | None], name: str) -> str:
+def _cell(row: Mapping[str, str | None], name: str) -> str:
     """Значение колонки строкой. В короткой строке CSV недостающие ключи
     приходят как None, поэтому .get(name, "") от падения не спасает."""
     return (row.get(name) or "").strip()

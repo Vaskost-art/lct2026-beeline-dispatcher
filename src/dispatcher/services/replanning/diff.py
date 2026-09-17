@@ -1,8 +1,22 @@
 """Чем новый план отличается от прежнего, языком диспетчера."""
 from __future__ import annotations
 
+from typing import TypedDict
+
 from dispatcher.domain import Order, Plan, hhmm
 from dispatcher.services.replanning.events import ReplanEvent
+
+
+class EngineerDiff(TypedDict):
+    """Как изменился день одного исполнителя."""
+
+    engineer_id: str
+    orders_before: int
+    orders_after: int
+    km_before: float
+    km_after: float
+    orders_delta: int
+    km_delta: float
 
 
 def build_diff(before: Plan, after: Plan, orders_before: list[Order],
@@ -64,15 +78,18 @@ def build_diff(before: Plan, after: Plan, orders_before: list[Order],
 
     engineer_rows = []
     for engineer_id in sorted(set(km_before) | set(km_after)):
-        row = {
+        was, now = n_before.get(engineer_id, 0), n_after.get(engineer_id, 0)
+        km_was = round(km_before.get(engineer_id, 0.0), 2)
+        km_now = round(km_after.get(engineer_id, 0.0), 2)
+        row: EngineerDiff = {
             "engineer_id": engineer_id,
-            "orders_before": n_before.get(engineer_id, 0),
-            "orders_after": n_after.get(engineer_id, 0),
-            "km_before": round(km_before.get(engineer_id, 0.0), 2),
-            "km_after": round(km_after.get(engineer_id, 0.0), 2),
+            "orders_before": was,
+            "orders_after": now,
+            "km_before": km_was,
+            "km_after": km_now,
+            "orders_delta": now - was,
+            "km_delta": round(km_now - km_was, 2),
         }
-        row["orders_delta"] = row["orders_after"] - row["orders_before"]
-        row["km_delta"] = round(row["km_after"] - row["km_before"], 2)
         if row["orders_delta"] or abs(row["km_delta"]) > 0.05:
             engineer_rows.append(row)
 

@@ -43,7 +43,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from dispatcher.domain import norms  # noqa: E402
 from dispatcher.domain.distance import road_km, travel_minutes  # noqa: E402
-from dispatcher.infrastructure.ingest import REGIONS, load_scenario  # noqa: E402
+from dispatcher.infrastructure.ingest import REGIONS  # noqa: E402
+from dispatcher.services.scenario import load_scenario  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE = os.path.join(ROOT, "data", "geo_cache.json")

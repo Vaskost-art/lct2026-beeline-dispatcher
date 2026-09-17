@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
-from dispatcher.services.explain.summary import _plural
+from dispatcher.domain.text import plural as _plural
 
 
 def explain_route(engineer: Engineer, plan: Plan,

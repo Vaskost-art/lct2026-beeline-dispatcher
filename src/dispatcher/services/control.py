@@ -59,7 +59,10 @@ def control_plan(orders: list[Order], engineers: list[Engineer]) -> tuple[Plan, 
     window_violations = []
     shift_overflow = []
     for route in routes:
-        engineer = engineer_by_id.get(route.engineer_id)
+        found = engineer_by_id.get(route.engineer_id)
+        if found is None:
+            continue
+        engineer = found
         for stop in route.stops:
             order = order_by_id[stop.order_id]
             if stop.start > order.window_end:

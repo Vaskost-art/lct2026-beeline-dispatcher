@@ -6,13 +6,12 @@
 from __future__ import annotations
 
 import math
-from typing import Any
 
 from dispatcher.domain import parse_hhmm
 from dispatcher.services.dataset.errors import DatasetError
 
 
-def _require(data: dict, key: str, where: str) -> Any:
+def _require(data: dict[str, object], key: str, where: str) -> object:
     if not isinstance(data, dict):
         raise DatasetError(f"{where}: ожидался объект с полями, получено "
                            f"«{data}»")
@@ -25,7 +24,7 @@ def _require(data: dict, key: str, where: str) -> Any:
 DAY_MINUTES = 24 * 60
 
 
-def _time(value: Any, where: str, key: str) -> int:
+def _time(value: object, where: str, key: str) -> int:
     """Принимает «ЧЧ:ММ» или число минут от полуночи."""
     if isinstance(value, bool):
         raise DatasetError(f"{where}: поле «{key}» должно быть временем")
@@ -46,10 +45,10 @@ def _time(value: Any, where: str, key: str) -> int:
             f"получено «{value}»") from error
 
 
-def _coords(data: dict, where: str) -> tuple[float, float]:
+def _coords(data: dict[str, object], where: str) -> tuple[float, float]:
     try:
-        lat = float(_require(data, "lat", where))
-        lon = float(_require(data, "lon", where))
+        lat = float(str(_require(data, "lat", where)))
+        lon = float(str(_require(data, "lon", where)))
     except (TypeError, ValueError) as error:
         raise DatasetError(f"{where}: координаты «lat» и «lon» должны быть числами") from error
     # NaN и Infinity json.loads принимает молча, а дальше они расходятся по

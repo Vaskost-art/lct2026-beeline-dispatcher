@@ -1,8 +1,8 @@
 """Запись сценария в JSON."""
 from __future__ import annotations
 
-from dispatcher.domain import Engineer, Order, hhmm, norms
-from dispatcher.infrastructure.ingest import Scenario
+from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, Engineer, Order, hhmm, norms
+from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import FORMAT_VERSION
 
 
@@ -66,7 +66,7 @@ def scenario_to_json(scenario: Scenario, events: list[dict] | None = None) -> di
             "reference_books": {
                 "skills": list(dict.fromkeys(norms.SKILL_BY_TYPE_BK.values())),
                 "vehicles": list(norms.SPEED_KMH.keys()),
-                "priorities": [norms.PRIORITY_NORMAL, norms.PRIORITY_URGENT],
+                "priorities": [PRIORITY_NORMAL, PRIORITY_URGENT],
             },
         },
         "orders": [order_to_json(o) for o in scenario.orders],

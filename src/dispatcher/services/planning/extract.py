@@ -6,11 +6,16 @@
 """
 from __future__ import annotations
 
+from ortools.constraint_solver import pywrapcp
+
 from dispatcher.domain import Engineer, Order, Route
 from dispatcher.services.routing import evaluate_sequence
 
 
-def routes_from_solution(routing, manager, solution, orders: list[Order],
+def routes_from_solution(routing: pywrapcp.RoutingModel,
+                         manager: pywrapcp.RoutingIndexManager,
+                         solution: pywrapcp.Assignment,
+                         orders: list[Order],
                          engineers: list[Engineer]) -> list[Route]:
     """Собирает маршруты по решению, пересчитывая времена общим кодом."""
     n_orders = len(orders)

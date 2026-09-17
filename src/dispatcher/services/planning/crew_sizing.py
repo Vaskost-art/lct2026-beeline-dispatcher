@@ -10,9 +10,14 @@
 """
 from __future__ import annotations
 
-from dispatcher.domain import Engineer, Order, shifts
+from collections.abc import Callable
+
+from dispatcher.domain import Engineer, Order, Plan, shifts
 from dispatcher.domain.crew_profiles import skills_for_index, vehicle_for_index
 from dispatcher.domain.text import plural
+
+#: Как зовут планировщик: заявки и бригады на входе, план на выходе.
+type Solver = Callable[[list[Order], list[Engineer]], Plan]
 
 #: Запас на дорогу между заявками при оценке по объёму работ, доля от времени
 #: работ. Оценка грубая и нужна только как нижняя граница.
@@ -47,7 +52,7 @@ def crews_by_peak(orders: list[Order]) -> int:
         return 0
     peak = 0
     for probe in sorted({o.window_start for o in orders}):
-        capacity = 0
+        capacity = 0.0
         for order in orders:
             if order.window_start <= probe < order.window_end:
                 span = max(1, order.window_end - order.window_start)
@@ -141,7 +146,8 @@ def _next_crew(index: int, unassigned: list[Order], orders: list[Order],
     )
 
 
-def crews_shortfall(orders: list[Order], crews: list[Engineer], solve,
+def crews_shortfall(orders: list[Order], crews: list[Engineer],
+                    solve: Solver,
                     office_lat: float, office_lon: float,
                     office_address: str) -> dict[str, object]:
     """Сколько ещё бригад нужно, чтобы разошлись оставшиеся заявки.

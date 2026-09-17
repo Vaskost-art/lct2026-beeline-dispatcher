@@ -68,8 +68,8 @@ def reassign(request: ReassignRequest) -> dict:
         best = None
         for position in range(len(base) + 1):
             candidate = base[:position] + [order] + base[position:]
-            route, reason = evaluate_sequence(target, candidate)
-            if route is None:
+            built, reason = evaluate_sequence(target, candidate)
+            if built is None:
                 continue
             if best is None or route.total_km < best[0]:
                 best = (route.total_km, candidate)
@@ -82,10 +82,10 @@ def reassign(request: ReassignRequest) -> dict:
 
     routes = []
     for engineer in engineers:
-        route, _ = evaluate_sequence(engineer, sequences.get(engineer.id, []))
-        if route is None:
+        built, _ = evaluate_sequence(engineer, sequences.get(engineer.id, []))
+        if built is None:
             raise HTTPException(400, f"Маршрут {engineer.name} стал невыполнимым")
-        routes.append(route)
+        routes.append(built)
 
     new_plan = Plan(routes=routes, strategy="manual",
                     solver_status="MANUAL_REASSIGN")

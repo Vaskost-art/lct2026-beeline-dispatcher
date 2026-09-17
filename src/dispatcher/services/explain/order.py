@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
+from dispatcher.domain.text import plural as _plural
 from dispatcher.services.explain.alternatives import _alternatives
-from dispatcher.services.explain.summary import _plural, _summary
+from dispatcher.services.explain.summary import _summary
 
 # сколько отвергнутых альтернатив показывать
 MAX_ALTERNATIVES = 4

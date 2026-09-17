@@ -9,9 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from dispatcher.domain import norms
+from dispatcher.domain import SKILL_EMERGENCY
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
-from dispatcher.services.replanning.repair import MODE_MINIMAL
 
 
 class PlanRequest(BaseModel):
@@ -37,7 +36,7 @@ class NewOrderModel(BaseModel):
     duration_min: int = Field(90, ge=5, le=480)
     window_start: str = "14:00"
     window_end: str = "16:00"
-    required_skill: str = norms.SKILL_EMERGENCY
+    required_skill: str = SKILL_EMERGENCY
     required_vehicle: str | None = None
 
 
@@ -50,7 +49,7 @@ class ReplanRequest(BaseModel):
     engineer_id: str | None = None
     delay_min: int = Field(45, ge=5, le=480)
     new_order: NewOrderModel | None = None
-    mode: Literal["minimal", "full"] = MODE_MINIMAL
+    mode: Literal["minimal", "full"] = "minimal"
     apply: bool = False
     time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
 

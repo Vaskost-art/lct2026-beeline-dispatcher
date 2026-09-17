@@ -59,7 +59,7 @@ def evaluate_sequence(engineer: Engineer, orders: list[Order]) -> tuple[Route | 
 
     for order in orders:
         leg = build_leg(engineer, lat, lon, clock, order)
-        if not leg.feasible:
+        if not leg.feasible or leg.stop is None:
             return None, leg.reason
         route.stops.append(leg.stop)
         lat, lon, clock = order.lat, order.lon, leg.stop.end

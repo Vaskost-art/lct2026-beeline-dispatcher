@@ -56,7 +56,7 @@ async def upload_dataset(request: Request, filename: str = "dataset",
     if name.strip():
         scenario.region_name = name.strip()
 
-    STORE.replacescenario_of(region_key, scenario, events)
+    STORE.replace_scenario(region_key, scenario, events)
 
     return {
         "region": region_key,
@@ -113,6 +113,11 @@ def export_plan(region: str) -> JSONResponse:
         for stop in route.stops:
             assignment[stop.order_id] = route.engineer_id
 
+    # Строки пробега разбираем до сборки ответа: так их тип виден проверке.
+    km_rows = metrics["km_per_engineer"]
+    per_engineer_km = {str(row["engineer_id"]): row["km"]
+                       for row in (km_rows if isinstance(km_rows, list) else [])}
+
     data = {
         "район": scenario.region_name,
         "стратегия": plan.strategy,
@@ -152,8 +157,7 @@ def export_plan(region: str) -> JSONResponse:
         "метрики": {
             "задействовано_исполнителей": metrics["used_engineers"],
             "доступно_исполнителей": metrics["engineers_available"],
-            "пробег_по_исполнителям": {row["engineer_id"]: row["km"]
-                                       for row in metrics["km_per_engineer"]},
+            "пробег_по_исполнителям": per_engineer_km,
             "суммарный_пробег_км": metrics["total_km"],
             "назначено_заявок": metrics["orders_assigned"],
             "всего_заявок": metrics["orders_total"],

@@ -76,8 +76,9 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
     routes: dict[str, Route] = {}
     for engineer in engineers:
         sequence = sequences.get(engineer.id, [])
-        route, _ = evaluate_sequence(engineer, sequence)
-        if route is None:
+        built, _ = evaluate_sequence(engineer, sequence)
+        rebuilt: Route | None = built
+        if rebuilt is None:
             # Последовательность перестала быть выполнимой — например, бригада
             # задержалась и хвост маршрута больше не помещается в смену.
             # Снимаем заявки с конца по одной, пока остаток не станет
@@ -90,18 +91,17 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                 if head[-1].id in prefix_ids:
                     break                       # начатое снимать нельзя
                 dropped.append(head.pop())
-                route, _ = evaluate_sequence(engineer, head)
-                if route is not None:
+                rebuilt, _ = evaluate_sequence(engineer, head)
+                if rebuilt is not None:
                     break
-            if route is None:
+            if rebuilt is None:
                 # не помогло даже это: оставляем только начатое
                 prefix = [o for o in sequence if o.id in prefix_ids]
                 dropped = [o for o in sequence if o.id not in prefix_ids]
-                route, _ = evaluate_sequence(engineer, prefix)
-                if route is None:
-                    route = Route(engineer_id=engineer.id)
+                rebuilt, _ = evaluate_sequence(engineer, prefix)
             orphans.extend(dropped)
-        routes[engineer.id] = route
+        routes[engineer.id] = (rebuilt if rebuilt is not None
+                               else Route(engineer_id=engineer.id))
 
     # вставка «сирот»: срочные и ранние окна первыми
     orphans.sort(key=lambda o: (0 if o.priority == PRIORITY_URGENT else 1,
@@ -122,7 +122,7 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                     continue
                 score = delta + (ENGINEER_FIXED_COST / 1000.0
                                  if not route.is_used else 0.0)
-                if best is None or score < best[0]:
+                if new_route is not None and (best is None or score < best[0]):
                     best = (score, engineer.id, new_route)
         if best is not None:
             routes[best[1]] = best[2]

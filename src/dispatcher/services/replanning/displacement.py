@@ -18,7 +18,7 @@ def _try_insert(engineer: Engineer, route: Route, by_id: dict[str, Order],
     best: tuple[float, Route] | None = None
     for position in range(first_free, len(route.stops) + 1):
         ok, delta, new_route = insertion_cost(engineer, route, by_id, order, position)
-        if ok and (best is None or delta < best[0]):
+        if ok and new_route is not None and (best is None or delta < best[0]):
             best = (delta, new_route)
     return best
 

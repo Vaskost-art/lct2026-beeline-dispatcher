@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 from datetime import datetime
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -47,7 +46,7 @@ def _saved_path(region: str) -> str:
     return os.path.join(SAVED_DIR, f"{safe}.json")
 
 
-def _state_to_json(scenario: Scenario, state: dict[str, Any], name: str) -> dict:
+def _state_to_json(scenario: Scenario, state: DayVersion, name: str) -> dict:
     plan: Plan = state.plan
     return {
         "format": "dispatcher-saved-plan/1",
@@ -118,7 +117,7 @@ def restore_plan(request: RegionRequest) -> dict:
             restored_scenario, _ = scenario_from_json(
                 saved, region_key=request.region,
                 region_name=saved.get("region_name") or request.region)
-            STORE.replacescenario_of(request.region, restored_scenario)
+            STORE.replace_scenario(request.region, restored_scenario)
         except (OSError, ValueError, DatasetError) as exc:
             raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
     scenario = scenario_of(request.region)

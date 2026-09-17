@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 from ortools.constraint_solver import pywrapcp
 
@@ -76,14 +77,16 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
             dist_m[i][j] = int(round(km * 1000))
 
     def distance_cb(from_index: int, to_index: int) -> int:
-        return dist_m[manager.IndexToNode(from_index)][manager.IndexToNode(to_index)]
+        i: int = manager.IndexToNode(from_index)
+        j: int = manager.IndexToNode(to_index)
+        return dist_m[i][j]
 
     dist_cb_idx = routing.RegisterTransitCallback(distance_cb)
 
     # --- время в пути зависит от транспорта, поэтому колбэк свой на каждого ---
     time_cb_indices = []
     for vehicle_id, engineer in enumerate(engineers):
-        def make_cb(eng: Engineer):
+        def make_cb(eng: Engineer) -> Callable[[int, int], int]:
             def time_cb(from_index: int, to_index: int) -> int:
                 i = manager.IndexToNode(from_index)
                 j = manager.IndexToNode(to_index)
@@ -157,9 +160,10 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     # --- замороженные префиксы маршрутов при перепланировании ---
     order_index = {o.id: i for i, o in enumerate(orders)}
     for engineer_id, prefix in frozen.items():
-        vehicle_id = next((v for v, e in enumerate(engineers) if e.id == engineer_id), None)
-        if vehicle_id is None:
+        found = next((v for v, e in enumerate(engineers) if e.id == engineer_id), None)
+        if found is None:
             continue
+        vehicle_id = found
         chain = [order_index[oid] for oid in prefix if oid in order_index]
         prev_index = routing.Start(vehicle_id)
         for node in chain:

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from dispatcher.domain import Engineer, Order, Plan
 from dispatcher.domain.scenario import Scenario
+from dispatcher.services.replanning.events import ReplanResult
 
 #: Сколько версий дня держим. Глубже диспетчеру не нужно, а каждая версия
 #: хранит полную копию плана.
@@ -33,6 +34,15 @@ class DayVersion:
 
 
 @dataclass
+class PreviewCache:
+    """Посчитанный, но ещё не применённый результат события дня."""
+
+    signature: tuple[object, ...]
+    version_number: int
+    result: ReplanResult
+
+
+@dataclass
 class DayState:
     """Текущий день участка и его история."""
 
@@ -42,7 +52,7 @@ class DayState:
     #: Предпросмотр перепланирования: признак события и номер версии, на
     #: которой он посчитан. Привязка к номеру, а не к объекту плана: иначе
     #: диспетчер может получить предпросмотр, посчитанный для другого дня.
-    preview: tuple[object, int, object] | None = None
+    preview: PreviewCache | None = None
 
     @property
     def current(self) -> DayVersion | None:

@@ -1,11 +1,11 @@
 """Краткая формулировка, почему заявка досталась этому исполнителю."""
 from __future__ import annotations
 
-from dispatcher.domain import Engineer, Order, hhmm
+from dispatcher.domain import Engineer, Order, Stop, hhmm
 from dispatcher.domain.text import plural as _plural
 
 
-def _summary(order: Order, engineer: Engineer, stop, position: int,
+def _summary(order: Order, engineer: Engineer, stop: Stop, position: int,
              alternatives: list[dict], cheaper: list[dict]) -> str:
     """Одно-два предложения, которые диспетчер читает первыми."""
     blocked = [a for a in alternatives if not a["possible"]]

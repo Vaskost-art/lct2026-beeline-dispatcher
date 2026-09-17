@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import ReplanRequest
-from dispatcher.api.state import DayVersion
-from dispatcher.domain import hhmm, norms, parse_hhmm
+from dispatcher.api.state import DayVersion, PreviewCache
+from dispatcher.domain import PRIORITY_URGENT, hhmm, parse_hhmm
 from dispatcher.services.dataset import DatasetError, order_from_json
 from dispatcher.services.metrics import plan_metrics
 from dispatcher.services.replanning.apply import replan
@@ -51,7 +51,7 @@ def do_replan(request: ReplanRequest) -> dict:
                 "duration_min": payload.duration_min,
                 "window_start": payload.window_start,
                 "window_end": payload.window_end,
-                "priority": norms.PRIORITY_URGENT,
+                "priority": PRIORITY_URGENT,
                 "required_skill": payload.required_skill,
                 "required_vehicle": payload.required_vehicle,
             })
@@ -90,14 +90,15 @@ def do_replan(request: ReplanRequest) -> dict:
     version_number = len(state_day.versions)
     preview = state_day.preview
     if (request.apply and preview is not None
-            and preview[0] == signature and preview[1] == version_number):
-        result = preview[2]
+            and preview.signature == signature
+            and preview.version_number == version_number):
+        result = preview.result
     else:
         result = replan(orders, engineers, state.plan, event,
                         mode=request.mode,
                         time_limit_sec=request.time_limit_sec)
         if not request.apply:
-            state_day.preview = (signature, version_number, result)
+            state_day.preview = PreviewCache(signature, version_number, result)
 
     # Списки после события берём у самого переплана, а не пересобираем здесь:
     # событие может менять не только состав заявок, но и их поля (задержка

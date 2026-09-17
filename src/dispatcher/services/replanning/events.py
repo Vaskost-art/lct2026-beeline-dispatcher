@@ -8,7 +8,17 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field
 
-from dispatcher.domain import Engineer, Order, Plan, hhmm, norms
+from dispatcher.domain import (
+    PRIORITY_URGENT,
+    SKILL_CONNECT,
+    SKILL_EMERGENCY,
+    SKILL_LOCAL,
+    Engineer,
+    Order,
+    Plan,
+    hhmm,
+    norms,
+)
 
 KIND_URGENT = "urgent_order"
 KIND_CANCEL = "cancel_order"
@@ -102,14 +112,14 @@ def make_urgent_order(order_id: str, lat: float, lon: float, address: str,
     type_bk = next((bk for bk, skill in norms.SKILL_BY_TYPE_BK.items()
                     if skill == required_skill), "Глобальная проблема")
     defaults = {
-        norms.SKILL_EMERGENCY: "Авария",
-        norms.SKILL_LOCAL: "Нет линка",
-        norms.SKILL_CONNECT: "Заявка на подключение",
+        SKILL_EMERGENCY: "Авария",
+        SKILL_LOCAL: "Нет линка",
+        SKILL_CONNECT: "Заявка на подключение",
     }
     return Order(
         id=order_id, lat=lat, lon=lon, address=address, district=district,
         duration_min=duration_min, window_start=window_start,
-        window_end=window_end, priority=norms.PRIORITY_URGENT,
+        window_end=window_end, priority=PRIORITY_URGENT,
         required_skill=required_skill, required_vehicle=required_vehicle,
         type_bk=type_bk, type_hd=type_hd or defaults.get(required_skill, "Авария"),
         geocode_precision="manual",

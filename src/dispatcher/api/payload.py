@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.api.deps import STORE, undo_labels
-from dispatcher.domain import Plan
+from dispatcher.domain import Order, Plan
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import geo
 from dispatcher.services.explain import explain_plan, explain_route
@@ -12,7 +12,7 @@ from dispatcher.services.planning.strategies import STRATEGY_TITLES, status_text
 
 def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                   extra: dict | None = None) -> dict:
-    by_id = scenario.order_by_id
+    by_id: dict[str, Order | None] = dict(scenario.order_by_id)
     # заявки, появившиеся после события, тоже должны попасть в ответ
     for route in plan.routes:
         for stop in route.stops:

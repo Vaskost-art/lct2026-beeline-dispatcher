@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, Literal
@@ -18,6 +17,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from dispatcher.api.state import DayState, DayStore, DayVersion
 from dispatcher.domain import Plan, Route, hhmm, norms, parse_hhmm
 from dispatcher.domain.assumptions import ASSUMPTIONS
 from dispatcher.domain.scenario import Scenario
@@ -82,52 +82,39 @@ MAP_API_KEY = os.environ.get("YANDEX_MAPS_API_KEY", "").strip()
 app = FastAPI(title="Планировщик маршрутов выездных инженеров",
               version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
-SCENARIOS: dict[str, Scenario] = {}
-CURRENT: dict[str, dict[str, Any]] = {}      # region -> {plan, metrics, history}
-DATASET_EVENTS: dict[str, list[dict]] = {}   # region -> события из набора данных
+STORE = DayStore({})
 
 
 @app.on_event("startup")
 def _startup() -> None:
-    SCENARIOS.update(load_all(RAW_DIR, CACHE_PATH))
+    global STORE
+    STORE = DayStore(load_all(RAW_DIR, CACHE_PATH))
 
 
 def _scenario(region: str) -> Scenario:
-    scenario = SCENARIOS.get(region)
+    scenario = STORE.scenario(region)
     if scenario is None:
         raise HTTPException(404, f"Район «{region}» не найден")
     return scenario
 
 
-def _state(region: str) -> dict[str, Any]:
-    state = CURRENT.get(region)
-    if state is None:
+def _state(region: str) -> DayVersion:
+    version = STORE.current(region)
+    if version is None:
         raise HTTPException(409, "План ещё не построен — сначала запустите планирование")
-    return state
+    return version
 
 
-# --- история изменений: шаг назад (A30) --------------------------------------
-
-def _snapshot(state: dict[str, Any], label: str) -> None:
-    """Запоминает текущее состояние перед изменением.
-
-    Копия полная: диспетчер должен иметь возможность вернуться ровно к тому
-    плану, который он видел, а не к пересчитанному заново.
-    """
-    state.setdefault("history", []).append({
-        "label": label,
-        "plan": deepcopy(state["plan"]),
-        "metrics": deepcopy(state["metrics"]),
-        "orders": list(state["orders"]),
-        "engineers": deepcopy(state["engineers"]),
-        "locked": dict(state.get("locked") or {}),
-    })
-    if len(state["history"]) > HISTORY_LIMIT:
-        del state["history"][0]
+def _undo_labels(region: str) -> list[str]:
+    day = STORE.day(region)
+    return day.undo_labels if day else []
 
 
-def _undo_labels(state: dict[str, Any]) -> list[str]:
-    return [step["label"] for step in reversed(state.get("history") or [])]
+def _day(region: str) -> DayState:
+    day = STORE.day(region)
+    if day is None:
+        raise HTTPException(404, f"Район «{region}» не найден")
+    return day
 
 
 # --- сериализация ------------------------------------------------------------
@@ -153,8 +140,8 @@ def _plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         "solver_status": plan.solver_status,
         "solver_status_text": status_text(plan.solver_status),
         "solve_seconds": plan.solve_seconds,
-        "locked": dict((CURRENT.get(scenario.region_key) or {}).get("locked") or {}),
-        "undo": _undo_labels(CURRENT.get(scenario.region_key) or {}),
+        "locked": dict(getattr(STORE.current(scenario.region_key), "locked", {}) or {}),
+        "undo": _undo_labels(scenario.region_key),
         "metrics": metrics,
         "explanation": explain_plan(plan, _all_orders(scenario, plan),
                                     _all_engineers(scenario), metrics),
@@ -220,9 +207,9 @@ def _geo_warning(orders: list) -> dict:
 
 def _all_orders(scenario: Scenario, plan: Plan) -> list:
     """Заявки сценария плюс добавленные событиями переплана."""
-    state = CURRENT.get(scenario.region_key)
-    if state and state.get("orders"):
-        return state["orders"]
+    state = STORE.current(scenario.region_key)
+    if state and state.orders:
+        return state.orders
     return scenario.orders
 
 
@@ -233,9 +220,9 @@ def _all_engineers(scenario: Scenario) -> list:
     двигается начало. Ответ, собранный по исходному сценарию, показал бы
     прежние смены и посчитал бы по ним запас прочности.
     """
-    state = CURRENT.get(scenario.region_key)
-    if state and state.get("engineers"):
-        return state["engineers"]
+    state = STORE.current(scenario.region_key)
+    if state and state.engineers:
+        return state.engineers
     return scenario.engineers
 
 
@@ -315,12 +302,12 @@ class SavePlanRequest(BaseModel):
 def meta() -> dict:
     return {
         "regions": [
-            {**SCENARIOS[key].summary(),
+            {**_day(key).scenario.summary(),
              "builtin": key in REGIONS,
-             "dataset_events": DATASET_EVENTS.get(key, [])}
+             "dataset_events": _day(key).dataset_events}
             # сначала встроенные районы, затем загруженные пользователем
-            for key in list(REGIONS) + [k for k in SCENARIOS if k not in REGIONS]
-            if key in SCENARIOS
+            for key in list(REGIONS) + [k for k in STORE.regions() if k not in REGIONS]
+            if STORE.has(key)
         ],
         "skills": list(norms.SKILL_BY_TYPE_BK.values()),
         "vehicles": list(norms.SPEED_KMH.keys()),
@@ -357,14 +344,14 @@ def _build_plan(region: str, strategy: str, time_limit_sec: int,
 @app.post("/api/plan")
 def make_plan(request: PlanRequest) -> dict:
     scenario = _scenario(request.region)
-    previous = CURRENT.get(request.region)
+    previous = STORE.current(request.region)
 
     # Закрепления переживают пересчёт: диспетчер закрепил заявку за бригадой
     # не для одного варианта плана, а потому что так надо в этот день.
     # Сброс — отдельная кнопка, а не побочный эффект кнопки «Спланировать».
-    locked = dict((previous or {}).get("locked") or {})
-    orders = list((previous or {}).get("orders") or scenario.orders)
-    engineers = list((previous or {}).get("engineers") or scenario.engineers)
+    locked = dict(previous.locked) if previous else {}
+    orders = list(previous.orders) if previous else list(scenario.orders)
+    engineers = list(previous.engineers) if previous else list(scenario.engineers)
     if request.reset:
         locked, orders, engineers = {}, list(scenario.orders), list(scenario.engineers)
 
@@ -372,26 +359,14 @@ def make_plan(request: PlanRequest) -> dict:
                        orders, engineers, locked)
 
     metrics = plan_metrics(plan, orders, engineers)
-    state = {
-        "plan": plan, "metrics": metrics, "orders": orders,
-        "engineers": engineers, "locked": locked,
-        "history": list((previous or {}).get("history") or []),
-        "strategy": request.strategy, "time_limit_sec": request.time_limit_sec,
-    }
-    # Пересчёт — тоже изменение: к предыдущему плану диспетчер должен иметь
-    # возможность вернуться, не пересчитывая его заново.
-    if previous and previous.get("plan") is not None:
-        state["history"].append({
-            "label": "Сброс ручных правок" if request.reset else
-                     f"Пересчёт: "
-                     f"{STRATEGY_TITLES.get(request.strategy, request.strategy).lower()}",
-            "plan": previous["plan"], "metrics": previous["metrics"],
-            "orders": list(previous["orders"]),
-            "engineers": list(previous["engineers"]),
-            "locked": dict(previous.get("locked") or {}),
-        })
-        del state["history"][:-HISTORY_LIMIT]
-    CURRENT[request.region] = state
+    label = ("Сброс ручных правок" if request.reset else
+             "Пересчёт: "
+             f"{STRATEGY_TITLES.get(request.strategy, request.strategy).lower()}")
+    # Пересчёт это тоже изменение: прежняя версия остаётся в истории, и к ней
+    # диспетчер возвращается шагом назад, не пересчитывая заново.
+    STORE.push(request.region, DayVersion(
+        label=label, plan=plan, metrics=metrics,
+        orders=orders, engineers=engineers, locked=locked))
     return _plan_payload(scenario, plan, metrics)
 
 
@@ -399,7 +374,7 @@ def make_plan(request: PlanRequest) -> dict:
 def current_plan(region: str) -> dict:
     scenario = _scenario(region)
     state = _state(region)
-    return _plan_payload(scenario, state["plan"], state["metrics"])
+    return _plan_payload(scenario, state.plan, state.metrics)
 
 
 @app.get("/api/compare/{region}")
@@ -412,8 +387,7 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
     на разных наборах заявок. Об этом говорится в ответе полем `basis`.
     """
     scenario = _scenario(region)
-    state = CURRENT.get(region) or {}
-    changed = bool(state.get("history"))
+    changed = len(_day(region).versions) > 1
     rows = []
 
     fact, fact_report = control_plan(scenario.orders, scenario.engineers)
@@ -452,11 +426,11 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
 @app.post("/api/explain")
 def explain(request: ExplainRequest) -> dict:
     state = _state(request.region)
-    orders = state["orders"]
+    orders = state.orders
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
         raise HTTPException(404, f"Заявка {request.order_id} не найдена")
-    return explain_assignment(order, state["plan"], orders, state["engineers"])
+    return explain_assignment(order, state.plan, orders, state.engineers)
 
 
 # --- перепланирование --------------------------------------------------------
@@ -465,7 +439,7 @@ def explain(request: ExplainRequest) -> dict:
 def do_replan(request: ReplanRequest) -> dict:
     scenario = _scenario(request.region)
     state = _state(request.region)
-    orders, engineers = state["orders"], state["engineers"]
+    orders, engineers = state.orders, state.engineers
 
     try:
         at = parse_hhmm(request.at)
@@ -521,19 +495,18 @@ def do_replan(request: ReplanRequest) -> dict:
     signature = (request.kind, at, request.order_id, request.engineer_id,
                  request.delay_min, request.mode,
                  new_order.id if new_order is not None else None)
-    preview = state.get("replan_preview")
-    if (request.apply and preview
-            and preview["signature"] == signature
-            and preview["base"] is state["plan"]):
-        result = preview["result"]
+    day = _day(request.region)
+    version_number = len(day.versions)
+    preview = day.preview
+    if (request.apply and preview is not None
+            and preview[0] == signature and preview[1] == version_number):
+        result = preview[2]
     else:
-        result = replan(orders, engineers, state["plan"], event,
+        result = replan(orders, engineers, state.plan, event,
                         mode=request.mode,
                         time_limit_sec=request.time_limit_sec)
         if not request.apply:
-            state["replan_preview"] = {"signature": signature,
-                                       "base": state["plan"],
-                                       "result": result}
+            day.preview = (signature, version_number, result)
 
     # Списки после события берём у самого переплана, а не пересобираем здесь:
     # событие может менять не только состав заявок, но и их поля (задержка
@@ -545,30 +518,36 @@ def do_replan(request: ReplanRequest) -> dict:
     metrics = plan_metrics(result.plan, new_orders, new_engineers)
 
     if request.apply:
-        _snapshot(state, f"{KIND_TITLES.get(request.kind, request.kind)} "
-                         f"в {hhmm(at)}")
-        state["plan"] = result.plan
-        state["metrics"] = metrics
-        state["orders"] = new_orders
-        # смены сдвинулись: остаток дня начинается с момента события,
-        # у выбывшего исполнителя смена закрыта
-        state["engineers"] = new_engineers
-        state.pop("replan_preview", None)
-
-    payload_scenario = scenario
-    saved_orders = CURRENT[request.region]["orders"]
-    CURRENT[request.region]["orders"] = new_orders
-    try:
-        payload = _plan_payload(payload_scenario, result.plan, metrics, extra={
+        # Смены сдвинулись: остаток дня начинается с момента события, у
+        # выбывшей бригады смена закрыта.
+        STORE.push(request.region, DayVersion(
+            label=f"{KIND_TITLES.get(request.kind, request.kind)} в {hhmm(at)}",
+            plan=result.plan, metrics=metrics,
+            orders=new_orders, engineers=new_engineers,
+            locked=dict(state.locked)))
+        day.preview = None
+        return _plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
             "narrative": result.narrative,
-            "applied": request.apply,
+            "applied": True,
+            "frozen": result.frozen,
+        })
+
+    # Предпросмотр: показываем, что получится, не меняя рабочий день. Заявки
+    # после события подставляем только в ответ.
+    preview_version = DayVersion(label="предпросмотр", plan=result.plan,
+                                 metrics=metrics, orders=new_orders,
+                                 engineers=new_engineers, locked=dict(state.locked))
+    day.versions.append(preview_version)
+    try:
+        return _plan_payload(scenario, result.plan, metrics, extra={
+            "diff": result.diff,
+            "narrative": result.narrative,
+            "applied": False,
             "frozen": result.frozen,
         })
     finally:
-        if not request.apply:
-            CURRENT[request.region]["orders"] = saved_orders
-    return payload
+        day.versions.pop()
 
 
 # --- ручное переназначение (дополнительная возможность из ТЗ) ----------------
@@ -578,8 +557,8 @@ def reassign(request: ReassignRequest) -> dict:
     """Диспетчер вручную переносит заявку другому исполнителю."""
     scenario = _scenario(request.region)
     state = _state(request.region)
-    orders, engineers = state["orders"], state["engineers"]
-    plan: Plan = state["plan"]
+    orders, engineers = state.orders, state.engineers
+    plan: Plan = state.plan
 
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
@@ -588,7 +567,7 @@ def reassign(request: ReassignRequest) -> dict:
     # Ручной перенос — это решение диспетчера, и оно должно пережить пересчёт.
     # Оставить закрепление на прежней бригаде значит вернуть заявку обратно при
     # первом же планировании и молча отменить то, что человек только что сделал.
-    locked = state.setdefault("locked", {})
+    locked = dict(state.locked)
     if request.engineer_id:
         locked[request.order_id] = request.engineer_id
     else:
@@ -645,8 +624,10 @@ def reassign(request: ReassignRequest) -> dict:
                            if o.id not in assigned]
 
     metrics = plan_metrics(new_plan, orders, engineers)
-    _snapshot(state, f"Ручное назначение заявки {request.order_id}")
-    state["plan"], state["metrics"] = new_plan, metrics
+    STORE.push(request.region, DayVersion(
+        label=f"Ручное назначение заявки {request.order_id}",
+        plan=new_plan, metrics=metrics, orders=list(orders),
+        engineers=list(engineers), locked=locked))
     return _plan_payload(scenario, new_plan, metrics)
 
 
@@ -662,13 +643,13 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
     """
     scenario = _scenario(request.region)
     state = _state(request.region)
-    orders, engineers = state["orders"], state["engineers"]
+    orders, engineers = state.orders, state.engineers
 
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
         raise HTTPException(404, f"Заявка {request.order_id} не найдена")
 
-    locked = dict(state.get("locked") or {})
+    locked = dict(state.locked or {})
     changes: list[str] = []
 
     if request.set_lock:
@@ -699,18 +680,21 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
         changes.append(f"приоритет «{request.priority}»")
 
     if not changes:
-        return _plan_payload(scenario, state["plan"], state["metrics"])
+        return _plan_payload(scenario, state.plan, state.metrics)
 
-    strategy = state.get("strategy", "optimized")
-    time_limit = request.time_limit_sec or state.get("time_limit_sec",
-                                                     DEFAULT_TIME_LIMIT_SEC)
+    # После события или ручной правки у плана стоит своя пометка
+    # («replanned», «manual»), которой нет среди способов расчёта. Пересчёт в
+    # таком случае идёт оптимизатором.
+    strategy = state.plan.strategy if state.plan.strategy in STRATEGIES else "optimized"
+    time_limit = request.time_limit_sec or DEFAULT_TIME_LIMIT_SEC
     plan = _build_plan(request.region, strategy, time_limit,
                        new_orders, engineers, locked)
     metrics = plan_metrics(plan, new_orders, engineers)
 
-    _snapshot(state, f"Заявка {request.order_id}: " + ", ".join(changes))
-    state["plan"], state["metrics"] = plan, metrics
-    state["orders"], state["locked"] = new_orders, locked
+    STORE.push(request.region, DayVersion(
+        label=f"Заявка {request.order_id}: " + ", ".join(changes),
+        plan=plan, metrics=metrics, orders=new_orders,
+        engineers=list(engineers), locked=locked))
     return _plan_payload(scenario, plan, metrics)
 
 
@@ -720,19 +704,13 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
 def undo(request: RegionRequest) -> dict:
     """Возвращает план к состоянию до последнего изменения."""
     scenario = _scenario(request.region)
-    state = _state(request.region)
-    history = state.get("history") or []
-    if not history:
+    undone = _state(request.region).label
+    previous = STORE.step_back(request.region)
+    if previous is None:
         raise HTTPException(409, "Отменять нечего: план ещё не менялся")
 
-    step = history.pop()
-    state["plan"] = step["plan"]
-    state["metrics"] = step["metrics"]
-    state["orders"] = step["orders"]
-    state["engineers"] = step["engineers"]
-    state["locked"] = step["locked"]
-    payload = _plan_payload(scenario, state["plan"], state["metrics"])
-    payload["undone"] = step["label"]
+    payload = _plan_payload(scenario, previous.plan, previous.metrics)
+    payload["undone"] = undone
     return payload
 
 
@@ -753,7 +731,7 @@ def _saved_path(region: str) -> str:
 
 
 def _state_to_json(scenario: Scenario, state: dict[str, Any], name: str) -> dict:
-    plan: Plan = state["plan"]
+    plan: Plan = state.plan
     return {
         "format": "dispatcher-saved-plan/1",
         "region": scenario.region_key,
@@ -762,9 +740,9 @@ def _state_to_json(scenario: Scenario, state: dict[str, Any], name: str) -> dict
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "strategy": plan.strategy,
         "solver_status": plan.solver_status,
-        "locked": dict(state.get("locked") or {}),
-        "orders": [order_to_json(o) for o in state["orders"]],
-        "engineers": [engineer_to_json(e) for e in state["engineers"]],
+        "locked": dict(state.locked or {}),
+        "orders": [order_to_json(o) for o in state.orders],
+        "engineers": [engineer_to_json(e) for e in state.engineers],
         # Маршруты храним последовательностями заявок, а не готовыми временами:
         # при загрузке они пересчитываются тем же кодом, что и в плане,
         # и любое расхождение вылезет сразу, а не тихо переживёт сохранение.
@@ -816,14 +794,14 @@ def restore_plan(request: RegionRequest) -> dict:
     # Загруженный набор живёт в памяти процесса и после перезапуска сервиса
     # не известен, а в файле сохранения лежит всё нужное, чтобы поднять район
     # заново. Иначе интерфейс предлагает «Восстановить» и получает 404.
-    if request.region not in SCENARIOS and os.path.exists(path):
+    if not STORE.has(request.region) and os.path.exists(path):
         try:
             with open(path, encoding="utf-8") as fh:
                 saved = json.load(fh)
             restored_scenario, _ = scenario_from_json(
                 saved, region_key=request.region,
                 region_name=saved.get("region_name") or request.region)
-            SCENARIOS[request.region] = restored_scenario
+            STORE.replace_scenario(request.region, restored_scenario)
         except (OSError, ValueError, DatasetError) as exc:
             raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
     scenario = _scenario(request.region)
@@ -877,13 +855,11 @@ def restore_plan(request: RegionRequest) -> dict:
                        if o.id not in assigned]
     metrics = plan_metrics(plan, orders, engineers)
 
-    CURRENT[request.region] = {
-        "plan": plan, "metrics": metrics, "orders": orders,
-        "engineers": engineers, "history": [],
-        "locked": {k: v for k, v in (data.get("locked") or {}).items()
-                   if k in by_id and v in engineer_by_id},
-        "strategy": "optimized", "time_limit_sec": DEFAULT_TIME_LIMIT_SEC,
-    }
+    STORE.push(request.region, DayVersion(
+        label="Восстановлен сохранённый день",
+        plan=plan, metrics=metrics, orders=orders, engineers=engineers,
+        locked={k: v for k, v in (data.get("locked") or {}).items()
+                if k in by_id and v in engineer_by_id}))
     payload = _plan_payload(scenario, plan, metrics)
     payload["restored"] = {"name": data.get("name", request.region),
                            "saved_at": data.get("saved_at", ""),
@@ -900,7 +876,7 @@ def _free_region_key(base: str) -> str:
     """Подбирает свободный ключ, чтобы загрузка не затирала встроенные районы."""
     candidate = base or "upload"
     suffix = 2
-    while candidate in SCENARIOS:
+    while STORE.has(candidate):
         candidate = f"{base}-{suffix}"
         suffix += 1
     return candidate
@@ -931,9 +907,7 @@ async def upload_dataset(request: Request, filename: str = "dataset",
     if name.strip():
         scenario.region_name = name.strip()
 
-    SCENARIOS[region_key] = scenario
-    DATASET_EVENTS[region_key] = events
-    CURRENT.pop(region_key, None)
+    STORE.replace_scenario(region_key, scenario, events)
 
     return {
         "region": region_key,
@@ -947,7 +921,7 @@ async def upload_dataset(request: Request, filename: str = "dataset",
 def download_dataset(region: str) -> JSONResponse:
     """Отдаёт текущий набор данных района в JSON — формат для обратной загрузки."""
     scenario = _scenario(region)
-    data = scenario_to_json(scenario, DATASET_EVENTS.get(region, []))
+    data = scenario_to_json(scenario, _day(region).dataset_events)
     return JSONResponse(content=data,
                         media_type="application/json; charset=utf-8")
 
@@ -958,9 +932,9 @@ def risk_report(region: str, overrun: int = 15) -> dict:
     _scenario(region)
     state = _state(region)
     overrun = max(0, min(int(overrun), 240))
-    report = plan_risk(state["plan"], state["orders"], state["engineers"])
+    report = plan_risk(state.plan, state.orders, state.engineers)
     report["custom_scenario"] = overrun_impact(
-        state["plan"], state["orders"], state["engineers"], overrun)
+        state.plan, state.orders, state.engineers, overrun)
     return report
 
 
@@ -969,7 +943,7 @@ def validate_plan(region: str) -> dict:
     """Независимая перепроверка текущего плана на соблюдение ограничений ТЗ."""
     _scenario(region)
     state = _state(region)
-    report = validate(state["plan"], state["orders"], state["engineers"])
+    report = validate(state.plan, state.orders, state.engineers)
     return report.to_dict()
 
 
@@ -980,10 +954,10 @@ def export_plan(region: str) -> JSONResponse:
     """Результат в формате ТЗ п. 2.4.2 — для проверки и передачи дальше."""
     scenario = _scenario(region)
     state = _state(region)
-    plan: Plan = state["plan"]
-    orders = state["orders"]
+    plan: Plan = state.plan
+    orders = state.orders
     by_id = {o.id: o for o in orders}
-    metrics = state["metrics"]
+    metrics = state.metrics
 
     assignment = {}
     for route in plan.routes:

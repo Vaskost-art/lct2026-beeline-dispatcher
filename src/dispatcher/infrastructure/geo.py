@@ -20,6 +20,7 @@ import math
 import os
 
 from dispatcher.domain.distance import (
+    KM_PER_DEG_LAT,
     haversine_km,
     normalize_address,
     normalize_district,
@@ -72,7 +73,6 @@ MOSCOW_CENTER = (55.7558, 37.6176)
 # Радиус разброса точек внутри района при приблизительном геокодировании, км.
 APPROX_SPREAD_KM = 1.2
 
-_KM_PER_DEG_LAT = 111.19
 
 
 class Geocoder:
@@ -132,8 +132,8 @@ class Geocoder:
         # равномерное распределение по кругу радиуса APPROX_SPREAD_KM
         radius = APPROX_SPREAD_KM * math.sqrt(u)
         angle = 2 * math.pi * v
-        dlat = radius * math.cos(angle) / _KM_PER_DEG_LAT
-        dlon = radius * math.sin(angle) / (_KM_PER_DEG_LAT * math.cos(math.radians(base[0])))
+        dlat = radius * math.cos(angle) / KM_PER_DEG_LAT
+        dlon = radius * math.sin(angle) / (KM_PER_DEG_LAT * math.cos(math.radians(base[0])))
         return round(base[0] + dlat, 6), round(base[1] + dlon, 6)
 
     @property

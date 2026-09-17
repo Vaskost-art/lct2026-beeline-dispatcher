@@ -14,7 +14,9 @@ import re
 
 from dispatcher.domain.norms import DETOUR_FACTOR, SPEED_KMH
 
-_KM_PER_DEG_LAT = 111.19
+#: Километров в одном градусе широты. Нужна и для расстояний, и для
+#: смещения приблизительной точки внутри района.
+KM_PER_DEG_LAT = 111.19
 
 
 def normalize_district(district: str) -> str:

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from domain import Engineer, Order, Route, Stop
-from geo import road_km, travel_minutes
+from dispatcher.domain import Engineer, Order, Route, Stop
+from dispatcher.domain.distance import road_km, travel_minutes
 
 
 @dataclass

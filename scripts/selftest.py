@@ -19,17 +19,26 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from dataset import scenario_from_json, scenario_to_json       # noqa: E402
-from ingest import load_all                                    # noqa: E402
-from metrics import control_plan, plan_metrics                 # noqa: E402
-from replan import (KIND_CANCEL, KIND_DELAYED, KIND_UNAVAILABLE,  # noqa: E402
-                    KIND_URGENT, MODE_FULL, MODE_MINIMAL, ReplanEvent,
-                    make_urgent_order, replan)
-from risk import plan_risk                                     # noqa: E402
-from solver import solve_baseline, solve_greedy, solve_optimized  # noqa: E402
-from validate import validate                                  # noqa: E402
+from dispatcher.infrastructure.ingest import load_all  # noqa: E402
+from dispatcher.services.control import control_plan  # noqa: E402
+from dispatcher.services.dataset import scenario_from_json, scenario_to_json  # noqa: E402
+from dispatcher.services.impact import plan_risk  # noqa: E402
+from dispatcher.services.metrics import plan_metrics  # noqa: E402
+from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
+from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
+from dispatcher.services.replanning.apply import replan  # noqa: E402
+from dispatcher.services.replanning.events import (  # noqa: E402
+    KIND_CANCEL,
+    KIND_DELAYED,
+    KIND_UNAVAILABLE,
+    KIND_URGENT,
+    ReplanEvent,
+    make_urgent_order,
+)
+from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL  # noqa: E402
+from dispatcher.services.validate import validate  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE = os.path.join(ROOT, "data", "geo_cache.json")

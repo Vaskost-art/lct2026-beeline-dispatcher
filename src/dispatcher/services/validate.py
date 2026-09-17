@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from domain import Engineer, Order, Plan, hhmm
-from geo import road_km, travel_minutes
+from dispatcher.domain import Engineer, Order, Plan, hhmm
+from dispatcher.domain.distance import road_km, travel_minutes
 
 TOLERANCE_KM = 0.01
 TOLERANCE_MIN = 0

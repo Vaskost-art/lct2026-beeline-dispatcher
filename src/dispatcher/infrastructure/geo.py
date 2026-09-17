@@ -18,9 +18,13 @@ import hashlib
 import json
 import math
 import os
-import re
 
-from norms import DETOUR_FACTOR, SPEED_KMH
+from dispatcher.domain.distance import (
+    KM_PER_DEG_LAT,
+    haversine_km,
+    normalize_address,
+    normalize_district,
+)
 
 PRECISION_EXACT = "exact"              # из кэша, реальный геокодер
 PRECISION_APPROX = "approx_district"   # центроид района + смещение
@@ -69,42 +73,6 @@ MOSCOW_CENTER = (55.7558, 37.6176)
 # Радиус разброса точек внутри района при приблизительном геокодировании, км.
 APPROX_SPREAD_KM = 1.2
 
-_KM_PER_DEG_LAT = 111.19
-
-
-def normalize_district(district: str) -> str:
-    """«GPON Даниловский» -> «Даниловский»; выравнивает тире и пробелы."""
-    name = re.sub(r"^\s*(GPON|FTTB|FMC)\s+", "", district.strip(), flags=re.I)
-    name = re.sub(r"\s*[-–—]\s*", " - ", name)
-    return re.sub(r"\s+", " ", name).strip()
-
-
-def normalize_address(address: str) -> str:
-    """Ключ кэша: без номера квартиры, схлопнутые пробелы, нижний регистр."""
-    addr = re.sub(r",\s*кв\.?\s*\d+.*$", "", address.strip(), flags=re.I)
-    addr = re.sub(r"\s+", " ", addr)
-    return addr.strip(" ,.").lower()
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Расстояние по прямой между двумя точками, км."""
-    r = 6371.0088
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = p2 - p1
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-def road_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Расстояние по улично-дорожной сети (оценка), км."""
-    return haversine_km(lat1, lon1, lat2, lon2) * DETOUR_FACTOR
-
-
-def travel_minutes(km: float, vehicle: str) -> int:
-    """Время в пути, минуты (округление вверх до целой минуты)."""
-    speed = SPEED_KMH.get(vehicle, SPEED_KMH["Автомобиль"])
-    return int(math.ceil(km / speed * 60)) if km > 0 else 0
 
 
 class Geocoder:
@@ -112,20 +80,20 @@ class Geocoder:
 
     def __init__(self, cache_path: str):
         self.cache_path = cache_path
-        self.cache: dict[str, dict] = {}
+        self.cache: dict[str, dict[str, float | str | None]] = {}
         if os.path.exists(cache_path):
             with open(cache_path, encoding="utf-8") as f:
                 self.cache = json.load(f)
         self.stats = {PRECISION_EXACT: 0, PRECISION_APPROX: 0}
         # координаты из кэша, которым мы не поверили
-        self.rejected: list[dict] = []
+        self.rejected: list[dict[str, str | float]] = []
 
     def locate(self, address: str, district: str) -> tuple[float, float, str]:
         """Возвращает (lat, lon, точность)."""
         key = normalize_address(address)
         hit = self.cache.get(key)
         if hit and hit.get("lat") is not None:
-            lat, lon = float(hit["lat"]), float(hit["lon"])
+            lat, lon = float(hit["lat"] or 0.0), float(hit["lon"] or 0.0)
             if self._plausible(lat, lon, district):
                 self.stats[PRECISION_EXACT] += 1
                 return lat, lon, PRECISION_EXACT
@@ -164,8 +132,8 @@ class Geocoder:
         # равномерное распределение по кругу радиуса APPROX_SPREAD_KM
         radius = APPROX_SPREAD_KM * math.sqrt(u)
         angle = 2 * math.pi * v
-        dlat = radius * math.cos(angle) / _KM_PER_DEG_LAT
-        dlon = radius * math.sin(angle) / (_KM_PER_DEG_LAT * math.cos(math.radians(base[0])))
+        dlat = radius * math.cos(angle) / KM_PER_DEG_LAT
+        dlon = radius * math.sin(angle) / (KM_PER_DEG_LAT * math.cos(math.radians(base[0])))
         return round(base[0] + dlat, 6), round(base[1] + dlon, 6)
 
     @property
@@ -174,7 +142,7 @@ class Geocoder:
         total = sum(self.stats.values())
         return self.stats[PRECISION_EXACT] / total if total else 0.0
 
-    def report(self) -> dict:
+    def report(self) -> dict[str, object]:
         return {
             "exact": self.stats[PRECISION_EXACT],
             "approx": self.stats[PRECISION_APPROX],
@@ -186,20 +154,3 @@ class Geocoder:
             "rejected": len(self.rejected),
             "rejected_addresses": [r["address"] for r in self.rejected],
         }
-
-
-class DistanceMatrix:
-    """Предрасчитанная матрица расстояний между всеми точками плана."""
-
-    def __init__(self, points: list[tuple[float, float]]):
-        self.points = points
-        n = len(points)
-        self.km = [[0.0] * n for _ in range(n)]
-        for i in range(n):
-            for j in range(i + 1, n):
-                d = road_km(points[i][0], points[i][1], points[j][0], points[j][1])
-                self.km[i][j] = d
-                self.km[j][i] = d
-
-    def minutes(self, i: int, j: int, vehicle: str) -> int:
-        return travel_minutes(self.km[i][j], vehicle)

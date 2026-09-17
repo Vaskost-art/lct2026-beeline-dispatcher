@@ -18,12 +18,23 @@ import io
 import os
 from dataclasses import dataclass, field
 
-import norms
-from domain import Engineer, Order, parse_hhmm
-from geo import Geocoder, haversine_km, normalize_district
-
-RAW_ENCODING = "cp1251"
-CSV_DELIMITER = ";"
+from dispatcher.domain import (
+    PRIORITY_URGENT,
+    VEHICLE_CAR,
+    Engineer,
+    Order,
+    norms,
+)
+from dispatcher.domain.distance import normalize_district
+from dispatcher.infrastructure.crews import CrewFacts, build_engineers
+from dispatcher.infrastructure.csvfile import (
+    CSV_DELIMITER,
+    _cell,
+    _clean_address,
+    _parse_dt,
+    decode_csv,
+)
+from dispatcher.infrastructure.geo import Geocoder
 
 REGIONS = {
     "vostok": "Восток",
@@ -32,27 +43,6 @@ REGIONS = {
 }
 
 STATUS_CANCELLED = "Отменена"
-
-
-def _parse_dt(value: str) -> int | None:
-    """'17.08.2026 20:00' -> минуты от полуночи. None, если поле пустое."""
-    value = value.strip()
-    if not value:
-        return None
-    parts = value.split()
-    if len(parts) != 2:
-        return None
-    try:
-        return parse_hhmm(parts[1])
-    except ValueError:
-        return None
-
-
-def _clean_address(raw: str) -> str:
-    """Убирает дубль «г.Город Москва» и номер квартиры для отображения."""
-    addr = raw.strip()
-    addr = addr.replace("г.Город Москва", "Москва").replace("Город Москва", "Москва")
-    return addr.strip(" ,")
 
 
 @dataclass
@@ -64,11 +54,11 @@ class Scenario:
     orders: list[Order] = field(default_factory=list)
     engineers: list[Engineer] = field(default_factory=list)
     cancelled_ids: list[str] = field(default_factory=list)
-    geo_report: dict = field(default_factory=dict)
+    geo_report: dict[str, object] = field(default_factory=dict)
     duplicate_ids: list[str] = field(default_factory=list)
     # строки выгрузки, которые не удалось разобрать: их нет в плане, и знать
     # об этом должен диспетчер, а не только автор кода
-    skipped_rows: list[dict] = field(default_factory=list)
+    skipped_rows: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def order_by_id(self) -> dict[str, Order]:
@@ -78,7 +68,7 @@ class Scenario:
     def engineer_by_id(self) -> dict[str, Engineer]:
         return {e.id: e for e in self.engineers}
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, object]:
         skills = {s: 0 for s in norms.SKILL_BY_TYPE_BK.values()}
         for o in self.orders:
             skills[o.required_skill] = skills.get(o.required_skill, 0) + 1
@@ -90,7 +80,7 @@ class Scenario:
             "region_name": self.region_name,
             "orders": len(self.orders),
             "engineers": len(self.engineers),
-            "urgent": sum(1 for o in self.orders if o.priority == norms.PRIORITY_URGENT),
+            "urgent": sum(1 for o in self.orders if o.priority == PRIORITY_URGENT),
             "with_vehicle_requirement": sum(1 for o in self.orders if o.required_vehicle),
             "cancelled_in_fact": len(self.cancelled_ids),
             "orders_by_skill": skills,
@@ -110,27 +100,6 @@ def load_scenario(region_key: str, raw_dir: str, cache_path: str) -> Scenario:
     return parse_control_csv(raw, region_key, cache_path)
 
 
-def decode_csv(raw: bytes) -> str:
-    """Определяет кодировку выгрузки: организаторы отдают cp1251, но файл
-    могли пересохранить в UTF-8, в том числе с BOM."""
-    for encoding in ("utf-8-sig", RAW_ENCODING, "utf-8"):
-        try:
-            text = raw.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-        # cp1251 декодирует почти что угодно, поэтому проверяем осмысленность:
-        # в шапке обязана быть колонка «Заявка»
-        if "Заявка" in text.split("\n", 1)[0]:
-            return text
-    return raw.decode(RAW_ENCODING, errors="replace")
-
-
-def _cell(row: dict, name: str) -> str:
-    """Значение колонки строкой. В короткой строке CSV недостающие ключи
-    приходят как None, поэтому .get(name, "") от падения не спасает."""
-    return (row.get(name) or "").strip()
-
-
 def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
                       region_name: str | None = None) -> Scenario:
     """Разбирает выгрузку в формате организаторов из байтов файла."""
@@ -144,13 +113,13 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
     orders: list[Order] = []
     cancelled: list[str] = []
     # сырые данные по бригадам для последующего восстановления профиля
-    crews: dict[str, dict] = {}
+    crews: dict[str, CrewFacts] = {}
     # В выгрузках встречается один и тот же номер заявки в двух строках с
     # разными временными окнами — это два визита по одному адресу. Разводим их
     # в отдельные заявки, иначе одна из них потерялась бы при любом поиске по id.
     seen_ids: dict[str, int] = {}
     duplicates: list[str] = []
-    skipped: list[dict] = []
+    skipped: list[dict[str, str]] = []
 
     for row in rows:
         order_id = _cell(row, "Заявка")
@@ -203,16 +172,15 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
             cancelled.append(order_id)
 
         if crew:
-            info = crews.setdefault(crew, {"skills": set(), "points": [], "windows": [],
-                                           "needs_car": False, "districts": set()})
-            info["skills"].add(order.required_skill)
-            info["points"].append((lat, lon))
-            info["windows"].append((start, end))
-            info["districts"].add(order.district)
-            if order.required_vehicle == norms.VEHICLE_CAR:
-                info["needs_car"] = True
+            facts = crews.setdefault(crew, CrewFacts())
+            facts.skills.add(order.required_skill)
+            facts.points.append((lat, lon))
+            facts.windows.append((start, end))
+            facts.districts.add(order.district)
+            if order.required_vehicle == VEHICLE_CAR:
+                facts.needs_car = True
 
-    engineers = _build_engineers(crews)
+    engineers = build_engineers(crews)
     return Scenario(
         region_key=region_key,
         region_name=region_name or REGIONS.get(region_key, region_key),
@@ -223,41 +191,6 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
         duplicate_ids=sorted(set(duplicates)),
         skipped_rows=skipped,
     )
-
-
-def _build_engineers(crews: dict[str, dict]) -> list[Engineer]:
-    """Восстанавливает профили исполнителей из контрольного распределения."""
-    engineers: list[Engineer] = []
-    for name in sorted(crews):
-        info = crews[name]
-        points = info["points"]
-        base_lat = sum(p[0] for p in points) / len(points)
-        base_lon = sum(p[1] for p in points) / len(points)
-
-        # разлёт = максимальное удаление точки от базы
-        spread = max(haversine_km(base_lat, base_lon, p[0], p[1]) for p in points)
-        central = any(d in norms.CENTRAL_DISTRICTS for d in info["districts"])
-        vehicle = norms.vehicle_for_spread(spread, info["needs_car"], central)
-
-        first = min(w[0] for w in info["windows"])
-        last = max(w[1] for w in info["windows"])
-        # круглосуточное окно не должно растягивать смену на все сутки
-        last = min(last, 22 * 60)
-        shift_start, shift_end = norms.shift_bounds(first, last)
-
-        engineers.append(Engineer(
-            id=name,
-            name=name,
-            lat=round(base_lat, 6),
-            lon=round(base_lon, 6),
-            start_address=f"База участка: {', '.join(sorted(info['districts'])[:2])}",
-            shift_start=shift_start,
-            shift_end=shift_end,
-            skills=sorted(info["skills"]),
-            vehicle=vehicle,
-            break_min=norms.break_minutes(shift_start, shift_end),
-        ))
-    return engineers
 
 
 def load_all(raw_dir: str, cache_path: str) -> dict[str, Scenario]:

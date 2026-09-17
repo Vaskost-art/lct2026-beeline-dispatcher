@@ -19,13 +19,15 @@ import statistics
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "backend"))
+    os.path.abspath(__file__))), "src"))
 
-from ingest import load_all                                   # noqa: E402
-from metrics import control_plan, plan_metrics                # noqa: E402
-from solver import (STRATEGY_FULL_TITLES, solve_baseline,     # noqa: E402
-                    solve_greedy, solve_optimized)
-from validate import validate                                 # noqa: E402
+from dispatcher.infrastructure.ingest import load_all  # noqa: E402
+from dispatcher.services.control import control_plan  # noqa: E402
+from dispatcher.services.metrics import plan_metrics  # noqa: E402
+from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
+from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
+from dispatcher.services.planning.strategies import STRATEGY_FULL_TITLES  # noqa: E402
+from dispatcher.services.validate import validate  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_DIR = os.path.join(ROOT, "data", "raw")
@@ -95,7 +97,7 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
 def sweep_heuristics(scenarios, time_limit: int) -> None:
     """Перебор эвристик первого решения — тем же замером, что и всё остальное.
 
-    Настройки поиска в `backend/solver.py` выбраны не из примеров OR-Tools, и
+    Настройки поиска в `dispatcher/services/planning` выбраны не из примеров OR-Tools, и
     эта таблица — то, чем выбор подтверждается. Метаэвристика локального поиска
     при этом не меняется: сравниваются именно стартовые решения.
     """
@@ -145,7 +147,7 @@ def main() -> int:
     print("|---|---|---|---|---|---|")
 
     summary: dict[str, dict] = {}
-    for key, scenario in scenarios.items():
+    for scenario in scenarios.values():
         rows = measure(scenario, args.time_limit, args.runs)
         summary[scenario.region_name] = {r["title"]: r for r in rows}
         for i, r in enumerate(rows):
@@ -173,10 +175,11 @@ def main() -> int:
         opt = next(r for t, r in rows.items() if "OR-Tools" in t)
         base = next(r for t, r in rows.items() if "базовый" in t)
         fact = next(r for t, r in rows.items() if t.startswith("Факт"))
-        def delta(other):
+        def delta(other, optimized=opt):
             if not other["km_per_order"]:
                 return "—"
-            return f"{round(100 * (opt['km_per_order'] / other['km_per_order'] - 1)):+d}% км на заявку"
+            change = round(100 * (optimized["km_per_order"] / other["km_per_order"] - 1))
+            return f"{change:+d}% км на заявку"
         people = opt["used"] - fact["used"]
         # Таблицу переносят в README дословно, поэтому склонение здесь, а не
         # «−1 бригад» с последующей ручной правкой.

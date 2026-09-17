@@ -21,19 +21,31 @@ from dataclasses import replace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-import norms                                                      # noqa: E402
-from domain import Engineer, Order, Plan, hhmm                    # noqa: E402
-from ingest import Scenario                                       # noqa: E402
-from metrics import plan_metrics                                  # noqa: E402
-from replan import (KIND_CANCEL, KIND_DELAYED, KIND_UNAVAILABLE,  # noqa: E402
-                    KIND_URGENT, MODE_FULL, MODE_MINIMAL, ReplanEvent,
-                    make_urgent_order, replan)
-from risk import plan_risk                                        # noqa: E402
-from routing import evaluate_sequence                             # noqa: E402
-from solver import solve_baseline, solve_greedy, solve_optimized   # noqa: E402
-from validate import validate                                     # noqa: E402
+from dispatcher.domain import (  # noqa: E402
+    Engineer,
+    Order,
+    Plan,
+    hhmm,
+    norms,  # noqa: E402
+)
+from dispatcher.services.impact import plan_risk  # noqa: E402
+from dispatcher.services.metrics import plan_metrics  # noqa: E402
+from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
+from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
+from dispatcher.services.replanning.apply import replan  # noqa: E402
+from dispatcher.services.replanning.events import (  # noqa: E402
+    KIND_CANCEL,
+    KIND_DELAYED,
+    KIND_UNAVAILABLE,
+    KIND_URGENT,
+    ReplanEvent,
+    make_urgent_order,
+)
+from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL  # noqa: E402
+from dispatcher.services.routing import evaluate_sequence  # noqa: E402
+from dispatcher.services.validate import validate  # noqa: E402
 
 TIME_LIMIT = int(os.environ.get("STRESS_TIME_LIMIT", "3"))
 

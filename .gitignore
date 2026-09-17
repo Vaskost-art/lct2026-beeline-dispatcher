@@ -9,3 +9,10 @@ data/saved/*
 
 # Снимки экрана содержат адреса заявок: за контур репозитория им нельзя
 reports/shots/
+
+# Внутренняя кухня: в репозиторий решения не уходит
+.claude/
+docs/superpowers/
+docs/requirements.md
+docs/status.md
+reports/

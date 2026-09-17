@@ -34,11 +34,17 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-import envfile                                          # noqa: E402
-from geo import normalize_address, normalize_district  # noqa: E402
-from ingest import REGIONS, RAW_ENCODING, CSV_DELIMITER, _clean_address  # noqa: E402
+import envfile  # noqa: E402
+
+from dispatcher.domain.distance import normalize_address, normalize_district  # noqa: E402
+from dispatcher.infrastructure.csvfile import (  # noqa: E402
+    CSV_DELIMITER,
+    RAW_ENCODING,
+    _clean_address,
+)
+from dispatcher.infrastructure.ingest import REGIONS  # noqa: E402
 
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
 YANDEX_GEOCODER = "https://geocode-maps.yandex.ru/1.x/"
@@ -58,7 +64,8 @@ def collect_addresses() -> list[tuple[str, str, str]]:
         path = os.path.join(RAW_DIR, f"{key}_control.csv")
         if not os.path.exists(path):
             continue
-        text = open(path, "rb").read().decode(RAW_ENCODING)
+        with open(path, "rb") as fh:
+            text = fh.read().decode(RAW_ENCODING)
         for row in csv.DictReader(io.StringIO(text), delimiter=CSV_DELIMITER):
             if not (row.get("Заявка") or "").strip():
                 continue
@@ -190,7 +197,7 @@ def geocode_nominatim(query: str, _key: str) -> tuple[float, float] | None:
     Берём несколько вариантов, а не один: улица с тем же названием есть
     и в соседнем городе, и при `limit=1` в кэш однажды попала «улица
     Талалихина» из Щербинки вместо Таганского района. Правдоподобность
-    выбранной точки проверяет `backend/geo.py` при чтении кэша.
+    выбранной точки проверяет `dispatcher/infrastructure/geo.py` при чтении кэша.
     """
     params = urllib.parse.urlencode({
         "q": query, "format": "json", "limit": 5, "countrycodes": "ru",
@@ -251,7 +258,8 @@ def main() -> int:
 
     cache: dict[str, dict] = {}
     if os.path.exists(CACHE_PATH) and not args.force:
-        cache = json.load(open(CACHE_PATH, encoding="utf-8"))
+        with open(CACHE_PATH, encoding="utf-8") as fh:
+            cache = json.load(fh)
 
     targets = collect_addresses()
     todo = [t for t in targets if t[0] not in cache or cache[t[0]].get("lat") is None]
@@ -285,11 +293,11 @@ def main() -> int:
                           "source": "not_found"}
             print("    -> не найден, останется приблизительная точка района")
         if i % 20 == 0:
-            json.dump(cache, open(CACHE_PATH, "w", encoding="utf-8"),
-                      ensure_ascii=False, indent=1)
+            with open(CACHE_PATH, "w", encoding="utf-8") as fh:
+                json.dump(cache, fh, ensure_ascii=False, indent=1)
 
-    json.dump(cache, open(CACHE_PATH, "w", encoding="utf-8"),
-              ensure_ascii=False, indent=1)
+    with open(CACHE_PATH, "w", encoding="utf-8") as fh:
+        json.dump(cache, fh, ensure_ascii=False, indent=1)
     resolved = sum(1 for v in cache.values() if v.get("lat") is not None)
     coarse_note = ""
     if coarse:

@@ -28,5 +28,4 @@ if [ -z "${YANDEX_MAPS_API_KEY:-}" ]; then
 fi
 
 echo "Интерфейс диспетчера: http://127.0.0.1:${PORT}"
-cd backend
-exec "$HERE/.venv/bin/python" -m uvicorn app:app --host 127.0.0.1 --port "$PORT"
+exec "$HERE/.venv/bin/python" -m uvicorn dispatcher.api.app:app --host 127.0.0.1 --port "$PORT" --app-dir src

@@ -22,16 +22,18 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-import norms                                                    # noqa: E402
-from dataset import order_to_json, scenario_to_json             # noqa: E402
-from domain import hhmm                                         # noqa: E402
-from ingest import load_scenario                                # noqa: E402
-from metrics import plan_metrics                                # noqa: E402
-from replan import KIND_URGENT, make_urgent_order               # noqa: E402
-from solver import solve_baseline, solve_optimized              # noqa: E402
-from validate import validate                                   # noqa: E402
+import norms  # noqa: E402
+
+from dispatcher.domain import hhmm  # noqa: E402
+from dispatcher.infrastructure.ingest import load_scenario  # noqa: E402
+from dispatcher.services.dataset import order_to_json, scenario_to_json  # noqa: E402
+from dispatcher.services.metrics import plan_metrics  # noqa: E402
+from dispatcher.services.planning.baseline import solve_baseline  # noqa: E402
+from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
+from dispatcher.services.replanning.events import KIND_URGENT, make_urgent_order  # noqa: E402
+from dispatcher.services.validate import validate  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE = os.path.join(ROOT, "data", "geo_cache.json")
@@ -134,7 +136,7 @@ def main() -> int:
         "Собран из обезличенной выгрузки организаторов по району Восток "
         "за 17.08.2026. Поля, которых нет в выгрузке (длительность, навыки, "
         "транспорт, смены, стартовые точки), достроены по правилам из "
-        "backend/norms.py — они описаны в README."
+        "dispatcher/domain/norms.py — они описаны в README."
     )
     with open(os.path.join(OUT_DIR, "dataset.json"), "w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=1)

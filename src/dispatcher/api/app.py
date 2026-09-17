@@ -12,34 +12,57 @@ import os
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-import envfile
-import geo
-import norms
-from domain import Plan, Route, hhmm, parse_hhmm
-from explain import explain_assignment, explain_plan, explain_route
-from dataset import (DatasetError, engineer_from_json, engineer_to_json,
-                     load_upload, order_from_json, order_to_json,
-                     scenario_from_json, scenario_to_json)
-from ingest import REGIONS, Scenario, load_all
-from metrics import compare, control_plan, plan_metrics
-from risk import overrun_impact, plan_risk
-from replan import (KIND_CANCEL, KIND_DELAYED, KIND_TITLES, KIND_UNAVAILABLE,
-                    KIND_URGENT, MODE_FULL, MODE_HINTS, MODE_MINIMAL,
-                    MODE_TITLES, ReplanEvent, make_urgent_order, replan)
-from routing import evaluate_sequence
-from solver import (DEFAULT_TIME_LIMIT_SEC, STRATEGIES, STRATEGY_FULL_TITLES,
-                    STRATEGY_HINTS, STRATEGY_TITLES, diagnose, solve_optimized,
-                    status_text)
-from validate import validate
+from dispatcher.domain import Plan, Route, hhmm, norms, parse_hhmm
+from dispatcher.domain.assumptions import ASSUMPTIONS
+from dispatcher.infrastructure import envfile, geo
+from dispatcher.infrastructure.ingest import REGIONS, Scenario, load_all
+from dispatcher.services.control import control_plan
+from dispatcher.services.dataset import (
+    DatasetError,
+    engineer_from_json,
+    engineer_to_json,
+    load_upload,
+    order_from_json,
+    order_to_json,
+    scenario_from_json,
+    scenario_to_json,
+)
+from dispatcher.services.explain import explain_assignment, explain_plan, explain_route
+from dispatcher.services.impact import overrun_impact, plan_risk
+from dispatcher.services.metrics import compare, plan_metrics
+from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
+from dispatcher.services.planning.reasons import diagnose
+from dispatcher.services.planning.strategies import (
+    STRATEGIES,
+    STRATEGY_FULL_TITLES,
+    STRATEGY_HINTS,
+    STRATEGY_TITLES,
+    status_text,
+)
+from dispatcher.services.replanning.apply import replan
+from dispatcher.services.replanning.events import (
+    KIND_CANCEL,
+    KIND_DELAYED,
+    KIND_TITLES,
+    KIND_UNAVAILABLE,
+    KIND_URGENT,
+    ReplanEvent,
+    make_urgent_order,
+)
+from dispatcher.services.replanning.repair import MODE_HINTS, MODE_MINIMAL, MODE_TITLES
+from dispatcher.services.routing import evaluate_sequence
+from dispatcher.services.validate import validate
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+# Корень проекта лежит на три каталога выше: api -> dispatcher -> src -> корень.
+# Данные, фронт и сохранённые дни живут рядом с исходниками, а не внутри пакета.
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
@@ -110,7 +133,6 @@ def _undo_labels(state: dict[str, Any]) -> list[str]:
 def _plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                   extra: dict | None = None) -> dict:
     by_id = scenario.order_by_id
-    engineer_by_id = {e.id: e for e in _all_engineers(scenario)}
     # заявки, появившиеся после события, тоже должны попасть в ответ
     for route in plan.routes:
         for stop in route.stops:
@@ -241,7 +263,7 @@ class NewOrderModel(BaseModel):
     window_start: str = "14:00"
     window_end: str = "16:00"
     required_skill: str = norms.SKILL_EMERGENCY
-    required_vehicle: Optional[str] = None
+    required_vehicle: str | None = None
 
 
 class ReplanRequest(BaseModel):
@@ -249,10 +271,10 @@ class ReplanRequest(BaseModel):
     kind: Literal["urgent_order", "cancel_order", "engineer_unavailable",
                   "engineer_delayed"]
     at: str = "13:00"
-    order_id: Optional[str] = None
-    engineer_id: Optional[str] = None
+    order_id: str | None = None
+    engineer_id: str | None = None
     delay_min: int = Field(45, ge=5, le=480)
-    new_order: Optional[NewOrderModel] = None
+    new_order: NewOrderModel | None = None
     mode: Literal["minimal", "full"] = MODE_MINIMAL
     apply: bool = False
     time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
@@ -261,7 +283,7 @@ class ReplanRequest(BaseModel):
 class ReassignRequest(BaseModel):
     region: str
     order_id: str
-    engineer_id: Optional[str] = None       # None = снять заявку с исполнителя
+    engineer_id: str | None = None       # None = снять заявку с исполнителя
 
 
 class AdjustOrderRequest(BaseModel):
@@ -270,9 +292,9 @@ class AdjustOrderRequest(BaseModel):
     region: str
     order_id: str
     # "" или None — снять закрепление; иначе id исполнителя
-    lock_to: Optional[str] = None
+    lock_to: str | None = None
     set_lock: bool = False                  # трогать ли закрепление вообще
-    priority: Optional[Literal["Обычная", "Срочная"]] = None
+    priority: Literal["Обычная", "Срочная"] | None = None
     time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
 
 
@@ -309,7 +331,7 @@ def meta() -> dict:
         "replan_kinds": [{"key": k, "title": v} for k, v in KIND_TITLES.items()],
         "replan_modes": [{"key": k, "title": v, "hint": MODE_HINTS.get(k, "")}
                          for k, v in MODE_TITLES.items()],
-        "assumptions": [{"title": t, "text": x} for t, x in norms.ASSUMPTIONS],
+        "assumptions": [{"title": t, "text": x} for t, x in ASSUMPTIONS],
         "map_api_key": MAP_API_KEY,
     }
 
@@ -427,7 +449,6 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
 
 @app.post("/api/explain")
 def explain(request: ExplainRequest) -> dict:
-    scenario = _scenario(request.region)
     state = _state(request.region)
     orders = state["orders"]
     order = next((o for o in orders if o.id == request.order_id), None)
@@ -446,8 +467,8 @@ def do_replan(request: ReplanRequest) -> dict:
 
     try:
         at = parse_hhmm(request.at)
-    except ValueError:
-        raise HTTPException(400, "Время события должно быть в формате ЧЧ:ММ")
+    except ValueError as error:
+        raise HTTPException(400, "Время события должно быть в формате ЧЧ:ММ") from error
 
     new_order = None
     if request.kind == KIND_URGENT:
@@ -468,7 +489,7 @@ def do_replan(request: ReplanRequest) -> dict:
                 "required_vehicle": payload.required_vehicle,
             })
         except DatasetError as exc:
-            raise HTTPException(400, str(exc))
+            raise HTTPException(400, str(exc)) from exc
 
         new_order = make_urgent_order(
             order_id=payload.id, lat=payload.lat, lon=payload.lon,
@@ -585,11 +606,11 @@ def reassign(request: ReassignRequest) -> dict:
         if target is None:
             raise HTTPException(404, f"Исполнитель {request.engineer_id} не найден")
         if not target.can_do(order):
-            missing = ("навыка «%s»" % order.required_skill
+            missing = (f"навыка «{order.required_skill}»"
                        if order.required_skill not in target.skills
-                       else "транспорта «%s»" % order.required_vehicle)
-            raise HTTPException(400,
-                                f"«{target.name}» не может взять эту заявку: нет {missing}")
+                       else f"транспорта «{order.required_vehicle}»")
+            raise HTTPException(
+                400, f"«{target.name}» не может взять эту заявку: нет {missing}")
 
         # ставим в позицию, которая даёт наименьший прирост пробега
         base = sequences.get(target.id, [])
@@ -661,9 +682,9 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
             # план стал бы заведомо невыполнимым, а диспетчер узнал бы об этом
             # только из пустого результата.
             if not target.can_do(order):
-                missing = ("навыка «%s»" % order.required_skill
+                missing = (f"навыка «{order.required_skill}»"
                            if order.required_skill not in target.skills
-                           else "транспорта «%s»" % order.required_vehicle)
+                           else f"транспорта «{order.required_vehicle}»")
                 raise HTTPException(
                     400, f"«{target.name}» не может взять эту заявку: нет {missing}")
             locked[request.order_id] = target_id
@@ -802,7 +823,7 @@ def restore_plan(request: RegionRequest) -> dict:
                 region_name=saved.get("region_name") or request.region)
             SCENARIOS[request.region] = restored_scenario
         except (OSError, ValueError, DatasetError) as exc:
-            raise HTTPException(400, f"Файл сохранения повреждён: {exc}")
+            raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
     scenario = _scenario(request.region)
     if not os.path.exists(path):
         raise HTTPException(404, "Сохранённого плана для этого района нет")
@@ -810,7 +831,7 @@ def restore_plan(request: RegionRequest) -> dict:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError) as exc:
-        raise HTTPException(400, f"Файл сохранения повреждён: {exc}")
+        raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
 
     try:
         orders = [order_from_json(o) for o in data.get("orders") or []]
@@ -819,7 +840,7 @@ def restore_plan(request: RegionRequest) -> dict:
         engineers = [engineer_from_json(e, allow_empty_shift=True)
                      for e in data.get("engineers") or []]
     except DatasetError as exc:
-        raise HTTPException(400, f"Файл сохранения повреждён: {exc}")
+        raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
 
     by_id = {o.id: o for o in orders}
     engineer_by_id = {e.id: e for e in engineers}
@@ -903,7 +924,7 @@ async def upload_dataset(request: Request, filename: str = "dataset",
     try:
         scenario, events, detected = load_upload(filename, raw, region_key, CACHE_PATH)
     except DatasetError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
 
     if name.strip():
         scenario.region_name = name.strip()

@@ -39,11 +39,11 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "backend"))
+sys.path.insert(0, os.path.join(ROOT, "src"))
 
-import norms                                                     # noqa: E402
-from geo import road_km, travel_minutes                          # noqa: E402
-from ingest import REGIONS, load_scenario                        # noqa: E402
+from dispatcher.domain import norms  # noqa: E402
+from dispatcher.domain.distance import road_km, travel_minutes  # noqa: E402
+from dispatcher.infrastructure.ingest import REGIONS, load_scenario  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE = os.path.join(ROOT, "data", "geo_cache.json")
@@ -143,7 +143,7 @@ def main() -> int:
     parser.add_argument("--fit", action="store_true",
                         help="подобрать длительности, не нарушая верхнюю границу")
     parser.add_argument("--apply", action="store_true",
-                        help="записать подобранное в backend/norms.py")
+                        help="записать подобранное в dispatcher/domain/norms.py")
     args = parser.parse_args()
 
     rows, samples = collect()
@@ -188,8 +188,9 @@ def main() -> int:
               f"{int(prior[index]):9d} {value:8d}{mark}")
 
     if args.apply:
-        path = os.path.join(ROOT, "backend", "norms.py")
-        source = open(path, encoding="utf-8").read()
+        path = os.path.join(ROOT, "src", "dispatcher", "domain", "norms.py")
+        with open(path, encoding="utf-8") as fh:
+            source = fh.read()
         block = "\n".join(f'    "{t}": {result[t]},'
                           for t in sorted(result, key=lambda x: -result[x]))
         source = re.sub(
@@ -198,7 +199,8 @@ def main() -> int:
             "    # Проверено и подобрано по контрольному распределению\n"
             "    # скриптом scripts/check_durations.py.\n" + block + "\n}",
             source, count=1, flags=re.S)
-        open(path, "w", encoding="utf-8").write(source)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(source)
         print(f"\nЗаписано в {path}")
     return 0
 

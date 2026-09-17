@@ -13,8 +13,8 @@ GOLDEN = os.path.join(HERE, "data", "characterization.json")
 
 
 def _snapshot(scenario) -> dict:
-    from metrics import plan_metrics
-    from solver import solve_baseline, solve_greedy
+    from dispatcher.services.metrics import plan_metrics
+    from dispatcher.services.planning.baseline import solve_baseline, solve_greedy
 
     out = {}
     for name, solve in (("baseline", solve_baseline), ("greedy", solve_greedy)):
@@ -45,7 +45,7 @@ def test_planning_result_unchanged(scenarios):
 
 def test_every_order_is_either_routed_or_refused(scenarios):
     """Заявка не имеет права потеряться между маршрутами и отказами."""
-    from solver import solve_greedy
+    from dispatcher.services.planning.baseline import solve_greedy
 
     for scenario in scenarios.values():
         plan = solve_greedy(scenario.orders, scenario.engineers)
@@ -57,8 +57,8 @@ def test_every_order_is_either_routed_or_refused(scenarios):
 
 def test_plans_pass_independent_validation(scenarios):
     """Готовый план проходит независимую проверку ограничений."""
-    from solver import solve_baseline, solve_greedy
-    from validate import validate
+    from dispatcher.services.planning.baseline import solve_baseline, solve_greedy
+    from dispatcher.services.validate import validate
 
     for scenario in scenarios.values():
         for solve in (solve_baseline, solve_greedy):

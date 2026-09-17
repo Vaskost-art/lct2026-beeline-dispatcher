@@ -67,7 +67,6 @@ def solve_greedy(orders: list[Order], engineers: list[Engineer],
     locked = locked or {}
     by_id = {o.id: o for o in orders}
     routes = {e.id: Route(engineer_id=e.id) for e in engineers}
-    engineer_by_id = {e.id: e for e in engineers}
 
     queue = sorted(
         orders,

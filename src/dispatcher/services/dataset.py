@@ -133,18 +133,18 @@ def _time(value: Any, where: str, key: str) -> int:
         return minutes
     try:
         return parse_hhmm(str(value))
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as error:
         raise DatasetError(
             f"{where}: поле «{key}» должно быть временем в формате ЧЧ:ММ, "
-            f"получено «{value}»")
+            f"получено «{value}»") from error
 
 
 def _coords(data: dict, where: str) -> tuple[float, float]:
     try:
         lat = float(_require(data, "lat", where))
         lon = float(_require(data, "lon", where))
-    except (TypeError, ValueError):
-        raise DatasetError(f"{where}: координаты «lat» и «lon» должны быть числами")
+    except (TypeError, ValueError) as error:
+        raise DatasetError(f"{where}: координаты «lat» и «lon» должны быть числами") from error
     # NaN и Infinity json.loads принимает молча, а дальше они расходятся по
     # расстояниям и метрикам: план строится, но выгрузить его уже нельзя.
     if not (math.isfinite(lat) and math.isfinite(lon)):
@@ -180,8 +180,8 @@ def order_from_json(data: dict) -> Order:
 
     try:
         duration = int(_require(data, "duration_min", where))
-    except (TypeError, ValueError):
-        raise DatasetError(f"{where}: «duration_min» должно быть числом минут")
+    except (TypeError, ValueError) as error:
+        raise DatasetError(f"{where}: «duration_min» должно быть числом минут") from error
     if duration <= 0:
         raise DatasetError(f"{where}: длительность работ должна быть больше нуля")
 
@@ -247,13 +247,15 @@ def engineer_from_json(data: dict, allow_empty_shift: bool = False) -> Engineer:
 
     try:
         break_min = int(data.get("break_min") or 0)
-    except (TypeError, ValueError):
-        raise DatasetError(f"{where}: «break_min» должно быть числом минут")
-    if break_min < 0 or break_min >= max(1, shift_end - shift_start):
-        if not (allow_empty_shift and shift_end == shift_start and break_min == 0):
-            raise DatasetError(
-                f"{where}: перерыв {break_min} мин не помещается в смену "
-                f"{hhmm(shift_start)}–{hhmm(shift_end)}")
+    except (TypeError, ValueError) as error:
+        raise DatasetError(f"{where}: «break_min» должно быть числом минут") from error
+    # Пустая смена без перерыва законна: так описывается исполнитель, который
+    # в этот день не работает.
+    empty_shift = allow_empty_shift and shift_end == shift_start and break_min == 0
+    if not empty_shift and not 0 <= break_min < max(1, shift_end - shift_start):
+        raise DatasetError(
+            f"{where}: перерыв {break_min} мин не помещается в смену "
+            f"{hhmm(shift_start)}–{hhmm(shift_end)}")
 
     return Engineer(
         id=engineer_id, name=str(data.get("name") or engineer_id),
@@ -329,11 +331,11 @@ def load_upload(filename: str, raw: bytes, region_key: str,
     if head[:1] in (b"{", b"[") or name.endswith(".json"):
         try:
             data = json.loads(raw.decode("utf-8-sig"))
-        except UnicodeDecodeError:
-            raise DatasetError("JSON должен быть в кодировке UTF-8")
+        except UnicodeDecodeError as error:
+            raise DatasetError("JSON должен быть в кодировке UTF-8") from error
         except json.JSONDecodeError as exc:
             raise DatasetError(f"Не удалось разобрать JSON: {exc.msg} "
-                               f"(строка {exc.lineno}, символ {exc.colno})")
+                               f"(строка {exc.lineno}, символ {exc.colno})") from exc
         scenario, events = scenario_from_json(data, region_key)
         return scenario, events, "JSON, формат набора данных"
 

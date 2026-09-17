@@ -11,12 +11,6 @@ from dataclasses import dataclass
 
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 
-_STATUS_VALUES = [
-    value
-    for enum_type in routing_enums_pb2.RoutingSearchStatus.DESCRIPTOR.enum_types
-    for value in enum_type.values
-]
-
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route
 from dispatcher.domain.distance import road_km, travel_minutes
 from dispatcher.services.planning.baseline import _finalize
@@ -27,6 +21,12 @@ from dispatcher.services.planning.costs import (
     ENGINEER_FIXED_COST,
 )
 from dispatcher.services.routing import evaluate_sequence
+
+_STATUS_VALUES = [
+    value
+    for enum_type in routing_enums_pb2.RoutingSearchStatus.DESCRIPTOR.enum_types
+    for value in enum_type.values
+]
 
 # Настройки поиска вынесены сюда, чтобы их можно было перебирать замером,
 # а не править по месту (scripts/benchmark.py).
@@ -132,7 +132,7 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     km_exact = [[0.0] * size for _ in range(size)]
     for i in range(size):
         for j in range(size):
-            if i == j or i == end_node or j == end_node:
+            if i == j or end_node in (i, j):
                 continue                      # дуги в фиктивный финиш бесплатны
             km = road_km(*coords[i], *coords[j])
             km_exact[i][j] = km

@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+# Тесты репозиториев асинхронные: режим автоматический, чтобы не помечать
+# каждый из них вручную.
+asyncio_mode = "auto"
 
 [tool.mypy]
 python_version = "3.13"

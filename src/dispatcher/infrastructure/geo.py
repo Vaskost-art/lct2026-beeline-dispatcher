@@ -88,13 +88,19 @@ class Geocoder:
         # координаты из кэша, которым мы не поверили
         self.rejected: list[dict[str, str | float]] = []
 
-    def locate(self, address: str, district: str) -> tuple[float, float, str]:
-        """Возвращает (lat, lon, точность)."""
+    def locate(self, address: str, district: str,
+               check_district: bool = True) -> tuple[float, float, str]:
+        """Возвращает (lat, lon, точность).
+
+        `check_district` отключается для адресов, которые к району заявок не
+        привязаны: например для офиса участка, стоящего вне района, по
+        которому ведётся сверка.
+        """
         key = normalize_address(address)
         hit = self.cache.get(key)
         if hit and hit.get("lat") is not None:
             lat, lon = float(hit["lat"] or 0.0), float(hit["lon"] or 0.0)
-            if self._plausible(lat, lon, district):
+            if not check_district or self._plausible(lat, lon, district):
                 self.stats[PRECISION_EXACT] += 1
                 return lat, lon, PRECISION_EXACT
             # Геокодер умеет отдать улицу того же названия в другом городе.

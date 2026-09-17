@@ -20,8 +20,9 @@ from pydantic import BaseModel, Field
 
 from dispatcher.domain import Plan, Route, hhmm, norms, parse_hhmm
 from dispatcher.domain.assumptions import ASSUMPTIONS
+from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import envfile, geo
-from dispatcher.infrastructure.ingest import REGIONS, Scenario, load_all
+from dispatcher.infrastructure.ingest import REGIONS
 from dispatcher.services.control import control_plan
 from dispatcher.services.dataset import (
     DatasetError,
@@ -57,6 +58,7 @@ from dispatcher.services.replanning.events import (
 )
 from dispatcher.services.replanning.repair import MODE_HINTS, MODE_MINIMAL, MODE_TITLES
 from dispatcher.services.routing import evaluate_sequence
+from dispatcher.services.scenario import load_all
 from dispatcher.services.validate import validate
 
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -27,12 +27,12 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 import norms  # noqa: E402
 
 from dispatcher.domain import hhmm  # noqa: E402
-from dispatcher.infrastructure.ingest import load_scenario  # noqa: E402
 from dispatcher.services.dataset import order_to_json, scenario_to_json  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
 from dispatcher.services.planning.baseline import solve_baseline  # noqa: E402
 from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
 from dispatcher.services.replanning.events import KIND_URGENT, make_urgent_order  # noqa: E402
+from dispatcher.services.scenario import load_scenario  # noqa: E402
 from dispatcher.services.validate import validate  # noqa: E402
 
 RAW_DIR = os.path.join(ROOT, "data", "raw")

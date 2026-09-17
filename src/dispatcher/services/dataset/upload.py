@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 
+from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure.csvfile import decode_csv
-from dispatcher.infrastructure.ingest import Scenario, parse_control_csv
+from dispatcher.infrastructure.ingest import parse_control_csv
 from dispatcher.services.dataset.errors import DatasetError
 from dispatcher.services.dataset.reader import scenario_from_json
 

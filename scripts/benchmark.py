@@ -21,12 +21,12 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src"))
 
-from dispatcher.infrastructure.ingest import load_all  # noqa: E402
 from dispatcher.services.control import control_plan  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
 from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
 from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
 from dispatcher.services.planning.strategies import STRATEGY_FULL_TITLES  # noqa: E402
+from dispatcher.services.scenario import load_all  # noqa: E402
 from dispatcher.services.validate import validate  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

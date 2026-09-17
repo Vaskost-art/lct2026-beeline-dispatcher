@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, hhmm, norms
-from dispatcher.infrastructure.ingest import Scenario
+from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import FORMAT_VERSION
 
 

@@ -2,14 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, hhmm
-
-
-def _plural(n: int, one: str, few: str, many: str) -> str:
-    if n % 10 == 1 and n % 100 != 11:
-        return one
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return few
-    return many
+from dispatcher.domain.text import plural as _plural
 
 
 def _summary(order: Order, engineer: Engineer, stop, position: int,

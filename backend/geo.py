@@ -20,7 +20,9 @@ import math
 import os
 import re
 
-from norms import DETOUR_FACTOR, SPEED_KMH
+from dispatcher.domain.distance import (haversine_km, normalize_address,
+                                        normalize_district, road_km,
+                                        travel_minutes)
 
 PRECISION_EXACT = "exact"              # из кэша, реальный геокодер
 PRECISION_APPROX = "approx_district"   # центроид района + смещение
@@ -70,41 +72,6 @@ MOSCOW_CENTER = (55.7558, 37.6176)
 APPROX_SPREAD_KM = 1.2
 
 _KM_PER_DEG_LAT = 111.19
-
-
-def normalize_district(district: str) -> str:
-    """«GPON Даниловский» -> «Даниловский»; выравнивает тире и пробелы."""
-    name = re.sub(r"^\s*(GPON|FTTB|FMC)\s+", "", district.strip(), flags=re.I)
-    name = re.sub(r"\s*[-–—]\s*", " - ", name)
-    return re.sub(r"\s+", " ", name).strip()
-
-
-def normalize_address(address: str) -> str:
-    """Ключ кэша: без номера квартиры, схлопнутые пробелы, нижний регистр."""
-    addr = re.sub(r",\s*кв\.?\s*\d+.*$", "", address.strip(), flags=re.I)
-    addr = re.sub(r"\s+", " ", addr)
-    return addr.strip(" ,.").lower()
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Расстояние по прямой между двумя точками, км."""
-    r = 6371.0088
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = p2 - p1
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-def road_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Расстояние по улично-дорожной сети (оценка), км."""
-    return haversine_km(lat1, lon1, lat2, lon2) * DETOUR_FACTOR
-
-
-def travel_minutes(km: float, vehicle: str) -> int:
-    """Время в пути, минуты (округление вверх до целой минуты)."""
-    speed = SPEED_KMH.get(vehicle, SPEED_KMH["Автомобиль"])
-    return int(math.ceil(km / speed * 60)) if km > 0 else 0
 
 
 class Geocoder:
@@ -186,20 +153,3 @@ class Geocoder:
             "rejected": len(self.rejected),
             "rejected_addresses": [r["address"] for r in self.rejected],
         }
-
-
-class DistanceMatrix:
-    """Предрасчитанная матрица расстояний между всеми точками плана."""
-
-    def __init__(self, points: list[tuple[float, float]]):
-        self.points = points
-        n = len(points)
-        self.km = [[0.0] * n for _ in range(n)]
-        for i in range(n):
-            for j in range(i + 1, n):
-                d = road_km(points[i][0], points[i][1], points[j][0], points[j][1])
-                self.km[i][j] = d
-                self.km[j][i] = d
-
-    def minutes(self, i: int, j: int, vehicle: str) -> int:
-        return travel_minutes(self.km[i][j], vehicle)

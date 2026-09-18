@@ -34,3 +34,24 @@ def test_same_order_always_gets_the_same_set():
     first = equipment_for("Подключение", "Конвергенция абонента", "74198")
     again = equipment_for("Подключение", "Конвергенция абонента", "74198")
     assert first == again
+
+
+def test_orders_from_the_customer_file_carry_equipment(scenarios):
+    """Заявки, прочитанные из выгрузки, знают своё оборудование."""
+    orders = scenarios["vostok"].orders
+    assert any(order.equipment for order in orders)
+    # Аварии едут без оборудования: там чинят линию.
+    emergencies = [o for o in orders if o.type_bk == "Глобальная проблема"]
+    assert emergencies
+    assert all(not o.equipment for o in emergencies)
+
+
+def test_equipment_survives_writing_and_reading_the_dataset(scenarios):
+    """Набор данных, записанный и прочитанный обратно, не теряет оборудование."""
+    from dispatcher.services.dataset import scenario_from_json, scenario_to_json
+
+    scenario = scenarios["vostok"]
+    restored, _ = scenario_from_json(scenario_to_json(scenario), "vostok")
+    before = {o.id: o.equipment for o in scenario.orders}
+    after = {o.id: o.equipment for o in restored.orders}
+    assert before == after

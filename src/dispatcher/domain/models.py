@@ -27,6 +27,10 @@ class Order:
     required_skill: str        # SKILLS
     required_vehicle: str | None = None   # None = ограничения нет
 
+    #: Что бригада везёт клиенту: роутер, приставка, колонка. Пустой список
+    #: значит, что оборудование не нужно.
+    equipment: list[str] = field(default_factory=list)
+
     # справочная информация из исходных данных (для интерфейса и объяснений)
     type_bk: str = ""
     type_hd: str = ""

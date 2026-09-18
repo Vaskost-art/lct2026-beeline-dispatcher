@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from dispatcher.domain import Order, norms
 from dispatcher.domain.distance import normalize_district
+from dispatcher.domain.equipment import equipment_for
 from dispatcher.infrastructure.csvfile import (
     CSV_DELIMITER,
     _cell,
@@ -94,6 +95,7 @@ def parse_orders(rows: list[Mapping[str, str | None]],
             priority=norms.priority_for(type_bk, status_bk),
             required_skill=norms.skill_for(type_bk),
             required_vehicle=norms.required_vehicle_for(type_hd, gigabit),
+            equipment=equipment_for(type_bk, type_hd, order_id),
             type_bk=type_bk,
             type_hd=type_hd,
             control_engineer=crew or None,

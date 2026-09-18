@@ -64,6 +64,7 @@ def order_from_json(data: dict) -> Order:
         duration_min=duration,
         window_start=window_start, window_end=window_end,
         priority=priority, required_skill=skill, required_vehicle=vehicle,
+        equipment=[str(item) for item in (data.get("equipment") or [])],
         type_bk=str(data.get("type_bk") or ""),
         type_hd=str(data.get("type_hd") or ""),
         control_engineer=data.get("control_engineer") or None,

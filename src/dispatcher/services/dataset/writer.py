@@ -19,6 +19,7 @@ def order_to_json(order: Order) -> dict:
         "priority": order.priority,
         "required_skill": order.required_skill,
         "required_vehicle": order.required_vehicle,
+        "equipment": list(order.equipment),
     }
     # справочные поля — не обязательны для планирования, но полезны в интерфейсе
     if order.type_bk:

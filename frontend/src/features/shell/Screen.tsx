@@ -3,7 +3,14 @@ import { MapTrifold, WarningOctagon } from '@phosphor-icons/react';
 import { ApiError } from '../../api/client';
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
 import { useDay } from '../../state/day';
+import { CompareDialog } from '../compare/CompareDialog';
+import { AssumptionsDialog } from '../data/AssumptionsDialog';
+import { ValidateDialog } from '../data/ValidateDialog';
 import { EventBar } from '../event/EventBar';
+import { PickupDialog } from '../pickup/PickupDialog';
+import { RiskDialog } from '../risk/RiskDialog';
+import { ShortfallDialog } from '../shortfall/ShortfallDialog';
+import { Menu } from './Menu';
 import { Header } from './Header';
 import { Summary } from './Summary';
 import { Workspace } from './Workspace';
@@ -71,6 +78,49 @@ export function Screen() {
           <FirstRun region={day.region} loading={run.isPending || plan.isFetching} />
         )}
       </main>
+
+      <Menu
+        open={day.panel === 'menu'}
+        region={day.region}
+        planned={Boolean(payload)}
+        theme={day.theme}
+        onTheme={day.setTheme}
+        onPanel={day.openPanel}
+        onClose={day.closePanel}
+      />
+
+      <AssumptionsDialog
+        meta={meta.data}
+        open={day.panel === 'assumptions'}
+        onClose={day.closePanel}
+      />
+
+      {day.region ? (
+        <>
+          <CompareDialog
+            region={day.region}
+            open={day.panel === 'compare'}
+            onClose={day.closePanel}
+          />
+          <ValidateDialog
+            region={day.region}
+            open={day.panel === 'validate'}
+            onClose={day.closePanel}
+          />
+        </>
+      ) : null}
+
+      {payload ? (
+        <>
+          <RiskDialog plan={payload} open={day.panel === 'risk'} onClose={day.closePanel} />
+          <PickupDialog plan={payload} open={day.panel === 'pickup'} onClose={day.closePanel} />
+          <ShortfallDialog
+            plan={payload}
+            open={day.panel === 'shortfall'}
+            onClose={day.closePanel}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

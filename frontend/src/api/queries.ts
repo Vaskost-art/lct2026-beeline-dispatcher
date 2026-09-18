@@ -7,11 +7,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { request, send } from './client';
 import type {
+  ComparePayload,
   Meta,
   OrderExplanation,
   PlanPayload,
   ReplanPayload,
   ReplanRequest,
+  SavedDayInfo,
+  ValidationReport,
 } from './types';
 
 export const planKey = (region: string) => ['plan', region] as const;
@@ -78,5 +81,49 @@ export function useReplan() {
       // в своём состоянии и в кеш плана не попадает.
       if (answer.applied) client.setQueryData(planKey(answer.region), answer);
     },
+  });
+}
+
+/** Сравнение способов расчёта. Считается по требованию: три плана подряд
+    занимают время, и на главном экране это не нужно. */
+export function useCompare(region: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['compare', region ?? ''],
+    enabled: Boolean(region) && enabled,
+    queryFn: () => request<ComparePayload>(`/api/compare/${region ?? ''}?time_limit_sec=5`),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Независимая проверка плана на ограничения. */
+export function useValidation(region: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['validate', region ?? ''],
+    enabled: Boolean(region) && enabled,
+    queryFn: () => request<ValidationReport>(`/api/validate/${region ?? ''}`),
+  });
+}
+
+/** Сохранённый рабочий день участка. */
+export function useSavedDay(region: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['saved', region ?? ''],
+    enabled: Boolean(region) && enabled,
+    queryFn: () => request<SavedDayInfo>(`/api/plan/saved/${region ?? ''}`),
+  });
+}
+
+export function useSaveDay() {
+  return useMutation({
+    mutationFn: (body: { region: string; name: string }) =>
+      send<{ saved: boolean; name: string; saved_at: string }>('/api/plan/save', body),
+  });
+}
+
+export function useRestoreDay() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { region: string }) => send<PlanPayload>('/api/plan/restore', body),
+    onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
   });
 }

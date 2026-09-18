@@ -107,9 +107,9 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
                  "metrics": fact_metrics, "report": fact_report},
         "vs_baseline": compare(by_key["optimized"], by_key["baseline"]),
         "vs_fact": compare(by_key["optimized"], fact_metrics),
-        "basis": ("Сравнение посчитано по исходному дню района: в текущем плане "
-                  "уже применены изменения, а факт диспетчера известен только "
-                  "для исходного набора заявок."
+        "basis": ("Сравнение посчитано по исходному дню участка: в текущем плане "
+                  "уже применены изменения, и сопоставлять способы расчёта на "
+                  "разных наборах заявок было бы неверно."
                   if changed else
                   "Сравнение посчитано по тому же дню, что показан на экране."),
     })

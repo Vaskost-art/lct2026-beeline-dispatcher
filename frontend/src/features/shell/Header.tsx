@@ -67,7 +67,13 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
           </span>
         ) : null}
 
-        <Button variant="primary" onClick={onPlan} busy={busy} disabled={!region}>
+        <Button
+          variant="primary"
+          data-testid="plan"
+          onClick={onPlan}
+          busy={busy}
+          disabled={!region}
+        >
           {planned ? 'Пересчитать' : 'Спланировать'}
         </Button>
       </div>

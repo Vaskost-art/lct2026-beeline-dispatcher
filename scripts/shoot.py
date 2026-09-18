@@ -44,14 +44,13 @@ _MEASURE = """
   }
   // Карту из замера исключаем целиком: она рисует подписи и метки
   // абсолютным позиционированием, и каждая из них читается как наложение.
-  const map = document.getElementById('map');
+  const map = document.querySelector('[data-testid="map"]');
 
   // При открытом модальном окне меряем только его. Страница под затемнением
   // никуда не девается, и каждый её элемент читается как наложение: замер
   // упирается в предел находок, не сказав ничего о самом окне.
-  const modal = document.getElementById('modal');
-  const open = modal && !modal.hidden;
-  const root = open ? modal : document.body;
+  const modal = document.querySelector('[role="dialog"]');
+  const root = modal || document.body;
 
   const boxes = [];
   for (const el of root.querySelectorAll('*')) {
@@ -94,8 +93,7 @@ _MEASURE = """
     // Строки таблицы считаются наравне с карточками: без них полное окно
     // со сводной таблицей отчитывается как пустое.
     content: root.querySelectorAll(
-      'table tr, .metric, .route, .card, .stop, .fact, .detail-section,'
-      + ' li, h1, h2, h3, h4').length,
+      'table tr, li, dt, dd, h1, h2, h3, h4, button, [data-testid^="metric"]').length,
   };
 }
 """

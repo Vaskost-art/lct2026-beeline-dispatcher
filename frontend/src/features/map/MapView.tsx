@@ -87,7 +87,7 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
   }, [theme, ready]);
 
   return (
-    <section className="relative min-h-0 w-full min-w-0 overflow-hidden rounded-lg border border-line bg-panel">
+    <section data-testid="map" className="relative min-h-0 w-full min-w-0 overflow-hidden rounded-lg border border-line bg-panel">
       <div ref={box} className="absolute inset-0" />
       {yandex ? (
         <span className="absolute right-3 top-3 rounded-md border border-line bg-panel/90 px-2 py-1 text-[11px] text-ink-3">

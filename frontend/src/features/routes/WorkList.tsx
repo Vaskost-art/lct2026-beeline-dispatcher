@@ -17,7 +17,7 @@ export function WorkList({ plan, selected, onSelect }: Props) {
   const used = plan.routes.filter((route) => route.stops.length > 0);
 
   return (
-    <section className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-panel">
+    <section data-testid="work-list" className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-panel">
       <Tabs
         value={tab}
         onChange={setTab}

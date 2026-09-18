@@ -12,154 +12,164 @@ from playwright.async_api import Page
 #: сервиса, но геокодирование и отрисовка карты добавляют сверху.
 PLAN_TIMEOUT_MS = 120_000
 
-#: Во сколько секунд укладывать расчёт при съёмке. Меньше значения по
-#: умолчанию: нам нужен вид экрана, а не лучший маршрут.
-SHOOT_TIME_LIMIT = "5"
+#: Сколько ждать первую отрисовку: список участков приходит от сервиса.
+READY_TIMEOUT_MS = 60_000
 
-
-#: Сколько ждать первую отрисовку. Интерфейс заполняет список районов только
-#: после того, как отработает загрузка карты, а недоступная внешняя карта
-#: отваливается по таймауту соединения, и это десятки секунд.
-READY_TIMEOUT_MS = 120_000
+REGION = "vostok"
 
 
 async def _ready(page: Page) -> None:
-    """Дождаться, пока страница получит список районов с сервиса."""
+    """Дождаться, пока страница получит список участков."""
     # Ждём появления в разметке, а не видимости: пункт закрытого списка
     # невидим по определению, и проверка на видимость висит до таймаута.
     await page.wait_for_selector(
-        "#region option", state="attached", timeout=READY_TIMEOUT_MS)
-
-
-async def _settled(page: Page) -> None:
-    """Дождаться конца расчёта.
-
-    Метрики на экране остаются от прошлого плана, пока считается новый:
-    съёмка по их появлению снимает старые числа поверх идущего расчёта.
-    Признак окончания - кнопка расчёта снова доступна.
-    """
-    await page.wait_for_selector("#btnPlan:not([disabled])", timeout=PLAN_TIMEOUT_MS)
-    await page.wait_for_selector("#metrics:not([hidden]) .metric", timeout=PLAN_TIMEOUT_MS)
+        'select[aria-label="Участок"] option[value="vostok"]',
+        state="attached", timeout=READY_TIMEOUT_MS)
 
 
 async def _plan(page: Page) -> None:
-    """Построить план и дождаться конца расчёта."""
+    """Выбрать участок, построить план и дождаться конца расчёта."""
     await _ready(page)
-    # Интерфейс сам считает план при запуске. Дожидаемся его, иначе наш
-    # расчёт встанет вторым и съёмка застанет экран в промежуточном виде.
-    await _settled(page)
-    await page.fill("#timeLimit", SHOOT_TIME_LIMIT)
-    await page.click("#btnPlan")
-    await page.wait_for_selector("#btnPlan[disabled]", timeout=30_000)
-    await _settled(page)
+    await page.select_option('select[aria-label="Участок"]', REGION)
+    await page.click('[data-testid="plan"]')
+    # Признак окончания - кнопка расчёта снова доступна. Ждать появления
+    # чисел нельзя: на экране остаются прежние, пока считается новый план.
+    await page.wait_for_selector('[data-testid="plan"]:not([disabled])',
+                                 timeout=PLAN_TIMEOUT_MS)
+    await page.wait_for_selector('[data-testid="work-list"]', timeout=PLAN_TIMEOUT_MS)
 
 
-async def _tab(page: Page, name: str) -> None:
-    """Переключиться на вкладку левой панели."""
-    await page.click(f'.tab[data-tab="{name}"]')
-    await page.wait_for_selector(f"#tab-{name}:not([hidden])", timeout=10_000)
+async def _menu(page: Page, title: str) -> None:
+    """Открыть пункт меню и дождаться его окна."""
+    await page.click('button:has-text("Меню")')
+    await page.click(f'button:has-text("{title}")')
+    await page.wait_for_selector('[role="dialog"]', timeout=PLAN_TIMEOUT_MS)
 
 
-async def _modal(page: Page, button: str) -> None:
-    """Нажать кнопку и дождаться открытого модального окна."""
-    await page.click(button)
-    await page.wait_for_selector("#modal:not([hidden]) #modalBody *", timeout=PLAN_TIMEOUT_MS)
-
-
-async def empty(page: Page) -> None:
-    """День не загружен: приглашение выбрать район."""
+async def first_run(page: Page) -> None:
+    """Первый вход: участок не выбран, расчёт не начат."""
     await _ready(page)
+
+
+async def not_planned(page: Page) -> None:
+    """Участок выбран, план ещё не построен."""
+    await _ready(page)
+    await page.select_option('select[aria-label="Участок"]', REGION)
+    await page.wait_for_selector("text=План на сегодня ещё не построен")
 
 
 async def planned(page: Page) -> None:
-    """План построен: маршруты, метрики, карта."""
+    """План построен: сводка, маршруты, карта."""
     await _plan(page)
-    await _tab(page, "routes")
+
+
+async def route_open(page: Page) -> None:
+    """Маршрут раскрыт до остановок с оборудованием."""
+    await _plan(page)
+    await page.click('[data-testid="work-list"] li button >> nth=0')
+    await page.wait_for_selector('[data-testid="work-list"] ul ul li')
 
 
 async def unassigned(page: Page) -> None:
-    """Нераспределённые заявки и причины отказа."""
+    """Заявки без исполнителя с причинами словами."""
     await _plan(page)
-    await _tab(page, "unassigned")
-
-
-async def assumptions(page: Page) -> None:
-    """Карточки допущений и нормативов."""
-    await _plan(page)
-    await _tab(page, "assumptions")
+    await page.click('button[role="tab"]:has-text("Без исполнителя")')
 
 
 async def detail(page: Page) -> None:
-    """Объяснение назначения в правой панели."""
+    """Карточка объяснения назначения поверх карты."""
+    await route_open(page)
+    await page.click('[data-testid="work-list"] ul ul li button >> nth=0')
+    await page.wait_for_selector('[data-testid="detail"]', timeout=PLAN_TIMEOUT_MS)
+
+
+async def event_form(page: Page) -> None:
+    """Полоса события раскрыта, поля заполняются."""
     await _plan(page)
-    await _tab(page, "routes")
-    await page.click(".route .route-head")
-    await page.wait_for_selector(".route.open .stop", timeout=10_000)
-    await page.click(".route.open .stop")
-    await page.wait_for_selector("#detail .detail-section", timeout=PLAN_TIMEOUT_MS)
+    await page.click('button:has-text("Событие в течение дня")')
+    await page.click('button:has-text("Задержка бригады")')
+
+
+async def event_preview(page: Page) -> None:
+    """Предпросмотр события: что станет, если применить."""
+    await event_form(page)
+    await page.select_option('select >> nth=1', index=1)
+    await page.click('button:has-text("Посмотреть, что изменится")')
+    await page.wait_for_selector('[data-testid="event-preview"]', timeout=PLAN_TIMEOUT_MS)
+
+
+async def menu(page: Page) -> None:
+    """Меню смены открыто."""
+    await _plan(page)
+    await page.click('button:has-text("Меню")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Смена")')
 
 
 async def compare(page: Page) -> None:
-    """Сравнение вариантов плана."""
+    """Сравнение способов расчёта."""
     await _plan(page)
-    await _modal(page, "#btnCompare")
+    await _menu(page, "Сравнить способы расчёта")
+    await page.wait_for_selector("text=Задача нетривиальна", timeout=PLAN_TIMEOUT_MS)
 
 
 async def risk(page: Page) -> None:
     """Прогноз опозданий."""
     await _plan(page)
-    await _modal(page, "#btnRisk")
+    await _menu(page, "Прогноз опозданий")
 
 
 async def validate(page: Page) -> None:
-    """Результат проверки ограничений."""
+    """Независимая проверка плана."""
     await _plan(page)
-    await _modal(page, "#btnValidate")
+    await _menu(page, "Проверить план")
+    await page.wait_for_selector("text=/Нарушений нет|Найдены нарушения/",
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
-async def replan_engineer(page: Page) -> None:
-    """День переигран после того, как бригада выбыла."""
+async def pickup(page: Page) -> None:
+    """Ведомость на выдачу оборудования."""
     await _plan(page)
-    await page.click("#replanBar .replan-head")
-    await page.select_option("#eventKind", index=0)
-    await page.wait_for_timeout(200)
-    # Тип события задаёт, какие поля видны. Берём тот, при котором появляется
-    # выбор исполнителя: именно он переигрывает уже выполненную часть дня.
-    kinds = await page.eval_on_selector_all(
-        "#eventKind option", "opts => opts.map(o => o.value)")
-    for kind in kinds:
-        await page.select_option("#eventKind", kind)
-        await page.wait_for_timeout(150)
-        if await page.is_visible("#fieldEngineer"):
-            break
-    await page.click("#btnReplan")
-    await _settled(page)
+    await _menu(page, "Что взять в офисе")
 
 
-async def urgent(page: Page) -> None:
-    """Форма срочной заявки с выбором точки на карте."""
+async def shortfall(page: Page) -> None:
+    """Разбор нехватки бригад."""
     await _plan(page)
-    await page.click("#replanBar .replan-head")
-    kinds = await page.eval_on_selector_all(
-        "#eventKind option", "opts => opts.map(o => o.value)")
-    for kind in kinds:
-        await page.select_option("#eventKind", kind)
-        await page.wait_for_timeout(150)
-        if await page.is_visible("#urgentForm"):
-            break
+    await page.click('[data-testid="metric-shortfall"]')
+    await page.wait_for_selector('[role="dialog"]:has-text("Сколько ещё нужно бригад")')
+
+
+async def assumptions(page: Page) -> None:
+    """Карточка допущений: как считаем."""
+    await _plan(page)
+    await _menu(page, "Как считаем")
+
+
+async def upload(page: Page) -> None:
+    """Загрузка своего набора данных."""
+    await _ready(page)
+    await page.click('button:has-text("Меню")')
+    await page.click('button:has-text("Загрузить свой набор")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Загрузить свой набор")')
 
 
 #: Состояния, которые снимаются в обычном прогоне. Порядок такой же, как в
 #: скилле `dispatcher-ux-review`.
 STATES: dict[str, Callable[[Page], Awaitable[None]]] = {
-    "empty": empty,
+    "first-run": first_run,
+    "not-planned": not_planned,
     "planned": planned,
+    "route-open": route_open,
     "unassigned": unassigned,
-    "assumptions": assumptions,
     "detail": detail,
+    "event-form": event_form,
+    "event-preview": event_preview,
+    "menu": menu,
     "compare": compare,
     "risk": risk,
     "validate": validate,
-    "replan-engineer": replan_engineer,
-    "urgent": urgent,
+    "pickup": pickup,
+    "shortfall": shortfall,
+    "assumptions": assumptions,
+    "upload": upload,
 }

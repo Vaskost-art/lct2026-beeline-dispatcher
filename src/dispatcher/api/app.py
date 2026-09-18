@@ -25,9 +25,6 @@ RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
 DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
-# Витрина-прототип живёт рядом со сборкой нового интерфейса, пока тот
-# не займёт её место целиком.
-LEGACY_DIR = os.path.join(FRONTEND_DIR, "legacy")
 
 # Ключ Яндекс Карт. Без него интерфейс рисует собственную схему и честно
 # об этом сообщает. Как получить ключ, написано в README.
@@ -60,11 +57,6 @@ def _validation_error(request: Request,
 def _startup() -> None:
     """Читает участки и готовит рабочий день."""
     deps.STORE.reset(load_all(RAW_DIR, CACHE_PATH))
-
-
-# Витрина-прототип доживает рядом со сборкой нового интерфейса и доступна
-# по /legacy, пока он не займёт её место целиком.
-app.mount("/legacy", StaticFiles(directory=LEGACY_DIR, html=True), name="legacy")
 
 
 @app.get("/", include_in_schema=False)

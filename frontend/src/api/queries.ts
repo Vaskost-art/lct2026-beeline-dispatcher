@@ -6,7 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { request, send } from './client';
-import type { Meta, PlanPayload } from './types';
+import type { Meta, OrderExplanation, PlanPayload } from './types';
 
 export const planKey = (region: string) => ['plan', region] as const;
 
@@ -39,5 +39,20 @@ export function useRunPlan() {
     onSuccess: (plan) => {
       client.setQueryData(planKey(plan.region), plan);
     },
+  });
+}
+
+/** Объяснение назначения одной заявки.
+
+Ключ включает номер заявки, поэтому поздний ответ на прежнюю заявку
+отбрасывается устройством библиотеки: в прежней витрине эта гонка чинилась
+счётчиком поколений вручную.
+*/
+export function useExplanation(region: string | null, orderId: string | null) {
+  return useQuery({
+    queryKey: ['explain', region ?? '', orderId ?? ''],
+    enabled: Boolean(region && orderId),
+    queryFn: () =>
+      send<OrderExplanation>('/api/explain', { region, order_id: orderId }),
   });
 }

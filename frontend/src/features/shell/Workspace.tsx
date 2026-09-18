@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import type { PlanPayload } from '../../api/types';
 import type { Day } from '../../state/day';
+import { OrderDetail } from '../detail/OrderDetail';
 import { MapView } from '../map/MapView';
 import { WorkList } from '../routes/WorkList';
 
@@ -57,7 +58,11 @@ export function Workspace({ plan, day, apiKey }: Props) {
           />
         </div>
 
-        <div className={'min-h-0 min-w-0 ' + (narrowView === 'map' ? 'flex' : 'hidden lg:flex')}>
+        <div
+          className={
+            'relative min-h-0 min-w-0 ' + (narrowView === 'map' ? 'flex' : 'hidden lg:flex')
+          }
+        >
           <MapView
             plan={plan}
             hiddenCrews={day.hiddenCrews}
@@ -66,6 +71,14 @@ export function Workspace({ plan, day, apiKey }: Props) {
             theme={day.theme}
             onSelect={day.selectOrder}
           />
+          {day.selectedOrder ? (
+            <OrderDetail
+              region={plan.region}
+              orderId={day.selectedOrder}
+              order={plan.orders.find((item) => item.id === day.selectedOrder)}
+              onClose={() => day.selectOrder(null)}
+            />
+          ) : null}
         </div>
       </div>
     </div>

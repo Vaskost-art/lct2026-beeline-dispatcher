@@ -175,3 +175,28 @@ export interface Meta {
   assumptions: { title: string; text: string }[];
   map_api_key: string;
 }
+
+export interface Alternative {
+  engineer_id: string;
+  possible: boolean;
+  reason: string;
+  extra_km?: number;
+  vs_current_km?: number;
+  blocked_by?: string | null;
+}
+
+export interface OrderExplanation {
+  order_id: string;
+  assigned: boolean;
+  headline: string;
+  engineer_id?: string;
+  position?: number;
+  /** Пары «название величины, значение»: готовый текст для человека. */
+  facts: [string, string][];
+  route_reason?: string;
+  timing_reason?: string;
+  reason?: string;
+  alternatives: Alternative[];
+  alternatives_total?: number;
+  summary?: string;
+}

@@ -161,10 +161,14 @@ async def pickup(page: Page) -> None:
 
 
 async def shortfall(page: Page) -> None:
-    """Разбор нехватки бригад."""
+    """Разбор нехватки бригад.
+
+    Путь человека: строка в очереди решений, а не отдельная кнопка метрики.
+    """
     await _plan(page)
-    await page.click('[data-testid="metric-shortfall"]')
-    await page.wait_for_selector('[role="dialog"]:has-text("Сколько ещё нужно бригад")')
+    await page.click('button:has-text("Нужно ещё")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Сколько ещё нужно бригад")',
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
 async def assumptions(page: Page) -> None:

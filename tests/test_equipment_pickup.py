@@ -37,3 +37,26 @@ def test_route_without_equipment_is_not_listed():
     plan = Plan(routes=[Route(engineer_id="Бригада 1", stops=[_stop("1")])])
 
     assert pickup_list(plan, orders) == []
+
+
+def test_plan_response_carries_equipment_and_pickup():
+    """Ответ с планом несёт оборудование заявок и ведомость на выдачу."""
+    import warnings
+
+    from fastapi.testclient import TestClient
+
+    from dispatcher.api.app import app
+
+    warnings.filterwarnings("ignore")
+    with TestClient(app) as client:
+        answer = client.post("/api/plan",
+                             json={"region": "vostok", "strategy": "greedy"})
+        assert answer.status_code == 200
+        payload = answer.json()
+
+    assert "pickup" in payload
+    assert any(order.get("equipment") for order in payload["orders"])
+    if payload["pickup"]:
+        row = payload["pickup"][0]
+        assert row["total"] > 0
+        assert row["text"]

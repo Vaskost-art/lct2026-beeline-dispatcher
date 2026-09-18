@@ -5,6 +5,7 @@ from dispatcher.api.deps import STORE, undo_labels
 from dispatcher.domain import Order, Plan
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import geo
+from dispatcher.services.equipment import pickup_list
 from dispatcher.services.explain import explain_plan, explain_route
 from dispatcher.services.impact import plan_risk
 from dispatcher.services.planning.strategies import STRATEGY_TITLES, status_text
@@ -56,6 +57,7 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         # прогноз опозданий считается вместе с планом: он дешёвый, а в
         # интерфейсе риск нужен сразу рядом с каждым визитом
         "risk": plan_risk(plan, all_orders(scenario, plan), all_engineers(scenario)),
+        "pickup": pickup_list(plan, all_orders(scenario, plan)),
         "geo": geo_warning(all_orders(scenario, plan)),
     }
     if extra:

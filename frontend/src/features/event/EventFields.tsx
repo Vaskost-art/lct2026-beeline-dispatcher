@@ -14,7 +14,7 @@ const INPUT =
 function Label({ text, children }: { text: string; children: React.ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="eyebrow">{text}</span>
+      <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-ink-3">{text}</span>
       {children}
     </label>
   );
@@ -77,7 +77,7 @@ export function EventFields({ plan, draft, onChange }: Props) {
             min={5}
             max={480}
             step={5}
-            className={`${INPUT} tnum`}
+            className={`${INPUT} w-24 tnum`}
             value={draft.delayMin}
             onChange={(event) => onChange({ ...draft, delayMin: Number(event.target.value) })}
           />

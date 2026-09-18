@@ -4,11 +4,7 @@ import {
   DownloadSimple,
   FloppyDisk,
   Info,
-  ScalesIcon,
-  ShieldCheck,
   UploadSimple,
-  Timer,
-  Toolbox,
 } from '@phosphor-icons/react';
 
 import { useRestoreDay, useSaveDay, useSavedDay } from '../../api/queries';
@@ -91,39 +87,7 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
     <Drawer open={open} title="Смена" onClose={onClose}>
       <nav className="flex flex-col gap-4">
         <section>
-          <h3 className="eyebrow mb-1 px-2">Проверки</h3>
-          <Item
-            icon={ScalesIcon}
-            title="Сравнить способы расчёта"
-            hint="базовый вариант из ТЗ, быстрый и оптимальный"
-            disabled={!planned}
-            onClick={() => go('compare')}
-          />
-          <Item
-            icon={Timer}
-            title="Прогноз опозданий"
-            hint="где план сломается от первой задержки"
-            disabled={!planned}
-            onClick={() => go('risk')}
-          />
-          <Item
-            icon={ShieldCheck}
-            title="Проверить план"
-            hint="окна, смены, навыки и транспорт заново"
-            disabled={!planned}
-            onClick={() => go('validate')}
-          />
-        </section>
-
-        <section>
-          <h3 className="eyebrow mb-1 px-2">День</h3>
-          <Item
-            icon={Toolbox}
-            title="Что взять в офисе"
-            hint="ведомость на выдачу по бригадам"
-            disabled={!planned}
-            onClick={() => go('pickup')}
-          />
+          <h3 className="eyebrow mb-1 px-2">Данные</h3>
           <Item
             icon={ClipboardText}
             title="Как считаем"

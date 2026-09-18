@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { Order, Route } from '../../api/types';
@@ -21,31 +20,25 @@ const route: Route = {
 };
 
 describe('список маршрутов', () => {
-  it('раскрывается в остановки с оборудованием', async () => {
-    render(<RouteRow route={route} orders={[order]} index={0} onSelect={() => {}} selected={null} />);
-
-    await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
+  it('показывает остановки с оборудованием', () => {
+    render(<RouteRow route={route} orders={[order]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText(/Роутер/)).toBeInTheDocument();
     expect(screen.getByText(/Улица, дом/)).toBeInTheDocument();
   });
 
-  it('не ставит прочерк там, где значения нет', async () => {
+  it('не ставит прочерк там, где значения нет', () => {
     // Прочерк читается как ноль. Обычная заявка просто не помечается,
     // а срочная получает явную метку.
-    render(<RouteRow route={route} orders={[order]} index={0} onSelect={() => {}} selected={null} />);
-
-    await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
+    render(<RouteRow route={route} orders={[order]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.queryByText('срочная')).not.toBeInTheDocument();
   });
 
-  it('помечает срочную заявку', async () => {
+  it('помечает срочную заявку', () => {
     const urgent = { ...order, priority: 'Срочная' };
-    render(<RouteRow route={route} orders={[urgent]} index={0} onSelect={() => {}} selected={null} />);
-
-    await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
+    render(<RouteRow route={route} orders={[urgent]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('срочная')).toBeInTheDocument();
   });

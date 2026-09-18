@@ -52,9 +52,9 @@ export function Workspace({ plan, day, apiKey }: Props) {
           <WorkList
             plan={plan}
             selected={day.selectedOrder}
-            onSelect={(orderId) => {
-              day.selectOrder(orderId);
-            }}
+            focusCrew={day.focusCrew}
+            onSelect={day.selectOrder}
+            onFocusCrew={day.focusOnCrew}
           />
         </div>
 
@@ -66,6 +66,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
           <MapView
             plan={plan}
             hiddenCrews={day.hiddenCrews}
+            focusCrew={day.focusCrew}
             selected={day.selectedOrder}
             apiKey={apiKey}
             theme={day.theme}
@@ -81,6 +82,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
           region={plan.region}
           orderId={day.selectedOrder}
           order={plan.orders.find((item) => item.id === day.selectedOrder)}
+          crews={plan.engineers.map((engineer) => ({ id: engineer.id, name: engineer.name }))}
           onClose={() => day.selectOrder(null)}
         />
       ) : null}

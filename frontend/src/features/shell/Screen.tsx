@@ -1,4 +1,6 @@
-import { MapTrifold, WarningOctagon } from '@phosphor-icons/react';
+import { MapTrifold, ShieldCheck, Timer, Toolbox, WarningOctagon } from '@phosphor-icons/react';
+
+import { Button } from '../../components/Button';
 
 import { ApiError } from '../../api/client';
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
@@ -51,6 +53,22 @@ export function Screen() {
           plan={payload}
           stale={run.isPending}
           onShortfall={() => day.openPanel('shortfall')}
+          actions={
+            <>
+              <Button onClick={() => day.openPanel('validate')}>
+                <ShieldCheck size={15} weight="bold" aria-hidden />
+                Проверить план
+              </Button>
+              <Button onClick={() => day.openPanel('risk')}>
+                <Timer size={15} weight="bold" aria-hidden />
+                Опоздания
+              </Button>
+              <Button onClick={() => day.openPanel('pickup')}>
+                <Toolbox size={15} weight="bold" aria-hidden />
+                Ведомость
+              </Button>
+            </>
+          }
         />
       ) : null}
 
@@ -141,13 +159,13 @@ export function Screen() {
     наполнит. Серая надпись «нет данных» такой работы не делает. */
 function FirstRun({ region, loading }: { region: string | null; loading: boolean }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-line-2 bg-panel">
-      <div className="flex max-w-[56ch] flex-col items-center gap-3 px-6 py-12 text-center">
-        <MapTrifold size={28} weight="duotone" aria-hidden className="text-ink-4" />
-        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
+    <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-panel">
+      <div className="flex max-w-[46ch] flex-col items-center gap-3 px-6 py-12 text-center">
+        <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-4" />
+        <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
           {region ? 'План на сегодня ещё не построен' : 'Смена не выбрана'}
         </h2>
-        <p className="text-[13px] text-ink-3">
+        <p className="text-[13px] leading-relaxed text-ink-3">
           {loading
             ? 'Считаем маршруты. Это занимает до полутора десятков секунд.'
             : region

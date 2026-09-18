@@ -24,6 +24,8 @@ const THEME_KEY = 'dispatcher-theme';
 interface State {
   region: string | null;
   selectedOrder: string | null;
+  /** Бригада, на которой внимание: её маршрут на карте яркий. */
+  focusCrew: string | null;
   hiddenCrews: Set<string>;
   panel: Panel | null;
   theme: Theme;
@@ -31,6 +33,7 @@ interface State {
 
 type Action =
   | { type: 'region'; region: string }
+  | { type: 'focus'; crew: string | null }
   | { type: 'order'; order: string | null }
   | { type: 'crew'; crew: string }
   | { type: 'panel'; panel: Panel | null }
@@ -63,9 +66,17 @@ function reduce(state: State, action: Action): State {
     case 'region':
       if (action.region === state.region) return state;
       // Заявка и скрытые бригады принадлежат прежнему участку.
-      return { ...state, region: action.region, selectedOrder: null, hiddenCrews: new Set() };
+      return {
+        ...state,
+        region: action.region,
+        selectedOrder: null,
+        focusCrew: null,
+        hiddenCrews: new Set(),
+      };
     case 'order':
       return { ...state, selectedOrder: action.order };
+    case 'focus':
+      return { ...state, focusCrew: action.crew };
     case 'crew': {
       const hidden = new Set(state.hiddenCrews);
       if (!hidden.delete(action.crew)) hidden.add(action.crew);
@@ -81,6 +92,7 @@ function reduce(state: State, action: Action): State {
 
 export interface Day extends State {
   selectRegion: (region: string) => void;
+  focusOnCrew: (crew: string | null) => void;
   selectOrder: (order: string | null) => void;
   toggleCrew: (crew: string) => void;
   openPanel: (panel: Panel) => void;
@@ -94,6 +106,7 @@ export function DayProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduce, null, () => ({
     region: null,
     selectedOrder: null,
+    focusCrew: null,
     hiddenCrews: new Set<string>(),
     panel: null,
     theme: readTheme(),
@@ -103,6 +116,7 @@ export function DayProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       selectRegion: (region) => dispatch({ type: 'region', region }),
+      focusOnCrew: (crew) => dispatch({ type: 'focus', crew }),
       selectOrder: (order) => dispatch({ type: 'order', order }),
       toggleCrew: (crew) => dispatch({ type: 'crew', crew }),
       openPanel: (panel) => dispatch({ type: 'panel', panel }),

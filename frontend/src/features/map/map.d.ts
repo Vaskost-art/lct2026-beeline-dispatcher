@@ -19,6 +19,8 @@ export interface MapRoute {
   id: string;
   color: string;
   points: MapPoint[];
+  /** Маршрут не в фокусе: рисуется приглушённым. */
+  dim?: boolean;
 }
 
 export interface MapModel {

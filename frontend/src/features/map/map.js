@@ -51,8 +51,9 @@
     const onSelectOrder = options.onSelectOrder || (() => {});
 
     container.innerHTML =
+      '<div class="scheme-districts"></div>' +
       '<svg class="scheme-lines" aria-hidden="true">' +
-      '<g class="scheme-grid"></g><g class="scheme-routes"></g></svg>' +
+      '<g class="scheme-routes"></g></svg>' +
       '<div class="scheme-markers"></div>' +
       '<div class="scheme-controls">' +
       '<button type="button" data-act="in" title="Приблизить">+</button>' +
@@ -65,9 +66,9 @@
       'расстояния по прямой, районы подписаны</div>';
 
     const svg = container.querySelector('.scheme-lines');
-    const gridGroup = container.querySelector('.scheme-grid');
     const routesGroup = container.querySelector('.scheme-routes');
     const markerLayer = container.querySelector('.scheme-markers');
+    const districtLayer = container.querySelector('.scheme-districts');
     const scaleBar = container.querySelector('.scheme-scale-bar');
     const scaleText = container.querySelector('.scheme-scale-text');
 
@@ -146,18 +147,9 @@
       scaleText.textContent = km < 1 ? `${km * 1000} м` : `${km} км`;
     }
 
-    function drawGrid() {
+    function fitViewBox() {
       const { w, h } = size();
       svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-      const stepPx = 90;
-      let out = '';
-      for (let x = stepPx / 2; x < w; x += stepPx) {
-        out += `<line x1="${x}" y1="0" x2="${x}" y2="${h}"/>`;
-      }
-      for (let y = stepPx / 2; y < h; y += stepPx) {
-        out += `<line x1="0" y1="${y}" x2="${w}" y2="${y}"/>`;
-      }
-      gridGroup.innerHTML = out;
     }
 
     function districtLabels() {
@@ -179,7 +171,7 @@
 
     function draw() {
       const { w, h } = size();
-      drawGrid();
+      fitViewBox();
 
       let lines = '';
       model.routes.forEach((route) => {
@@ -190,11 +182,14 @@
             return `${i ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`;
           })
           .join(' ');
-        lines += `<path d="${d}" stroke="${escapeHtml(route.color)}" />`;
+        const dim = route.dim ? ' class="dim"' : '';
+        const stroke = route.dim ? '#c7ccd4' : route.color;
+        lines += `<path d="${d}" stroke="${escapeHtml(stroke)}"${dim} />`;
       });
       routesGroup.innerHTML = lines;
 
       markerLayer.innerHTML = '';
+      districtLayer.innerHTML = '';
       markers = [];
 
       districtLabels().forEach((d) => {
@@ -205,7 +200,7 @@
         node.textContent = d.name;
         node.style.left = `${s.x}px`;
         node.style.top = `${s.y}px`;
-        markerLayer.appendChild(node);
+        districtLayer.appendChild(node);
       });
 
       const place = (p, html, cls, color) => {
@@ -229,11 +224,12 @@
       };
 
       model.routes.forEach((route) => {
+        const faded = route.dim ? ' dim' : '';
         route.points.forEach((p) => {
           if (p.kind === 'base') {
-            place(p, '', 'scheme-pin scheme-base', route.color);
+            place(p, '', 'scheme-pin scheme-base' + faded, route.color);
           } else {
-            place(p, escapeHtml(p.label || ''), 'scheme-pin', route.color);
+            place(p, escapeHtml(p.label || ''), 'scheme-pin' + faded, route.color);
           }
         });
       });

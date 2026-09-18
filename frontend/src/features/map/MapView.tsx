@@ -9,6 +9,7 @@ import './map.css';
 interface Props {
   plan: PlanPayload | undefined;
   hiddenCrews: Set<string>;
+  focusCrew: string | null;
   selected: string | null;
   apiKey: string;
   theme: string;
@@ -21,7 +22,15 @@ interface Props {
 недоступный ключ задерживал весь запуск, и человек до сорока секунд смотрел
 в пустоту.
 */
-export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }: Props) {
+export function MapView({
+  plan,
+  hiddenCrews,
+  focusCrew,
+  selected,
+  apiKey,
+  theme,
+  onSelect,
+}: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<DispatcherMap | null>(null);
   // Схема подписывает себя сама, поэтому называем источник только тогда,
@@ -63,8 +72,8 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
 
   useEffect(() => {
     if (!map.current || !plan) return;
-    map.current.render(buildMapModel(plan, hiddenCrews));
-  }, [plan, hiddenCrews, ready]);
+    map.current.render(buildMapModel(plan, hiddenCrews, focusCrew));
+  }, [plan, hiddenCrews, focusCrew, ready]);
 
   // Контейнер меняет размер не только вместе с окном: раскрытая полоса
   // события отнимает высоту, и без пересчёта точки уезжают за край.

@@ -7,10 +7,12 @@ interface Props {
   onClose: () => void;
 }
 
-const TONE: Record<string, string> = {
-  высокий: 'text-danger',
-  средний: 'text-warn',
-  низкий: 'text-ok',
+/** Риск это состояние маршрута, а не оттенок текста: бейдж читается с
+    первого взгляда и не спорит с соседним числом. */
+const BADGE: Record<string, string> = {
+  высокий: 'bg-danger-soft text-danger',
+  средний: 'bg-raised text-warn',
+  низкий: 'bg-ok-soft text-ok',
 };
 
 /** Прогноз опозданий: где план сломается от первой же задержки. */
@@ -19,22 +21,30 @@ export function RiskDialog({ plan, open, onClose }: Props) {
 
   return (
     <Modal open={open} title="Прогноз опозданий" onClose={onClose}>
-      <p className="mb-3 text-[13px] text-ink-2">{plan.risk.summary}</p>
+      <p className="mb-3 max-w-[68ch] text-[13px] text-ink-2">{plan.risk.summary}</p>
       <ul className="flex flex-col divide-y divide-line border-y border-line">
         {routes.map((route) => (
-          <li key={route.engineer_id} className="flex flex-col gap-0.5 py-2">
-            <span className="flex items-baseline gap-3">
+          <li key={route.engineer_id} className="flex flex-col gap-1 py-2.5">
+            <span className="flex items-center gap-3">
               <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
                 {route.engineer_id}
               </span>
-              <span className={`text-[12px] font-semibold ${TONE[route.risk] ?? 'text-ink-3'}`}>
-                {route.risk} риск
+              <span
+                className={
+                  'shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.03em] ' +
+                  (BADGE[route.risk] ?? 'bg-raised text-ink-3')
+                }
+              >
+                {route.risk}
               </span>
-              <span className="w-24 text-right text-[12px] text-ink-3 tnum">
-                запас {route.tolerance_min} <span className="unit">мин</span>
+              <span className="flex w-20 shrink-0 flex-col items-end">
+                <span className="text-[10px] uppercase tracking-[0.05em] text-ink-4">запас</span>
+                <span className="text-[13px] font-semibold tnum">
+                  {route.tolerance_min} <span className="unit">мин</span>
+                </span>
               </span>
             </span>
-            <span className="text-[12px] text-ink-2">{route.text}</span>
+            <span className="max-w-[68ch] text-[12px] text-ink-2">{route.text}</span>
           </li>
         ))}
       </ul>

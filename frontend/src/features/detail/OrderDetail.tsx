@@ -1,7 +1,8 @@
 import { X } from '@phosphor-icons/react';
 import { Fragment, useEffect } from 'react';
 
-import { useExplanation } from '../../api/queries';
+import { useExplanation, useReassign } from '../../api/queries';
+import type { ApiError } from '../../api/client';
 import type { Order } from '../../api/types';
 import { Alternatives } from './Alternatives';
 
@@ -9,6 +10,8 @@ interface Props {
   region: string;
   orderId: string;
   order: Order | undefined;
+  /** Кому можно передать заявку: бригады этого участка. */
+  crews: { id: string; name: string }[];
   onClose: () => void;
 }
 
@@ -17,8 +20,9 @@ interface Props {
 Выезжает поверх карты и закрывается по Escape: диспетчер разбирается с одной
 заявкой, не теряя из виду весь план.
 */
-export function OrderDetail({ region, orderId, order, onClose }: Props) {
+export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
   const explain = useExplanation(region, orderId);
+  const reassign = useReassign();
   const data = explain.data;
 
   useEffect(() => {
@@ -38,9 +42,9 @@ export function OrderDetail({ region, orderId, order, onClose }: Props) {
                  shadow-[0_12px_40px_rgb(10_14_20/0.18)]
                  lg:inset-y-2 lg:left-auto lg:right-2 lg:max-h-none lg:w-[380px]"
     >
-      <header className="flex items-start gap-2 border-b border-line px-3 py-2">
+      <header className="sticky top-0 z-10 flex items-start gap-2 border-b border-line bg-panel px-3 py-2">
         <div className="min-w-0 flex-1">
-          <p className="eyebrow">Заявка</p>
+          <p className="text-[12px] font-medium text-ink-3">Заявка</p>
           <p data-testid="detail-order" className="text-[15px] font-semibold tnum">
             № {orderId}
           </p>
@@ -97,7 +101,7 @@ export function OrderDetail({ region, orderId, order, onClose }: Props) {
               </p>
             ) : null}
 
-            <dl className="mt-3 grid grid-cols-[minmax(0,104px)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+            <dl className="mt-3 grid grid-cols-[minmax(0,124px)_minmax(0,1fr)] gap-x-3 gap-y-2">
               {data.facts.map(([name, value]) => (
                 // Fragment, а не div с display:contents: у такого элемента
                 // нет собственного прямоугольника, и проверка вёрстки
@@ -110,6 +114,40 @@ export function OrderDetail({ region, orderId, order, onClose }: Props) {
             </dl>
 
             <Alternatives items={data.alternatives} total={data.alternatives_total} />
+
+            <section className="mt-4 border-t border-line pt-3">
+              <h3 className="mb-1.5 text-[13px] font-semibold">Передать другой бригаде</h3>
+              <p className="mb-2 text-[12px] text-ink-3">
+                Решение диспетчера сильнее расчёта: заявка закрепится за выбранной бригадой
+                и останется у неё при следующем пересчёте.
+              </p>
+              <select
+                aria-label="Передать бригаде"
+                value=""
+                disabled={reassign.isPending}
+                onChange={(event) => {
+                  const crew = event.target.value;
+                  if (crew) reassign.mutate({ region, order_id: orderId, engineer_id: crew });
+                }}
+                className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[13px]"
+              >
+                <option value="">
+                  {reassign.isPending ? 'Переносим…' : 'Выберите бригаду'}
+                </option>
+                {crews
+                  .filter((crew) => crew.id !== data.engineer_id)
+                  .map((crew) => (
+                    <option key={crew.id} value={crew.id}>
+                      {crew.name}
+                    </option>
+                  ))}
+              </select>
+              {reassign.error ? (
+                <p role="alert" className="mt-1.5 text-[12px] text-danger">
+                  {(reassign.error as ApiError).message}
+                </p>
+              ) : null}
+            </section>
           </>
         ) : null}
       </div>

@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import TypedDict
 
 from dispatcher.domain import Order, Plan
-from dispatcher.domain.equipment import EQUIPMENT
+from dispatcher.domain.equipment import EQUIPMENT, FORMS
+from dispatcher.domain.text import plural
 
 
 class PickupRow(TypedDict):
@@ -27,7 +28,8 @@ def _describe(items: dict[str, int]) -> str:
     for name in EQUIPMENT:
         count = items.get(name, 0)
         if count:
-            parts.append(f"{count} {name.lower()}")
+            one, few, many = FORMS[name]
+            parts.append(f"{count} {plural(count, one, few, many)}")
     return ", ".join(parts)
 
 

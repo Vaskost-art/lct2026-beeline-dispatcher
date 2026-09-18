@@ -57,7 +57,11 @@ export function EventBar({ plan }: Props) {
 
       {open ? (
         <div className="flex flex-col gap-3 border-t border-line px-3 py-3">
-          <div className="flex flex-wrap gap-1">
+          <div
+            role="group"
+            aria-label="Вид события"
+            className="inline-flex w-fit rounded-md border border-line bg-raised/60 p-0.5"
+          >
             {KIND_TITLES.map(([kind, title]) => (
               <button
                 key={kind}
@@ -65,10 +69,10 @@ export function EventBar({ plan }: Props) {
                 aria-pressed={draft.kind === kind}
                 onClick={() => change({ ...EMPTY_DRAFT, kind, at: draft.at })}
                 className={
-                  'h-8 rounded-md border px-3 text-[13px] transition-colors duration-[120ms] ' +
+                  'h-7 rounded-sm px-3 text-[12px] transition-colors duration-[120ms] ' +
                   (draft.kind === kind
-                    ? 'border-accent bg-accent-soft font-medium text-ink'
-                    : 'border-line text-ink-3 hover:text-ink')
+                    ? 'bg-panel font-medium text-ink shadow-[0_1px_2px_rgb(10_14_20/0.08)]'
+                    : 'text-ink-3 hover:text-ink')
                 }
               >
                 {title}
@@ -118,8 +122,10 @@ export function EventBar({ plan }: Props) {
           ) : null}
 
           {preview ? (
-            <div className="flex flex-col gap-3 rounded-md border border-accent/30 bg-accent-soft px-3 py-2">
-              <span className="eyebrow">Предсказание. Рабочий день пока не изменился</span>
+            <div className="flex flex-col gap-3 rounded-md border border-warn/35 bg-raised/50 px-3 py-2.5">
+              <span className="text-[12px] font-medium text-warn">
+                Предсказание. Рабочий день пока не изменился
+              </span>
               <EventPreview before={plan} preview={preview} />
               <div className="flex flex-wrap gap-2">
                 <Button

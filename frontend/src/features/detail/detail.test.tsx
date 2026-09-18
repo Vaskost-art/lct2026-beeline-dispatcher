@@ -35,7 +35,7 @@ function show(orderId: string, order?: Order) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <OrderDetail region="vostok" orderId={orderId} order={order} onClose={() => {}} />
+      <OrderDetail region="vostok" orderId={orderId} order={order} crews={[]} onClose={() => {}} />
     </QueryClientProvider>,
   );
 }
@@ -49,7 +49,7 @@ describe('карточка заявки', () => {
     const { rerender, container } = show('1');
     rerender(
       <QueryClientProvider client={new QueryClient()}>
-        <OrderDetail region="vostok" orderId="2" order={undefined} onClose={() => {}} />
+        <OrderDetail region="vostok" orderId="2" order={undefined} crews={[]} onClose={() => {}} />
       </QueryClientProvider>,
     );
 

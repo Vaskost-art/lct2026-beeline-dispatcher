@@ -127,3 +127,17 @@ export function useRestoreDay() {
     onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
   });
 }
+
+/** Ручной перенос заявки другой бригаде.
+
+Решение диспетчера переживает пересчёт: сервис закрепляет заявку за выбранной
+бригадой, иначе следующий расчёт молча отменил бы то, что человек сделал.
+*/
+export function useReassign() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { region: string; order_id: string; engineer_id: string | null }) =>
+      send<PlanPayload>('/api/reassign', body),
+    onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
+  });
+}

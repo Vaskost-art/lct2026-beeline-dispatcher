@@ -28,11 +28,10 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
         <span className="hidden sm:inline">Меню</span>
       </Button>
 
-      <span className="hidden min-w-0 items-baseline gap-2 md:flex">
+      <span className="hidden min-w-0 md:block">
         <span className="truncate text-[13px] font-semibold tracking-[-0.01em]">
           Планировщик выездных работ
         </span>
-        <span className="truncate text-[11px] text-shell-muted">смена на сегодня</span>
       </span>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">

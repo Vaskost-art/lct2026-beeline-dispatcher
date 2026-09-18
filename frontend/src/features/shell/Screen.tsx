@@ -1,6 +1,7 @@
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
 import { ApiError } from '../../api/client';
 import { useDay } from '../../state/day';
+import { WorkList } from '../routes/WorkList';
 import { Header } from './Header';
 import { Metrics } from './Metrics';
 
@@ -36,7 +37,7 @@ export function Screen() {
         <Metrics plan={payload} stale={run.isPending} onShortfall={() => day.openPanel('shortfall')} />
       ) : null}
 
-      <main className="min-h-0 flex-1 p-4">
+      <main className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         {!day.region ? (
           <p className="text-muted">
             Выберите участок в шапке и нажмите «Спланировать»: сервис соберёт маршруты
@@ -58,6 +59,12 @@ export function Screen() {
           <p role="alert" className="text-danger">
             {(run.error as ApiError).message}
           </p>
+        ) : null}
+
+        {payload ? (
+          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+            <WorkList plan={payload} selected={day.selectedOrder} onSelect={day.selectOrder} />
+          </div>
         ) : null}
       </main>
     </div>

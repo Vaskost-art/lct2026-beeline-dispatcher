@@ -37,6 +37,23 @@ def fail(label: str, what: str) -> None:
     print(f"    ✗ {label}: {what}")
 
 
+def unwrap(payload: object) -> object:
+    """Разворачивает конверт {ok, data} либо {ok, error}.
+
+    Проверки написаны про содержимое ответа, а не про его упаковку, поэтому
+    конверт снимается в одном месте. Текст отказа кладётся под ключ
+    «detail»: проверки внятности объяснения читают именно его.
+    """
+    if not isinstance(payload, dict) or "ok" not in payload:
+        return payload
+    if payload.get("ok") is True:
+        return payload.get("data")
+    error = payload.get("error")
+    if isinstance(error, dict):
+        return {"detail": error.get("message", ""), "code": error.get("code", "")}
+    return payload
+
+
 def call(method: str, path: str, body=None, raw: bytes | None = None,
          content_type: str = "application/json") -> tuple[int, object]:
     data = raw if raw is not None else (
@@ -48,11 +65,11 @@ def call(method: str, path: str, body=None, raw: bytes | None = None,
     try:
         with urllib.request.urlopen(request, timeout=180) as response:
             text = response.read().decode("utf-8", "replace")
-            return response.status, (json.loads(text) if text else None)
+            return response.status, unwrap(json.loads(text) if text else None)
     except urllib.error.HTTPError as error:
         text = error.read().decode("utf-8", "replace")
         try:
-            return error.code, json.loads(text)
+            return error.code, unwrap(json.loads(text))
         except json.JSONDecodeError:
             return error.code, text
     except Exception as error:                      # сервис не поднят, таймаут

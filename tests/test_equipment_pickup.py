@@ -52,7 +52,7 @@ def test_plan_response_carries_equipment_and_pickup():
         answer = client.post("/api/plan",
                              json={"region": "vostok", "strategy": "greedy"})
         assert answer.status_code == 200
-        payload = answer.json()
+        payload = answer.json()["data"]
 
     assert "pickup" in payload
     assert any(order.get("equipment") for order in payload["orders"])

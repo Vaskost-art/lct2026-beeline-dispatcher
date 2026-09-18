@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from dispatcher.api.deps import STORE, day, scenario_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.paths import MAP_API_KEY
 from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, norms
 from dispatcher.domain.assumptions import ASSUMPTIONS
@@ -21,7 +22,7 @@ router = APIRouter()
 
 @router.get("/api/meta")
 def meta() -> dict:
-    return {
+    return ok({
         "regions": [
             {**day(key).scenario.summary(),
              "builtin": key in REGIONS,
@@ -43,9 +44,9 @@ def meta() -> dict:
                          for k, v in MODE_TITLES.items()],
         "assumptions": [{"title": t, "text": x} for t, x in ASSUMPTIONS],
         "map_api_key": MAP_API_KEY,
-    }
+    })
 
 
 @router.get("/api/scenario/{region}")
 def scenario_info(region: str) -> dict:
-    return scenario_of(region).summary()
+    return ok(scenario_of(region).summary())

@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import ExplainRequest, PlanRequest
 from dispatcher.api.state import DayVersion
@@ -63,14 +64,14 @@ def make_plan(request: PlanRequest) -> dict:
     STORE.push(request.region, DayVersion(
         label=label, plan=plan, metrics=metrics,
         orders=orders, engineers=engineers, locked=locked))
-    return plan_payload(scenario, plan, metrics)
+    return ok(plan_payload(scenario, plan, metrics))
 
 
 @router.get("/api/plan/{region}")
 def current_plan(region: str) -> dict:
     scenario = scenario_of(region)
     state = version_of(region)
-    return plan_payload(scenario, state.plan, state.metrics)
+    return ok(plan_payload(scenario, state.plan, state.metrics))
 
 
 @router.get("/api/compare/{region}")
@@ -98,7 +99,7 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
         rows.append({"key": key, "title": STRATEGY_FULL_TITLES[key],
                      "hint": STRATEGY_HINTS[key], "metrics": metrics})
 
-    return {
+    return ok({
         "region": region,
         "region_name": scenario.region_name,
         "rows": rows,
@@ -111,7 +112,7 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
                   "для исходного набора заявок."
                   if changed else
                   "Сравнение посчитано по тому же дню, что показан на экране."),
-    }
+    })
 
 
 # --- объяснения --------------------------------------------------------------
@@ -123,4 +124,4 @@ def explain(request: ExplainRequest) -> dict:
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
         raise HTTPException(404, f"Заявка {request.order_id} не найдена")
-    return explain_assignment(order, state.plan, orders, state.engineers)
+    return ok(explain_assignment(order, state.plan, orders, state.engineers))

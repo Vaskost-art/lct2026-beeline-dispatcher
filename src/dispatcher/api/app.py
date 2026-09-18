@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse
 
 from dispatcher.api import deps
+from dispatcher.api.envelope import code_of, failed
 from dispatcher.api.routes import datasets, manual, meta, planning, replanning, saving
 from dispatcher.infrastructure import envfile
 from dispatcher.services.scenario import load_all
@@ -31,6 +33,22 @@ app = FastAPI(title="Планировщик маршрутов выездных 
 
 for module in (meta, planning, replanning, manual, saving, datasets):
     app.include_router(module.router)
+
+
+@app.exception_handler(HTTPException)
+def _http_error(request: Request, error: HTTPException) -> JSONResponse:
+    return JSONResponse(status_code=error.status_code,
+                        content=failed(code_of(error), str(error.detail)))
+
+
+@app.exception_handler(RequestValidationError)
+def _validation_error(request: Request,
+                      error: RequestValidationError) -> JSONResponse:
+    # Поля запроса собирает Pydantic, и его текст читать невозможно.
+    # Диспетчеру достаточно знать, что запрос не принят. Статус остаётся
+    # стандартным для непринятых полей, меняется только форма ответа.
+    return JSONResponse(status_code=422, content=failed(
+        "bad_request", "Запрос не принят: проверьте заполненные поля"))
 
 
 @app.on_event("startup")

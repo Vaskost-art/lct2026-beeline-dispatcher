@@ -9,6 +9,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, scenario_of, version_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.paths import ROOT, SAVED_DIR
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import RegionRequest, SavePlanRequest
@@ -82,8 +83,8 @@ def save_plan(request: SavePlanRequest) -> dict:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
-    return {"saved": True, "name": data["name"], "saved_at": data["saved_at"],
-            "path": os.path.relpath(path, ROOT)}
+    return ok({"saved": True, "name": data["name"], "saved_at": data["saved_at"],
+            "path": os.path.relpath(path, ROOT)})
 
 
 @router.get("/api/plan/saved/{region}")
@@ -91,16 +92,16 @@ def saved_plan_info(region: str) -> dict:
     """Есть ли сохранённый день по этому району и когда он записан."""
     path = _saved_path(region)
     if not os.path.exists(path):
-        return {"exists": False}
+        return ok({"exists": False})
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError):
-        return {"exists": False}
-    return {"exists": True, "name": data.get("name", region),
+        return ok({"exists": False})
+    return ok({"exists": True, "name": data.get("name", region),
             "saved_at": data.get("saved_at", ""),
             "orders": len(data.get("orders") or []),
-            "strategy": data.get("strategy", "")}
+            "strategy": data.get("strategy", "")})
 
 
 @router.post("/api/plan/restore")
@@ -180,4 +181,4 @@ def restore_plan(request: RegionRequest) -> dict:
     payload["restored"] = {"name": data.get("name", request.region),
                            "saved_at": data.get("saved_at", ""),
                            "lost": lost}
-    return payload
+    return ok(payload)

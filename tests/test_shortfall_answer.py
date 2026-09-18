@@ -13,7 +13,7 @@ def _plan(region: str) -> dict:
         answer = client.post("/api/plan",
                              json={"region": region, "strategy": "greedy"})
         assert answer.status_code == 200
-        return answer.json()
+        return answer.json()["data"]
 
 
 def test_plan_says_how_many_crews_are_missing():

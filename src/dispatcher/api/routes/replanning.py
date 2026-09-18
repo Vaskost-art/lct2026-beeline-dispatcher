@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import ReplanRequest
 from dispatcher.api.state import DayVersion, PreviewCache
@@ -118,12 +119,12 @@ def do_replan(request: ReplanRequest) -> dict:
             orders=new_orders, engineers=new_engineers,
             locked=dict(state.locked)))
         state_day.preview = None
-        return plan_payload(scenario, result.plan, metrics, extra={
+        return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
             "narrative": result.narrative,
             "applied": True,
             "frozen": result.frozen,
-        })
+        }))
 
     # Предпросмотр: показываем, что получится, не меняя рабочий день. Заявки
     # после события подставляем только в ответ.
@@ -132,11 +133,11 @@ def do_replan(request: ReplanRequest) -> dict:
                                  engineers=new_engineers, locked=dict(state.locked))
     state_day.versions.append(preview_version)
     try:
-        return plan_payload(scenario, result.plan, metrics, extra={
+        return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
             "narrative": result.narrative,
             "applied": False,
             "frozen": result.frozen,
-        })
+        }))
     finally:
         state_day.versions.pop()

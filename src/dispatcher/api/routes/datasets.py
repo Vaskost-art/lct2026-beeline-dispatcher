@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.paths import CACHE_PATH
 from dispatcher.domain import Plan, hhmm
 from dispatcher.services.dataset import DatasetError, load_upload, scenario_to_json
@@ -58,12 +59,12 @@ async def upload_dataset(request: Request, filename: str = "dataset",
 
     STORE.replace_scenario(region_key, scenario, events)
 
-    return {
+    return ok({
         "region": region_key,
         "format": detected,
         "summary": scenario.summary(),
         "events": events,
-    }
+    })
 
 
 @router.get("/api/dataset/{region}")
@@ -84,7 +85,7 @@ def risk_report(region: str, overrun: int = 15) -> dict:
     report = plan_risk(state.plan, state.orders, state.engineers)
     report["custom_scenario"] = overrun_impact(
         state.plan, state.orders, state.engineers, overrun)
-    return report
+    return ok(report)
 
 
 @router.get("/api/validate/{region}")
@@ -93,7 +94,7 @@ def validate_plan(region: str) -> dict:
     scenario_of(region)
     state = version_of(region)
     report = validate(state.plan, state.orders, state.engineers)
-    return report.to_dict()
+    return ok(report.to_dict())
 
 
 # --- выгрузка результата в формате ТЗ ---------------------------------------

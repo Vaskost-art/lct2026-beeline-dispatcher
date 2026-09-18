@@ -6,6 +6,7 @@ from dataclasses import replace
 from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, scenario_of, version_of
+from dispatcher.api.envelope import ok
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.routes.planning import build_plan
 from dispatcher.api.schemas import AdjustOrderRequest, ReassignRequest, RegionRequest
@@ -98,7 +99,7 @@ def reassign(request: ReassignRequest) -> dict:
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
         engineers=list(engineers), locked=locked))
-    return plan_payload(scenario, new_plan, metrics)
+    return ok(plan_payload(scenario, new_plan, metrics))
 
 
 # --- закрепление заявки и смена приоритета (ручные решения диспетчера) -------
@@ -150,7 +151,7 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
         changes.append(f"приоритет «{request.priority}»")
 
     if not changes:
-        return plan_payload(scenario, state.plan, state.metrics)
+        return ok(plan_payload(scenario, state.plan, state.metrics))
 
     # После события или ручной правки у плана стоит своя пометка
     # («replanned», «manual»), которой нет среди способов расчёта. Пересчёт в
@@ -165,7 +166,7 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
         engineers=list(engineers), locked=locked))
-    return plan_payload(scenario, plan, metrics)
+    return ok(plan_payload(scenario, plan, metrics))
 
 
 # --- шаг назад (A30) ---------------------------------------------------------
@@ -181,4 +182,4 @@ def undo(request: RegionRequest) -> dict:
 
     payload = plan_payload(scenario, previous.plan, previous.metrics)
     payload["undone"] = undone
-    return payload
+    return ok(payload)

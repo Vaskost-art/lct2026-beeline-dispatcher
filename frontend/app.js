@@ -110,10 +110,13 @@ async function api(path, options) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch (_) { data = null; }
   if (!res.ok) {
-    const detail = (data && (data.detail || data.message)) || text || res.statusText;
+    const detail = (data && data.error && data.error.message)
+      || (data && (data.detail || data.message)) || text || res.statusText;
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
-  return data;
+  // Сервис отдаёт конверт {ok, data}. Новый интерфейс читает его целиком,
+  // этой витрине нужно только содержимое.
+  return data && data.ok === true ? data.data : data;
 }
 
 /* Расчёт занимает до полутора десятков секунд. Без обратной связи это

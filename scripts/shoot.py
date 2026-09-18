@@ -23,6 +23,9 @@ class Measured(TypedDict):
 
     problems: list[dict[str, str]]
     content: int
+    # Сценарий довёл экран до нужного вида. Если нет, замер говорит о чужом
+    # экране: снятое меню вместо окна отчитывалось как «чисто».
+    reached: bool
 
 
 #: Обязательные ширины. 390 - телефон, он входит в прогон всегда: заказчик
@@ -142,17 +145,20 @@ async def _shoot(page: Page, url: str, state: str, out: Path) -> dict[str, Measu
         # Сценарий проигрывается заново на каждой ширине: интерфейс
         # одностраничный, и смена размера окна состояние не пересобирает.
         await page.goto(url, wait_until="domcontentloaded")
+        reached = True
         try:
             await STATES[state](page)
         except PlaywrightTimeout as error:
             # Печатаем, чего именно не дождались: без этого непонятно, экран
             # не собрался или сценарий ждёт того, чего на нём не бывает.
+            reached = False
             step = str(error).strip().splitlines()[0]
-            print(f"{width}: состояние «{state}» не собралось: {step}")
+            print(f"{width}: состояние «{state}» НЕ СОБРАЛОСЬ: {step}")
         # Анимации доигрывают, карта дорисовывается.
         await page.wait_for_timeout(800)
         await page.screenshot(path=str(out / f"{state}-{width}.png"), full_page=True)
         found: Measured = await page.evaluate(_MEASURE)
+        found["reached"] = reached
         report[str(width)] = found
     return report
 
@@ -164,7 +170,9 @@ def _print(state: str, report: dict[str, Measured]) -> None:
     for width, found in report.items():
         counted = int(found["content"])
         problems = found["problems"]
-        if counted < MIN_CONTENT:
+        if not found.get("reached", True):
+            print(f"{width}: состояние не собралось, снят чужой экран")
+        elif counted < MIN_CONTENT:
             print(f"{width}: содержимого почти нет ({counted}), проверять нечего")
         elif problems:
             print(f"{width}: находок {len(problems)}")
@@ -195,9 +203,20 @@ async def main() -> None:
         page = await browser.new_page()
         if not args.live_map:
             await _block_map(page)
+        failed: list[str] = []
         for state in states:
-            _print(state, await _shoot(page, args.url, state, out))
+            report = await _shoot(page, args.url, state, out)
+            _print(state, report)
+            if any(not found.get("reached", True) for found in report.values()):
+                failed.append(state)
         await browser.close()
+
+    if failed:
+        # Несобравшееся состояние это провал проверки, а не мелочь: съёмка
+        # чужого экрана выдаёт себя за доказательство исправления.
+        print()
+        print(f"НЕ СОБРАЛИСЬ: {', '.join(failed)}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

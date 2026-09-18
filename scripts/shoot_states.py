@@ -32,6 +32,10 @@ async def _plan(page: Page) -> None:
     await _ready(page)
     await page.select_option('select[aria-label="Участок"]', REGION)
     await page.click('[data-testid="plan"]')
+    # Сначала дожидаемся, что расчёт действительно начался: иначе условие
+    # «кнопка снова доступна» совпадает мгновенно, и снимок застаёт экран
+    # посреди счёта, с вечной надписью «Считаем».
+    await page.wait_for_selector('[data-testid="plan"][disabled]', timeout=30_000)
     # Признак окончания - кнопка расчёта снова доступна. Ждать появления
     # чисел нельзя: на экране остаются прежние, пока считается новый план.
     await page.wait_for_selector('[data-testid="plan"]:not([disabled])',
@@ -115,13 +119,16 @@ async def compare(page: Page) -> None:
 async def risk(page: Page) -> None:
     """Прогноз опозданий."""
     await _plan(page)
-    await _menu(page, "Прогноз опозданий")
+    # Проверки дня живут в строке сводки, а не в меню: они нужны каждый день.
+    await page.click('button:has-text("Опоздания")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Прогноз опозданий")',
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
 async def validate(page: Page) -> None:
     """Независимая проверка плана."""
     await _plan(page)
-    await _menu(page, "Проверить план")
+    await page.click('button:has-text("Проверить план")')
     await page.wait_for_selector("text=/Нарушений нет|Найдены нарушения/",
                                  timeout=PLAN_TIMEOUT_MS)
 
@@ -129,7 +136,9 @@ async def validate(page: Page) -> None:
 async def pickup(page: Page) -> None:
     """Ведомость на выдачу оборудования."""
     await _plan(page)
-    await _menu(page, "Что взять в офисе")
+    await page.click('button:has-text("Ведомость")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Что взять в офисе")',
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
 async def shortfall(page: Page) -> None:

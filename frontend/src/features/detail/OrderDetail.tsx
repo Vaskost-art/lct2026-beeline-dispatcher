@@ -72,8 +72,8 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
           <>
             <p
               className={
-                'rounded-md px-2 py-1.5 text-[13px] font-medium ' +
-                (data.assigned ? 'bg-ok-soft text-ink' : 'bg-danger-soft text-ink')
+                'rounded-md border-l-2 bg-raised/60 px-2 py-1.5 text-[13px] font-medium ' +
+                (data.assigned ? 'border-ok' : 'border-danger')
               }
             >
               {data.headline}
@@ -101,56 +101,62 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
               </p>
             ) : null}
 
-            <dl className="mt-3 grid grid-cols-[minmax(0,124px)_minmax(0,1fr)] gap-x-3 gap-y-2">
-              {data.facts.map(([name, value]) => (
-                // Fragment, а не div с display:contents: у такого элемента
-                // нет собственного прямоугольника, и проверка вёрстки
-                // сравнивает детей с пустым контейнером.
-                <Fragment key={name}>
-                  <dt className="text-[12px] text-ink-3">{name}</dt>
-                  <dd className="min-w-0 text-[12px] text-ink">{value}</dd>
-                </Fragment>
-              ))}
-            </dl>
-
             <Alternatives items={data.alternatives} total={data.alternatives_total} />
 
-            <section className="mt-4 border-t border-line pt-3">
-              <h3 className="mb-1.5 text-[13px] font-semibold">Передать другой бригаде</h3>
-              <p className="mb-2 text-[12px] text-ink-3">
-                Решение диспетчера сильнее расчёта: заявка закрепится за выбранной бригадой
-                и останется у неё при следующем пересчёте.
-              </p>
-              <select
-                aria-label="Передать бригаде"
-                value=""
-                disabled={reassign.isPending}
-                onChange={(event) => {
-                  const crew = event.target.value;
-                  if (crew) reassign.mutate({ region, order_id: orderId, engineer_id: crew });
-                }}
-                className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[13px]"
-              >
-                <option value="">
-                  {reassign.isPending ? 'Переносим…' : 'Выберите бригаду'}
-                </option>
-                {crews
-                  .filter((crew) => crew.id !== data.engineer_id)
-                  .map((crew) => (
-                    <option key={crew.id} value={crew.id}>
-                      {crew.name}
-                    </option>
-                  ))}
-              </select>
-              {reassign.error ? (
-                <p role="alert" className="mt-1.5 text-[12px] text-danger">
-                  {(reassign.error as ApiError).message}
-                </p>
-              ) : null}
-            </section>
+            <details className="mt-4 border-t border-line pt-3">
+              <summary className="cursor-pointer text-[13px] font-semibold">
+                Подробности заявки
+              </summary>
+              <dl className="mt-2 grid grid-cols-[minmax(0,124px)_minmax(0,1fr)] gap-x-3 gap-y-2">
+                {data.facts.map(([name, value]) => (
+                  // Fragment, а не div с display:contents: у такого элемента
+                  // нет собственного прямоугольника, и проверка вёрстки
+                  // сравнивает детей с пустым контейнером.
+                  <Fragment key={name}>
+                    <dt className="text-[12px] text-ink-3">{name}</dt>
+                    <dd className="min-w-0 text-[12px] text-ink">{value}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </details>
+
           </>
         ) : null}
       </div>
+
+      {data ? (
+        <div className="shrink-0 border-t border-line bg-panel px-3 py-2">
+          <label className="flex min-w-0 flex-col gap-1">
+            <span className="text-[12px] font-medium text-ink-3">Передать другой бригаде</span>
+            <select
+              aria-label="Передать бригаде"
+              value=""
+              disabled={reassign.isPending}
+              onChange={(event) => {
+                const crew = event.target.value;
+                if (crew) reassign.mutate({ region, order_id: orderId, engineer_id: crew });
+              }}
+              className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[13px]"
+            >
+              <option value="">
+                {reassign.isPending ? 'Переносим…' : 'Выберите бригаду'}
+              </option>
+              {crews
+                .filter((crew) => crew.id !== data.engineer_id)
+                .map((crew) => (
+                  <option key={crew.id} value={crew.id}>
+                    {crew.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {reassign.error ? (
+            <p role="alert" className="mt-1.5 text-[12px] text-danger">
+              {(reassign.error as ApiError).message}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </aside>
   );
 }

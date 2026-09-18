@@ -4,6 +4,7 @@ import { Button } from '../../components/Button';
 
 import { ApiError } from '../../api/client';
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
+import type { RegionSummary } from '../../api/types';
 import { useDay } from '../../state/day';
 import { CompareDialog } from '../compare/CompareDialog';
 import { AssumptionsDialog } from '../data/AssumptionsDialog';
@@ -96,7 +97,16 @@ export function Screen() {
             <EventBar plan={payload} />
           </>
         ) : (
-          <FirstRun region={day.region} loading={run.isPending || plan.isFetching} />
+          <FirstRun
+            region={day.region}
+            loading={run.isPending || plan.isFetching}
+            regions={meta.data?.regions ?? []}
+            onRegion={day.selectRegion}
+            onPlan={() => {
+              if (day.region) run.mutate({ region: day.region, strategy: 'optimized' });
+            }}
+            onUpload={() => day.openPanel('upload')}
+          />
         )}
       </main>
 
@@ -155,23 +165,57 @@ export function Screen() {
   );
 }
 
-/** Экран до первого плана: говорит, что это за место и какая кнопка его
-    наполнит. Серая надпись «нет данных» такой работы не делает. */
-function FirstRun({ region, loading }: { region: string | null; loading: boolean }) {
+/** Экран до первого плана: говорит, что это за место, и даёт действие.
+    Серая надпись «нет данных» такой работы не делает. */
+function FirstRun({
+  region,
+  loading,
+  regions,
+  onRegion,
+  onPlan,
+  onUpload,
+}: {
+  region: string | null;
+  loading: boolean;
+  regions: RegionSummary[];
+  onRegion: (region: string) => void;
+  onPlan: () => void;
+  onUpload: () => void;
+}) {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-panel">
-      <div className="flex max-w-[46ch] flex-col items-center gap-3 px-6 py-12 text-center">
+      <div className="flex w-full max-w-[44ch] flex-col items-center gap-4 px-6 py-12 text-center">
         <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-4" />
         <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
           {region ? 'План на сегодня ещё не построен' : 'Смена не выбрана'}
         </h2>
         <p className="text-[13px] leading-relaxed text-ink-3">
           {loading
-            ? 'Считаем маршруты. Это занимает до полутора десятков секунд.'
+            ? 'Считаем маршруты. Это занимает несколько секунд.'
             : region
-              ? 'Нажмите «Спланировать»: сервис разложит заявки по бригадам, покажет маршруты на карте и назовёт причину по каждой заявке, которая не поместилась.'
-              : 'Выберите участок в шапке. Дальше одна кнопка: сервис соберёт маршруты и покажет, что осталось без исполнителя.'}
+              ? 'Сервис разложит заявки по бригадам, покажет маршруты на карте и назовёт причину по каждой заявке, которая не поместилась.'
+              : 'Возьмите участок из выгрузки организаторов или загрузите свой файл с заявками.'}
         </p>
+
+        {region ? (
+          <Button variant="primary" onClick={onPlan} busy={loading}>
+            Спланировать день
+          </Button>
+        ) : (
+          <div className="flex w-full flex-col gap-2">
+            {regions.map((item) => (
+              <Button key={item.region_key} onClick={() => onRegion(item.region_key)}>
+                <span className="flex-1 text-left">{item.region_name}</span>
+                <span className="text-[12px] text-ink-3 tnum">
+                  {item.orders} заявок · {item.engineers} бригад
+                </span>
+              </Button>
+            ))}
+            <Button variant="quiet" onClick={onUpload}>
+              Загрузить свой набор данных
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

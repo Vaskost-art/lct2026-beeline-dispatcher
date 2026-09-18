@@ -48,6 +48,11 @@ _STATUS_VALUES = [
 # Разный старт по районам мы не делаем сознательно: на трёх выгрузках это
 # была бы подгонка под данные, а не настройка алгоритма. Перебор
 # воспроизводится: `python3 scripts/benchmark.py --heuristics`.
+#: Сколько улучшений перебирать, прежде чем остановиться. Счётный предел
+#: делает план воспроизводимым: за одинаковые секунды разные машины успевают
+#: разное, и один и тот же день давал планы на 141 и на 153 км.
+SOLUTION_LIMIT = 400
+
 FIRST_SOLUTION_NAME = "LOCAL_CHEAPEST_INSERTION"
 FIRST_SOLUTION = getattr(routing_enums_pb2.FirstSolutionStrategy,
                          FIRST_SOLUTION_NAME)

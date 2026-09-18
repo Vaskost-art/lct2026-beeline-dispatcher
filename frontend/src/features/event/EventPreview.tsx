@@ -84,10 +84,16 @@ export function EventPreview({ before, preview }: Props) {
         />
       </div>
 
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-2">
-        {Object.entries(counted).map(([status, count]) => (
-          <li key={status}>
-            {STATUS_TITLES[status] ?? status}: <span className="tnum font-semibold">{count}</span>
+      <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-2">
+        {Object.entries(counted).map(([status, count], position) => (
+          <li key={status} className="flex items-center gap-3">
+            {position > 0 ? (
+              <span aria-hidden className="h-3 w-px bg-line" />
+            ) : null}
+            <span>
+              {STATUS_TITLES[status] ?? status}:{' '}
+              <span className="tnum font-semibold text-ink">{count}</span>
+            </span>
           </li>
         ))}
       </ul>

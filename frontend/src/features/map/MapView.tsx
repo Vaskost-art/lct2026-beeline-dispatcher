@@ -76,14 +76,17 @@ export function MapView({
   }, [plan, hiddenCrews, focusCrew, ready]);
 
   // Контейнер меняет размер не только вместе с окном: раскрытая полоса
-  // события отнимает высоту, и без пересчёта точки уезжают за край.
+  // события отнимает высоту. Перерисовываем по тем же данным, но масштаб не
+  // трогаем: вписывание заново сжимало схему в комок и скакало с 2 км на 10.
   useEffect(() => {
     const node = box.current;
-    if (!node || !ready) return;
-    const watch = new ResizeObserver(() => map.current?.fit());
+    if (!node || !ready || !plan) return;
+    const watch = new ResizeObserver(() => {
+      map.current?.render(buildMapModel(plan, hiddenCrews, focusCrew));
+    });
     watch.observe(node);
     return () => watch.disconnect();
-  }, [ready]);
+  }, [ready, plan, hiddenCrews, focusCrew]);
 
   useEffect(() => {
     if (!map.current) return;

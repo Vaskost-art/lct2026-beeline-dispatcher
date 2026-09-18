@@ -13,9 +13,24 @@ interface Props {
   actions: ReactNode;
 }
 
-function Figure({ label, value, unit }: { label: string; value: string; unit?: string }) {
+function Figure({
+  label,
+  value,
+  unit,
+  stale,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  stale: boolean;
+}) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div
+      className={
+        'flex min-w-0 flex-col gap-1 transition-opacity duration-[120ms] ' +
+        (stale ? 'opacity-45' : '')
+      }
+    >
       <span className="text-[12px] font-medium text-ink-3">{label}</span>
       <span className="truncate text-[20px] font-semibold leading-none tracking-[-0.015em] tnum">
         {value}
@@ -38,8 +53,7 @@ export function Summary({ plan, stale, onShortfall, actions }: Props) {
   return (
     <section
       data-stale={stale}
-      className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-line bg-panel px-4 py-3
-                 transition-opacity duration-[120ms] data-[stale=true]:opacity-55"
+      className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-line bg-panel px-4 py-3"
     >
       <div data-testid="metric-assigned" data-stale={stale} className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-3">Заявки разошлись</span>
@@ -69,9 +83,15 @@ export function Summary({ plan, stale, onShortfall, actions }: Props) {
       <Figure
         label="Бригад в работе"
         value={`${m.used_engineers} из ${m.engineers_available}`}
+        stale={stale}
       />
-      <Figure label="Пробег" value={m.total_km.toFixed(1)} unit="км" />
-      <Figure label="В пути" value={String(Math.round(m.travel_share * 100))} unit="%" />
+      <Figure label="Пробег" value={m.total_km.toFixed(1)} unit="км" stale={stale} />
+      <Figure
+        label="В пути"
+        value={String(Math.round(m.travel_share * 100))}
+        unit="%"
+        stale={stale}
+      />
 
       <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
         {actions}

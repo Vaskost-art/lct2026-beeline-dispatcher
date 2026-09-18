@@ -21,7 +21,12 @@ from dispatcher.services.planning.costs import (
     ENGINEER_FIXED_COST,
 )
 from dispatcher.services.planning.extract import routes_from_solution
-from dispatcher.services.planning.search import FIRST_SOLUTION, METAHEURISTIC, _status_name
+from dispatcher.services.planning.search import (
+    FIRST_SOLUTION,
+    METAHEURISTIC,
+    SOLUTION_LIMIT,
+    _status_name,
+)
 
 
 def solve_optimized(orders: list[Order], engineers: list[Engineer],
@@ -177,6 +182,12 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     params.first_solution_strategy = FIRST_SOLUTION
     params.local_search_metaheuristic = METAHEURISTIC
     params.time_limit.FromSeconds(max(1, int(time_limit_sec)))
+    # Предел по числу улучшений, а не только по времени: за одинаковые
+    # секунды разные машины успевают разное, и один и тот же день давал
+    # планы на 141 и на 153 км. Диспетчер должен получать один ответ на
+    # один вопрос, поэтому поиск останавливается на счётном пределе, а
+    # время остаётся страховкой от зависания.
+    params.solution_limit = SOLUTION_LIMIT
     params.log_search = False
 
     solution = routing.SolveWithParameters(params)

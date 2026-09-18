@@ -29,14 +29,16 @@ function show() {
 afterEach(() => vi.restoreAllMocks());
 
 describe('первый вход', () => {
-  it('ждёт выбора участка и сам ничего не считает', async () => {
+  it('ждёт выбора участка, сам ничего не считает и предлагает выбор', async () => {
     const fetcher = vi.fn().mockResolvedValue(answer(META));
     vi.stubGlobal('fetch', fetcher);
 
     show();
-    expect(await screen.findByText(/сервис соберёт маршруты/)).toBeInTheDocument();
+    expect(await screen.findByText(/Возьмите участок из выгрузки/)).toBeInTheDocument();
 
     const asked = fetcher.mock.calls.map((call) => String(call[0]));
     expect(asked.some((path) => path.includes('/api/plan'))).toBe(false);
+    // Пустой экран даёт действие: участки кнопками прямо здесь.
+    expect(await screen.findByRole('button', { name: /Восток/ })).toBeInTheDocument();
   });
 });

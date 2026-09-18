@@ -138,6 +138,23 @@ export function WorkList({ plan, selected, focusCrew, onSelect, onFocusCrew }: P
           />
         )}
       </div>
+
+      {tab === 'routes' ? (
+        <div className="grid h-8 shrink-0 grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px] items-center gap-2 border-t border-line bg-raised/50 pl-2 pr-3">
+          <span />
+          <span />
+          <span className="text-[12px] font-medium text-ink-3">Всего за день</span>
+          <span className="text-right text-[12px] font-semibold tnum">
+            {used.reduce((sum, route) => sum + route.stops.length, 0)}
+          </span>
+          <span className="text-right text-[12px] font-semibold tnum">
+            {used.reduce((sum, route) => sum + route.total_km, 0).toFixed(1)}
+          </span>
+          <span className="text-right text-[12px] font-semibold tnum">
+            {plan.pickup.reduce((sum, row) => sum + row.total, 0)}
+          </span>
+        </div>
+      ) : null}
     </section>
   );
 }

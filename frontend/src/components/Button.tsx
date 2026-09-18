@@ -5,7 +5,10 @@ type Variant = 'primary' | 'quiet' | 'shell' | 'danger';
 const BASE =
   'inline-flex h-8 items-center gap-2 rounded-md px-3 text-[13px] font-medium ' +
   'whitespace-nowrap transition-colors duration-[120ms] ' +
-  'disabled:cursor-not-allowed disabled:opacity-45';
+  // Выключенная кнопка становится нейтральной, а не блёклой цветной:
+  // полупрозрачный акцент читается как ошибка отрисовки.
+  'disabled:cursor-not-allowed disabled:border-line disabled:bg-raised ' +
+  'disabled:text-ink-4 disabled:shadow-none';
 
 const BY_VARIANT: Record<Variant, string> = {
   // Главное действие экрана. На экране оно одно.

@@ -54,7 +54,9 @@ export function Screen() {
         />
       ) : null}
 
-      <main className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <main
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:overflow-hidden"
+      >
         {failure ? (
           <div
             role="alert"

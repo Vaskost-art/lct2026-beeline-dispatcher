@@ -49,8 +49,12 @@ _MEASURE = """
   // При открытом модальном окне меряем только его. Страница под затемнением
   // никуда не девается, и каждый её элемент читается как наложение: замер
   // упирается в предел находок, не сказав ничего о самом окне.
-  const modal = document.querySelector('[role="dialog"]');
-  const root = modal || document.body;
+  // Верхний слой меряется отдельно: страница под ним никуда не девается, и
+  // каждый её элемент читается как наложение. Карточка заявки лежит поверх
+  // содержимого так же, как модальное окно.
+  const top = document.querySelector('[role="dialog"]')
+    || document.querySelector('[data-testid="detail"]');
+  const root = top || document.body;
 
   const boxes = [];
   for (const el of root.querySelectorAll('*')) {

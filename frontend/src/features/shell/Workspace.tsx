@@ -22,7 +22,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
   const [narrowView, setNarrowView] = useState<'list' | 'map'>('list');
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
+    <div className="relative flex min-h-[520px] flex-1 flex-col gap-2 lg:min-h-0">
       <div className="flex gap-1 rounded-md border border-line bg-panel p-1 lg:hidden">
         {(
           [

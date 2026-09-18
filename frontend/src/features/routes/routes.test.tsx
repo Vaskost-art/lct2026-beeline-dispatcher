@@ -22,7 +22,7 @@ const route: Route = {
 
 describe('список маршрутов', () => {
   it('раскрывается в остановки с оборудованием', async () => {
-    render(<RouteRow route={route} orders={[order]} onSelect={() => {}} selected={null} />);
+    render(<RouteRow route={route} orders={[order]} index={0} onSelect={() => {}} selected={null} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
 
@@ -30,13 +30,24 @@ describe('список маршрутов', () => {
     expect(screen.getByText(/Улица, дом/)).toBeInTheDocument();
   });
 
-  it('обычный приоритет пишет словом, а не прочерком', async () => {
-    render(<RouteRow route={route} orders={[order]} onSelect={() => {}} selected={null} />);
+  it('не ставит прочерк там, где значения нет', async () => {
+    // Прочерк читается как ноль. Обычная заявка просто не помечается,
+    // а срочная получает явную метку.
+    render(<RouteRow route={route} orders={[order]} index={0} onSelect={() => {}} selected={null} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
 
-    expect(screen.getByText('обычная')).toBeInTheDocument();
     expect(screen.queryByText('—')).not.toBeInTheDocument();
+    expect(screen.queryByText('срочная')).not.toBeInTheDocument();
+  });
+
+  it('помечает срочную заявку', async () => {
+    const urgent = { ...order, priority: 'Срочная' };
+    render(<RouteRow route={route} orders={[urgent]} index={0} onSelect={() => {}} selected={null} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Бригада 1/ }));
+
+    expect(screen.getByText('срочная')).toBeInTheDocument();
   });
 });
 

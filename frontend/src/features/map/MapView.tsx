@@ -15,8 +15,6 @@ interface Props {
   onSelect: (orderId: string) => void;
 }
 
-const SCHEME_SOURCE = 'Карта: собственная схема, подложки нет';
-
 /** Карта плана.
 
 Грузится отдельно от плана и до готовности показывает свою схему: раньше
@@ -26,7 +24,9 @@ const SCHEME_SOURCE = 'Карта: собственная схема, подло
 export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<DispatcherMap | null>(null);
-  const [source, setSource] = useState('Карта загружается');
+  // Схема подписывает себя сама, поэтому называем источник только тогда,
+  // когда работают Яндекс Карты: две подписи наезжали друг на друга.
+  const [yandex, setYandex] = useState(false);
   // Карта готова позже плана. Без этого признака первый план остался бы
   // неотрисованным: эффект отрисовки отработал бы на пустой ссылке.
   const [ready, setReady] = useState(false);
@@ -39,11 +39,6 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
     createDispatcherMap(node, {
       apiKey: apiKey || null,
       theme,
-      onFallback: () => {
-        // Ключ не задан или сервис не ответил: говорим прямо, а не делаем
-        // вид, что схема и была задумана.
-        setSource(SCHEME_SOURCE);
-      },
       onSelectOrder: onSelect,
     }).then((created) => {
       if (!alive) {
@@ -52,7 +47,7 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
       }
       map.current = created;
       setReady(true);
-      setSource(created.kind === 'yandex' ? 'Карта: Яндекс Карты' : SCHEME_SOURCE);
+      setYandex(created.kind === 'yandex');
     });
 
     return () => {
@@ -82,11 +77,13 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
   }, [theme, ready]);
 
   return (
-    <div className="relative min-h-[320px] min-w-0 overflow-hidden rounded-lg border border-line bg-panel">
+    <section className="relative min-h-0 w-full min-w-0 overflow-hidden rounded-lg border border-line bg-panel">
       <div ref={box} className="absolute inset-0" />
-      <span className="absolute bottom-2 right-2 rounded bg-panel/90 px-2 py-1 text-xs text-muted">
-        {source}
-      </span>
-    </div>
+      {yandex ? (
+        <span className="absolute right-3 top-3 rounded-md border border-line bg-panel/90 px-2 py-1 text-[11px] text-ink-3">
+          Карта: Яндекс Карты
+        </span>
+      ) : null}
+    </section>
   );
 }

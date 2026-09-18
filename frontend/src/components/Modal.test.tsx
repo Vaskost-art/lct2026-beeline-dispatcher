@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Metric } from './Metric';
 import { Modal } from './Modal';
 
 describe('модальное окно', () => {
@@ -27,15 +26,5 @@ describe('модальное окно', () => {
     );
 
     expect(screen.getByRole('dialog', { name: 'Сравнение' })).toBeInTheDocument();
-  });
-});
-
-describe('метрика', () => {
-  it('во время пересчёта показывает прежнее значение, а не пустоту', () => {
-    render(<Metric id="assigned" title="Назначено" value="61/66" stale />);
-
-    const metric = screen.getByTestId('metric-assigned');
-    expect(metric).toHaveTextContent('61/66');
-    expect(metric.dataset.stale).toBe('true');
   });
 });

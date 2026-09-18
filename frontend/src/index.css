@@ -1,60 +1,137 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter/index.css";
 
-/* Светлая тема по умолчанию, тёмная приходит выбором человека или настройкой
-   системы. Переменные объявляются в :root целиком: алиас, объявленный один
-   раз, «запекает» тему и перестаёт переключаться. */
+/* Визуальный язык диспетчерской.
+
+Плотный операционный инструмент: смена длится день, данных много, решения
+принимаются глазами за секунды. Отсюда графитовая нейтраль рабочего поля и
+единственный акцент цвета сигнального жилета: он отмечает то, что требует
+решения человека, и больше ничего.
+
+Переменные объявляются в :root целиком: алиас, объявленный один раз,
+«запекает» тему и перестаёт переключаться.
+*/
+
 :root {
-  --bg: #f4f6f8;
+  color-scheme: light;
+
+  /* поверхности: три ступени, различимые, но не контрастные */
+  --page: #f2f4f7;
   --panel: #ffffff;
-  --text: #171a1f;
-  --muted: #5d6674;
-  --line: #dde2e8;
-  --accent: #2563eb;
-  --accent-text: #ffffff;
-  --warn: #b45309;
-  --danger: #b91c1c;
-  --ok: #15803d;
+  --raised: #eceff3;
+  --shell: #171b22;
+  --shell-ink: #e8ecf2;
+  --shell-muted: #929cad;
+
+  /* нейтральная шкала */
+  --ink: #14181f;
+  --ink-2: #3c4552;
+  --ink-3: #69727f;
+  --ink-4: #98a1ae;
+  --line: #dfe3e9;
+  --line-2: #c8cfd8;
+
+  /* акцент и семантика */
+  --accent: #b45309;
+  --accent-soft: #fdf3e7;
+  --accent-ink: #ffffff;
+  --ok: #157f4b;
+  --ok-soft: #e8f5ee;
+  --warn: #a35a00;
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
+
+  --focus: #2f5fd9;
 }
 
 :root[data-theme="dark"] {
-  --bg: #13161b;
-  --panel: #1b1f26;
-  --text: #eef1f5;
-  --muted: #98a2b0;
-  --line: #2a303a;
-  --accent: #60a5fa;
-  --accent-text: #0b1220;
-  --warn: #fbbf24;
-  --danger: #f87171;
-  --ok: #4ade80;
+  color-scheme: dark;
+
+  --page: #0f1319;
+  --panel: #161b23;
+  --raised: #1d232c;
+  --shell: #0b0e13;
+  --shell-ink: #e8ecf2;
+  --shell-muted: #808b9b;
+
+  --ink: #eef1f6;
+  --ink-2: #c2cad5;
+  --ink-3: #96a0ad;
+  --ink-4: #6d7785;
+  --line: rgb(255 255 255 / 0.09);
+  --line-2: rgb(255 255 255 / 0.16);
+
+  --accent: #f0a04b;
+  --accent-soft: rgb(240 160 75 / 0.14);
+  --accent-ink: #1a1206;
+  --ok: #4ec98a;
+  --ok-soft: rgb(78 201 138 / 0.14);
+  --warn: #f0b429;
+  --danger: #f2736a;
+  --danger-soft: rgb(242 115 106 / 0.14);
+
+  --focus: #7ea2ff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #13161b;
-    --panel: #1b1f26;
-    --text: #eef1f5;
-    --muted: #98a2b0;
-    --line: #2a303a;
-    --accent: #60a5fa;
-    --accent-text: #0b1220;
-    --warn: #fbbf24;
-    --danger: #f87171;
-    --ok: #4ade80;
+    color-scheme: dark;
+
+    --page: #0f1319;
+    --panel: #161b23;
+    --raised: #1d232c;
+    --shell: #0b0e13;
+    --shell-ink: #e8ecf2;
+    --shell-muted: #808b9b;
+
+    --ink: #eef1f6;
+    --ink-2: #c2cad5;
+    --ink-3: #96a0ad;
+    --ink-4: #6d7785;
+    --line: rgb(255 255 255 / 0.09);
+    --line-2: rgb(255 255 255 / 0.16);
+
+    --accent: #f0a04b;
+    --accent-soft: rgb(240 160 75 / 0.14);
+    --accent-ink: #1a1206;
+    --ok: #4ec98a;
+    --ok-soft: rgb(78 201 138 / 0.14);
+    --warn: #f0b429;
+    --danger: #f2736a;
+    --danger-soft: rgb(242 115 106 / 0.14);
+
+    --focus: #7ea2ff;
   }
 }
 
 @theme inline {
-  --color-bg: var(--bg);
+  --color-page: var(--page);
   --color-panel: var(--panel);
-  --color-text: var(--text);
-  --color-muted: var(--muted);
+  --color-raised: var(--raised);
+  --color-shell: var(--shell);
+  --color-shell-ink: var(--shell-ink);
+  --color-shell-muted: var(--shell-muted);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
   --color-line: var(--line);
+  --color-line-2: var(--line-2);
+
   --color-accent: var(--accent);
-  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --color-ok: var(--ok);
+  --color-danger-soft: var(--danger-soft);
+  --color-focus: var(--focus);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 html,
@@ -65,7 +142,57 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Числа стоят столбцами и меняются на месте: без табличных цифр они
+   дёргаются при каждом пересчёте. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Служебная подпись: мелко, разрядка, верхний регистр. */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Показание прибора: крупно, сжато, табличными цифрами. */
+.readout {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

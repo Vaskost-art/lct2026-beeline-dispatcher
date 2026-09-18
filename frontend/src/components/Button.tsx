@@ -1,16 +1,19 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'quiet' | 'shell' | 'danger';
 
 const BASE =
-  'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ' +
-  'transition-colors disabled:cursor-not-allowed disabled:opacity-60 ' +
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'inline-flex h-8 items-center gap-2 rounded-md px-3 text-[13px] font-medium ' +
+  'whitespace-nowrap transition-colors duration-[120ms] ' +
+  'disabled:cursor-not-allowed disabled:opacity-45';
 
 const BY_VARIANT: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-text hover:brightness-110',
-  ghost: 'border border-line bg-panel text-text hover:border-accent',
-  danger: 'border border-line bg-panel text-danger hover:border-danger',
+  // Главное действие экрана. На экране оно одно.
+  primary: 'bg-accent text-accent-ink hover:brightness-[1.08] active:brightness-95',
+  quiet: 'border border-line bg-panel text-ink-2 hover:bg-raised hover:text-ink',
+  // Кнопка внутри тёмной оболочки: своя пара цветов, иначе пропадает.
+  shell: 'border border-white/12 text-shell-ink hover:bg-white/8',
+  danger: 'border border-line bg-panel text-danger hover:bg-danger-soft',
 };
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -23,9 +26,9 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export function Button({
-  variant = 'ghost',
+  variant = 'quiet',
   busy = false,
-  busyLabel = 'Считаем…',
+  busyLabel = 'Считаем',
   children,
   className = '',
   disabled,
@@ -39,7 +42,17 @@ export function Button({
       aria-busy={busy || undefined}
       {...rest}
     >
-      {busy ? busyLabel : children}
+      {busy ? (
+        <>
+          <span
+            aria-hidden
+            className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent opacity-70"
+          />
+          {busyLabel}
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

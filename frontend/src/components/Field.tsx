@@ -12,11 +12,11 @@ interface Props {
 export function Field({ label, hint, error, children }: Props) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-xs text-muted">{label}</span>
+      <span className="eyebrow">{label}</span>
       {children}
-      {hint && !error ? <span className="text-xs text-muted">{hint}</span> : null}
+      {hint && !error ? <span className="text-[12px] text-ink-3">{hint}</span> : null}
       {error ? (
-        <span role="alert" className="text-xs text-danger">
+        <span role="alert" className="text-[12px] text-danger">
           {error}
         </span>
       ) : null}

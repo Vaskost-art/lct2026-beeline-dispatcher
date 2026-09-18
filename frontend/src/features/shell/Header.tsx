@@ -1,4 +1,4 @@
-import { List } from '@phosphor-icons/react';
+import { CaretDown, List } from '@phosphor-icons/react';
 
 import { Button } from '../../components/Button';
 import type { RegionSummary } from '../../api/types';
@@ -10,47 +10,65 @@ interface Props {
   onMenu: () => void;
   onPlan: () => void;
   busy: boolean;
+  planned: boolean;
 }
 
-/** Шапка: меню, выбор участка и единственная кнопка расчёта.
+/** Оболочка смены: меню, участок, единственное действие.
 
 Выбора способа расчёта здесь нет: диспетчеру нужен лучший план, а не список
 из трёх способов его посчитать. Три способа живут в окне сравнения.
 */
-export function Header({ regions, region, onRegion, onMenu, onPlan, busy }: Props) {
+export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planned }: Props) {
+  const current = regions.find((item) => item.region_key === region);
+
   return (
-    <header className="flex flex-wrap items-center gap-3 border-b border-line bg-panel px-4 py-3">
-      <Button onClick={onMenu} aria-label="Меню">
-        <List size={18} />
+    <header className="flex h-12 shrink-0 items-center gap-3 bg-shell px-3 text-shell-ink">
+      <Button variant="shell" onClick={onMenu} aria-label="Меню">
+        <List size={16} weight="bold" />
         <span className="hidden sm:inline">Меню</span>
       </Button>
 
-      <div className="min-w-0">
-        <h1 className="truncate text-base font-semibold">Планировщик выездных работ</h1>
-        <p className="hidden truncate text-xs text-muted sm:block">
-          распределение заявок, маршруты и перепланирование дня
-        </p>
-      </div>
+      <span className="hidden min-w-0 items-baseline gap-2 md:flex">
+        <span className="truncate text-[13px] font-semibold tracking-[-0.01em]">
+          Планировщик выездных работ
+        </span>
+        <span className="truncate text-[11px] text-shell-muted">смена на сегодня</span>
+      </span>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
-        <select
-          aria-label="Участок"
-          className="min-w-0 rounded-md border border-line bg-panel px-2 py-2 text-sm"
-          value={region ?? ''}
-          onChange={(event) => onRegion(event.target.value)}
-        >
-          <option value="" disabled>
-            Выберите участок
-          </option>
-          {regions.map((item) => (
-            <option key={item.region_key} value={item.region_key}>
-              {item.region_name}
+        <div className="relative min-w-0">
+          <select
+            aria-label="Участок"
+            value={region ?? ''}
+            onChange={(event) => onRegion(event.target.value)}
+            className="h-8 w-full min-w-0 appearance-none rounded-md border border-white/12 bg-transparent
+                       py-0 pl-3 pr-8 text-[13px] font-medium text-shell-ink hover:bg-white/8"
+          >
+            <option value="" disabled>
+              Выберите участок
             </option>
-          ))}
-        </select>
+            {regions.map((item) => (
+              <option key={item.region_key} value={item.region_key} className="text-ink">
+                {item.region_name}
+              </option>
+            ))}
+          </select>
+          <CaretDown
+            size={12}
+            weight="bold"
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-shell-muted"
+          />
+        </div>
+
+        {current ? (
+          <span className="hidden whitespace-nowrap text-[11px] text-shell-muted lg:inline tnum">
+            {current.orders} заявок · {current.engineers} бригад
+          </span>
+        ) : null}
 
         <Button variant="primary" onClick={onPlan} busy={busy} disabled={!region}>
-          Спланировать
+          {planned ? 'Пересчитать' : 'Спланировать'}
         </Button>
       </div>
     </header>

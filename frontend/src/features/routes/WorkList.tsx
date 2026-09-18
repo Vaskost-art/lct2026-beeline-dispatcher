@@ -17,23 +17,29 @@ export function WorkList({ plan, selected, onSelect }: Props) {
   const used = plan.routes.filter((route) => route.stops.length > 0);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line bg-panel">
+    <section className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-panel">
       <Tabs
         value={tab}
         onChange={setTab}
         items={[
           { key: 'routes', title: 'Маршруты', count: used.length },
-          { key: 'unassigned', title: 'Без исполнителя', count: plan.unassigned.length },
+          {
+            key: 'unassigned',
+            title: 'Без исполнителя',
+            count: plan.unassigned.length,
+            tone: 'alert',
+          },
         ]}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
         {tab === 'routes' ? (
           <ul>
             {used.map((route) => (
               <RouteRow
                 key={route.engineer_id}
                 route={route}
+                index={plan.routes.indexOf(route)}
                 orders={plan.orders}
                 selected={selected}
                 onSelect={onSelect}
@@ -49,6 +55,6 @@ export function WorkList({ plan, selected, onSelect }: Props) {
           />
         )}
       </div>
-    </div>
+    </section>
   );
 }

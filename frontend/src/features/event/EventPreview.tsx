@@ -13,9 +13,19 @@ const STATUS_TITLES: Record<string, string> = {
   frozen: 'уже начата, не трогаем',
 };
 
-function Delta({ was, now, unit }: { was: number; now: number; unit?: string }) {
+interface DeltaProps {
+  was: number;
+  now: number;
+  unit?: string;
+  /** Для пробега меньше значит лучше, для заявок наоборот. Без этого
+      признака сокращение километров красится как ухудшение. */
+  lessIsBetter?: boolean;
+}
+
+function Delta({ was, now, unit, lessIsBetter = false }: DeltaProps) {
   const diff = now - was;
-  const tone = diff === 0 ? 'text-ink-3' : diff > 0 ? 'text-ok' : 'text-danger';
+  const better = lessIsBetter ? diff < 0 : diff > 0;
+  const tone = diff === 0 ? 'text-ink-3' : better ? 'text-ok' : 'text-danger';
   return (
     <span className="tnum">
       <span className="text-ink-3">{was}</span>
@@ -61,6 +71,7 @@ export function EventPreview({ before, preview }: Props) {
             was={Math.round(before.metrics.total_km)}
             now={Math.round(preview.metrics.total_km)}
             unit="км"
+            lessIsBetter
           />
         </span>
         <span className="flex items-baseline gap-2">
@@ -68,6 +79,7 @@ export function EventPreview({ before, preview }: Props) {
           <Delta
             was={before.metrics.used_engineers}
             now={preview.metrics.used_engineers}
+            lessIsBetter
           />
         </span>
       </div>

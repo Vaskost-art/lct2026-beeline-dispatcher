@@ -159,7 +159,10 @@ def crews_shortfall(orders: list[Order], crews: list[Engineer],
     """
     plan = solve(orders, crews)
     if not plan.unassigned:
+        # Форма ответа одна на обе ветки: экран не должен гадать, есть ли
+        # ключ, и подставлять за сервис значение по умолчанию.
         return {"missing": 0, "assigned": plan.assigned_count,
+                "still_unassigned": 0,
                 "reason": "", "limited_by_people": False}
 
     extended = list(crews)

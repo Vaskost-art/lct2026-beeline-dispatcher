@@ -93,7 +93,8 @@ _MEASURE = """
     // Строки таблицы считаются наравне с карточками: без них полное окно
     // со сводной таблицей отчитывается как пустое.
     content: root.querySelectorAll(
-      'table tr, li, dt, dd, h1, h2, h3, h4, button, [data-testid^="metric"]').length,
+      'table tr, td, th, li, dt, dd, p, h1, h2, h3, h4, button,'
+      + ' [data-testid^="metric"]').length,
   };
 }
 """

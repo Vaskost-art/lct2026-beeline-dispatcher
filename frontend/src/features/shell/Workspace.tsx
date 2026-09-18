@@ -22,7 +22,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
   const [narrowView, setNarrowView] = useState<'list' | 'map'>('list');
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="relative flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex gap-1 rounded-md border border-line bg-panel p-1 lg:hidden">
         {(
           [
@@ -71,16 +71,19 @@ export function Workspace({ plan, day, apiKey }: Props) {
             theme={day.theme}
             onSelect={day.selectOrder}
           />
-          {day.selectedOrder ? (
-            <OrderDetail
-              region={plan.region}
-              orderId={day.selectedOrder}
-              order={plan.orders.find((item) => item.id === day.selectedOrder)}
-              onClose={() => day.selectOrder(null)}
-            />
-          ) : null}
         </div>
       </div>
+
+      {/* Карточка живёт снаружи колонок: на телефоне колонка карты скрыта,
+          и внутри неё объяснение оставалось бы невидимым. */}
+      {day.selectedOrder ? (
+        <OrderDetail
+          region={plan.region}
+          orderId={day.selectedOrder}
+          order={plan.orders.find((item) => item.id === day.selectedOrder)}
+          onClose={() => day.selectOrder(null)}
+        />
+      ) : null}
     </div>
   );
 }

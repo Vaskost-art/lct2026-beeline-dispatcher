@@ -28,8 +28,11 @@ export function ShortfallDialog({ plan, open, onClose }: Props) {
             </span>
           </span>
           <span className="flex min-w-0 flex-col">
-            <span className="eyebrow">Заберут заявок</span>
-            <span className="readout">{s.assigned}</span>
+            <span className="eyebrow">Станет назначено</span>
+            <span className="readout">
+              {s.assigned}
+              <span className="text-ink-4">/{plan.metrics.orders_total}</span>
+            </span>
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="eyebrow">Не возьмёт никто</span>
@@ -39,8 +42,11 @@ export function ShortfallDialog({ plan, open, onClose }: Props) {
 
         {s.missing > 0 ? (
           <p className="text-[13px] text-ink-2">
-            Сервис добавлял бригады по одной, пока каждая новая забирала хотя бы одну заявку.
-            Столько людей хватит, чтобы закрыть день полностью.
+            Сервис добавлял бригады по одной, пока каждая новая забирала хотя бы одну
+            заявку. С ними день закроется на{' '}
+            <span className="tnum font-semibold">{s.assigned}</span> заявках из{' '}
+            <span className="tnum">{plan.metrics.orders_total}</span> вместо нынешних{' '}
+            <span className="tnum">{plan.metrics.orders_assigned}</span>.
           </p>
         ) : (
           <p className="text-[13px] text-ink-2">

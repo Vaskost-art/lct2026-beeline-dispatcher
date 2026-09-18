@@ -1,5 +1,5 @@
 import { X } from '@phosphor-icons/react';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 
 import { useExplanation } from '../../api/queries';
 import type { Order } from '../../api/types';
@@ -33,9 +33,10 @@ export function OrderDetail({ region, orderId, order, onClose }: Props) {
     <aside
       data-testid="detail"
       aria-label={`Заявка ${orderId}`}
-      className="absolute inset-y-3 right-3 z-10 flex w-[min(380px,calc(100%-24px))] flex-col
-                 overflow-hidden rounded-lg border border-line bg-panel
-                 shadow-[0_12px_40px_rgb(10_14_20/0.18)]"
+      className="absolute inset-x-0 bottom-0 z-20 flex max-h-[72%] flex-col overflow-hidden
+                 rounded-lg border border-line bg-panel
+                 shadow-[0_12px_40px_rgb(10_14_20/0.18)]
+                 lg:inset-y-2 lg:left-auto lg:right-2 lg:max-h-none lg:w-[380px]"
     >
       <header className="flex items-start gap-2 border-b border-line px-3 py-2">
         <div className="min-w-0 flex-1">
@@ -98,10 +99,13 @@ export function OrderDetail({ region, orderId, order, onClose }: Props) {
 
             <dl className="mt-3 grid grid-cols-[minmax(0,104px)_minmax(0,1fr)] gap-x-3 gap-y-1.5">
               {data.facts.map(([name, value]) => (
-                <div key={name} className="contents">
+                // Fragment, а не div с display:contents: у такого элемента
+                // нет собственного прямоугольника, и проверка вёрстки
+                // сравнивает детей с пустым контейнером.
+                <Fragment key={name}>
                   <dt className="text-[12px] text-ink-3">{name}</dt>
                   <dd className="min-w-0 text-[12px] text-ink">{value}</dd>
-                </div>
+                </Fragment>
               ))}
             </dl>
 

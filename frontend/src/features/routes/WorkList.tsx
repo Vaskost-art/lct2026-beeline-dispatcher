@@ -13,6 +13,8 @@ interface Props {
   onSelect: (orderId: string) => void;
   onFocusCrew: (crew: string | null) => void;
   onShortfall: () => void;
+  tab: 'routes' | 'unassigned';
+  onTab: (tab: 'routes' | 'unassigned') => void;
 }
 
 const COLUMNS = 'grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px]';
@@ -29,8 +31,9 @@ export function WorkList({
   onSelect,
   onFocusCrew,
   onShortfall,
+  tab,
+  onTab,
 }: Props) {
-  const [tab, setTab] = useState('routes');
   const [query, setQuery] = useState('');
   const used = plan.routes.filter((route) => route.stops.length > 0);
   const needle = query.trim().toLowerCase();
@@ -62,7 +65,7 @@ export function WorkList({
     >
       <Tabs
         value={tab}
-        onChange={setTab}
+        onChange={(next) => onTab(next as 'routes' | 'unassigned')}
         items={[
           { key: 'routes', title: 'Маршруты', count: used.length },
           {
@@ -108,7 +111,7 @@ export function WorkList({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain pb-1">
         {tab === 'routes' ? (
           shown.length === 0 ? (
             <p className="px-3 py-6 text-center text-[13px] text-ink-3">

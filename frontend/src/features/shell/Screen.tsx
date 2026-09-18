@@ -15,6 +15,7 @@ import { PickupDialog } from '../pickup/PickupDialog';
 import { RiskDialog } from '../risk/RiskDialog';
 import { ShortfallDialog } from '../shortfall/ShortfallDialog';
 import { Menu } from './Menu';
+import { Decisions } from './Decisions';
 import { Header } from './Header';
 import { Summary } from './Summary';
 import { Workspace } from './Workspace';
@@ -53,7 +54,6 @@ export function Screen() {
         <Summary
           plan={payload}
           stale={run.isPending}
-          onShortfall={() => day.openPanel('shortfall')}
           actions={
             <>
               <Button onClick={() => day.openPanel('validate')}>
@@ -76,6 +76,15 @@ export function Screen() {
       <main
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:overflow-hidden"
       >
+        {payload ? (
+          <Decisions
+            plan={payload}
+            onUnassigned={day.showUnassigned}
+            onRisk={() => day.openPanel('risk')}
+            onShortfall={() => day.openPanel('shortfall')}
+          />
+        ) : null}
+
         {failure ? (
           <div
             role="alert"

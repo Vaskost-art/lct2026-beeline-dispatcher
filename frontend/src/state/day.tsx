@@ -23,6 +23,8 @@ const THEME_KEY = 'dispatcher-theme';
 
 interface State {
   region: string | null;
+  /** Какую вкладку списка показывать: очередь решений ведёт к отказам. */
+  listTab: 'routes' | 'unassigned';
   selectedOrder: string | null;
   /** Бригада, на которой внимание: её маршрут на карте яркий. */
   focusCrew: string | null;
@@ -33,6 +35,7 @@ interface State {
 
 type Action =
   | { type: 'region'; region: string }
+  | { type: 'tab'; tab: 'routes' | 'unassigned' }
   | { type: 'focus'; crew: string | null }
   | { type: 'order'; order: string | null }
   | { type: 'crew'; crew: string }
@@ -75,6 +78,8 @@ function reduce(state: State, action: Action): State {
       };
     case 'order':
       return { ...state, selectedOrder: action.order };
+    case 'tab':
+      return { ...state, listTab: action.tab };
     case 'focus':
       return { ...state, focusCrew: action.crew };
     case 'crew': {
@@ -92,6 +97,8 @@ function reduce(state: State, action: Action): State {
 
 export interface Day extends State {
   selectRegion: (region: string) => void;
+  showTab: (tab: 'routes' | 'unassigned') => void;
+  showUnassigned: () => void;
   focusOnCrew: (crew: string | null) => void;
   selectOrder: (order: string | null) => void;
   toggleCrew: (crew: string) => void;
@@ -105,6 +112,7 @@ const DayContext = createContext<Day | null>(null);
 export function DayProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reduce, null, () => ({
     region: null,
+    listTab: 'routes' as const,
     selectedOrder: null,
     focusCrew: null,
     hiddenCrews: new Set<string>(),
@@ -116,6 +124,8 @@ export function DayProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       selectRegion: (region) => dispatch({ type: 'region', region }),
+      showTab: (tab) => dispatch({ type: 'tab', tab }),
+      showUnassigned: () => dispatch({ type: 'tab', tab: 'unassigned' }),
       focusOnCrew: (crew) => dispatch({ type: 'focus', crew }),
       selectOrder: (order) => dispatch({ type: 'order', order }),
       toggleCrew: (crew) => dispatch({ type: 'crew', crew }),

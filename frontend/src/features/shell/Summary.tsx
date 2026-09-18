@@ -1,14 +1,11 @@
-import { ArrowRight, Warning } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 import type { PlanPayload } from '../../api/types';
-import { plural } from '../../text';
 
 interface Props {
   plan: PlanPayload;
   /** Идёт новый расчёт: числа на экране от прошлого плана. */
   stale: boolean;
-  onShortfall: () => void;
   /** Проверки дня: они нужны каждый день и живут на виду, а не в меню. */
   actions: ReactNode;
 }
@@ -45,10 +42,8 @@ function Figure({
 Иерархия здесь важнее полноты: первым читается доля закрытых заявок, вторым
 то, что требует решения человека, и только потом справочные величины.
 */
-export function Summary({ plan, stale, onShortfall, actions }: Props) {
+export function Summary({ plan, stale, actions }: Props) {
   const m = plan.metrics;
-  const missing = plan.shortfall.missing;
-  const left = m.orders_unassigned;
 
   return (
     <section
@@ -100,39 +95,6 @@ export function Summary({ plan, stale, onShortfall, actions }: Props) {
         {actions}
       </div>
 
-      <button
-        type="button"
-        data-testid="metric-shortfall"
-        data-stale={stale}
-        onClick={onShortfall}
-        className={
-          'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left sm:w-auto ' +
-          'transition-colors duration-[120ms] ' +
-          (missing > 0
-            ? 'border-warn/45 bg-panel hover:bg-raised'
-            : 'border-line bg-panel hover:bg-raised')
-        }
-      >
-        {missing > 0 ? (
-          <Warning size={18} weight="fill" aria-hidden className="shrink-0 text-warn" />
-        ) : null}
-        <span className="flex min-w-0 flex-col">
-          <span className="text-[12px] font-medium text-ink-3">
-            {missing > 0 ? 'Не хватает людей' : 'Людей хватает'}
-          </span>
-          <span className="truncate text-[13px] font-semibold">
-            {missing > 0
-              ? `Нужно ещё ${missing} ${plural(missing, 'бригада', 'бригады', 'бригад')}`
-              : `Все ${m.orders_total} заявок разошлись`}
-          </span>
-          {left > 0 ? (
-            <span className="truncate text-[12px] text-ink-3">
-              {left} {plural(left, 'заявка', 'заявки', 'заявок')} без исполнителя
-            </span>
-          ) : null}
-        </span>
-        <ArrowRight size={14} weight="bold" aria-hidden className="shrink-0 text-ink-4" />
-      </button>
     </section>
   );
 }

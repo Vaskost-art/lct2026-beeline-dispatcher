@@ -1,6 +1,15 @@
 import { CaretRight } from '@phosphor-icons/react';
 
 import type { Order, Route } from '../../api/types';
+
+/** Короткое имя транспорта: полное не помещается в колонку и обрезается
+    многоточием ровно там, где начинается смысл. */
+const SHORT_VEHICLE: Record<string, string> = {
+  Автомобиль: 'авто',
+  'Общественный транспорт': 'транспорт',
+  Велосипед: 'велосипед',
+  Пешеход: 'пешком',
+};
 import { crewColor } from '../map/model';
 import { StopRow } from './StopRow';
 
@@ -66,8 +75,8 @@ export function RouteRow({
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="shrink-0 text-[13px] font-medium">{route.engineer_id}</span>
           {vehicle ? (
-            <span className="hidden min-w-0 truncate text-[11px] text-ink-4 lg:inline">
-              {vehicle}
+            <span className="hidden min-w-0 truncate text-[11px] text-ink-4 sm:inline">
+              {SHORT_VEHICLE[vehicle] ?? vehicle}
             </span>
           ) : null}
         </span>

@@ -1,9 +1,10 @@
 import { X } from '@phosphor-icons/react';
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 import { useExplanation, useReassign } from '../../api/queries';
 import type { ApiError } from '../../api/client';
 import type { Order } from '../../api/types';
+import { Button } from '../../components/Button';
 import { Alternatives } from './Alternatives';
 
 interface Props {
@@ -23,6 +24,9 @@ interface Props {
 export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
   const explain = useExplanation(region, orderId);
   const reassign = useReassign();
+  // Выбор бригады и подтверждение разделены: список без кнопки не говорит,
+  // применится ли решение и когда.
+  const [picked, setPicked] = useState('');
   const data = explain.data;
 
   useEffect(() => {
@@ -125,36 +129,50 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
       </div>
 
       {data ? (
-        <div className="shrink-0 border-t border-line bg-panel px-3 py-2">
-          <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-[12px] font-medium text-ink-3">Передать другой бригаде</span>
-            <select
-              aria-label="Передать бригаде"
-              value=""
-              disabled={reassign.isPending}
-              onChange={(event) => {
-                const crew = event.target.value;
-                if (crew) reassign.mutate({ region, order_id: orderId, engineer_id: crew });
-              }}
-              className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[13px]"
-            >
-              <option value="">
-                {reassign.isPending ? 'Переносим…' : 'Выберите бригаду'}
-              </option>
-              {crews
-                .filter((crew) => crew.id !== data.engineer_id)
-                .map((crew) => (
-                  <option key={crew.id} value={crew.id}>
-                    {crew.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          {reassign.error ? (
-            <p role="alert" className="mt-1.5 text-[12px] text-danger">
-              {(reassign.error as ApiError).message}
+        <div className="shrink-0 border-t border-line bg-panel px-3 py-2.5">
+          {reassign.isSuccess ? (
+            <p className="rounded-md bg-ok-soft px-2 py-1.5 text-[12px] text-ink">
+              Заявка передана бригаде «{picked}». Она закреплена и останется у неё при
+              следующем пересчёте.
             </p>
-          ) : null}
+          ) : (
+            <>
+              <span className="text-[12px] font-medium text-ink-3">Передать другой бригаде</span>
+              <div className="mt-1 flex gap-2">
+                <select
+                  aria-label="Передать бригаде"
+                  value={picked}
+                  onChange={(event) => setPicked(event.target.value)}
+                  className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[13px]"
+                >
+                  <option value="">Выберите бригаду</option>
+                  {crews
+                    .filter((crew) => crew.id !== data.engineer_id)
+                    .map((crew) => (
+                      <option key={crew.id} value={crew.id}>
+                        {crew.name}
+                      </option>
+                    ))}
+                </select>
+                <Button
+                  variant="primary"
+                  disabled={!picked}
+                  busy={reassign.isPending}
+                  busyLabel="Переносим"
+                  onClick={() =>
+                    reassign.mutate({ region, order_id: orderId, engineer_id: picked })
+                  }
+                >
+                  Передать
+                </Button>
+              </div>
+              {reassign.error ? (
+                <p role="alert" className="mt-1.5 text-[12px] text-danger">
+                  {(reassign.error as ApiError).message}
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
     </aside>

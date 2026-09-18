@@ -33,6 +33,14 @@ export function Screen() {
   const run = useRunPlan();
 
   const payload = plan.data;
+  // Время берётся у самого ответа: сервис не присылает момент сборки, а без
+  // него свежий план не отличить от того, что лежит с утра.
+  const builtAt = plan.dataUpdatedAt
+    ? new Date(plan.dataUpdatedAt).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
   const notBuilt = plan.error instanceof ApiError && plan.error.code === 'plan_not_built';
   const failure = run.error ?? (notBuilt ? null : plan.error);
 
@@ -54,6 +62,7 @@ export function Screen() {
         <Summary
           plan={payload}
           stale={run.isPending}
+          builtAt={builtAt}
           actions={
             <>
               <Button onClick={() => day.openPanel('validate')}>
@@ -196,7 +205,7 @@ function FirstRun({
   onUpload: () => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-line bg-panel">
+    <div className="flex min-h-0 flex-1 justify-center rounded-lg border border-line bg-panel pt-[12vh]">
       <div className="flex w-full max-w-[44ch] flex-col items-center gap-4 px-6 py-12 text-center">
         <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-4" />
         <h2 className="text-[17px] font-semibold tracking-[-0.015em]">

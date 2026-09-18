@@ -146,6 +146,15 @@
   z-index: 5;
 }
 
+/* Точки бригады в фокусе крупнее и всегда поверх приглушённых: в узлах
+   карты кружки нескольких бригад ложатся в одну точку. */
+.scheme-pin:not(.dim):not(.scheme-base) {
+  width: 21px;
+  height: 21px;
+  font-size: 10px;
+  z-index: 3;
+}
+
 .scheme-pin.scheme-base {
   width: 13px;
   height: 13px;

@@ -8,6 +8,8 @@ interface Props {
   stale: boolean;
   /** Проверки дня: они нужны каждый день и живут на виду, а не в меню. */
   actions: ReactNode;
+  /** Когда этот план собран: иначе устаревшие числа не отличить от свежих. */
+  builtAt: string;
 }
 
 function Figure({
@@ -42,7 +44,7 @@ function Figure({
 Иерархия здесь важнее полноты: первым читается доля закрытых заявок, вторым
 то, что требует решения человека, и только потом справочные величины.
 */
-export function Summary({ plan, stale, actions }: Props) {
+export function Summary({ plan, stale, actions, builtAt }: Props) {
   const m = plan.metrics;
 
   return (
@@ -51,7 +53,7 @@ export function Summary({ plan, stale, actions }: Props) {
       className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-line bg-panel px-4 py-3"
     >
       <div data-testid="metric-assigned" data-stale={stale} className="flex min-w-0 flex-col gap-1">
-        <span className="text-[12px] font-medium text-ink-3">Заявки разошлись</span>
+        <span className="text-[12px] font-medium text-ink-3">Заявок в плане</span>
         <span className="flex items-baseline gap-2">
           <span className="text-[34px] font-semibold leading-none tracking-[-0.03em] tnum">
             {m.orders_assigned}
@@ -61,6 +63,7 @@ export function Summary({ plan, stale, actions }: Props) {
             {Math.round(m.assigned_share * 100)} %
           </span>
         </span>
+        <span className="text-[11px] text-ink-4 tnum">план собран в {builtAt}</span>
         <span
           aria-hidden
           className="h-1.5 w-full min-w-[184px] overflow-hidden rounded-full bg-raised"
@@ -82,9 +85,9 @@ export function Summary({ plan, stale, actions }: Props) {
       />
       <Figure label="Пробег" value={m.total_km.toFixed(1)} unit="км" stale={stale} />
       <Figure
-        label="В пути"
+        label="Время в пути"
         value={String(Math.round(m.travel_share * 100))}
-        unit="%"
+        unit="% смены"
         stale={stale}
       />
 

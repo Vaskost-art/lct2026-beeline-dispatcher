@@ -72,9 +72,9 @@ export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExpor
           <Button onClick={onExport}>Выгрузить план с обоснованием</Button>
         </div>
 
-        <p className="text-[12px] text-ink-3">
-          Обоснование это тот же файл выгрузки: в нём есть каждая заявка, её бригада и
-          причина по тем, что не разошлись.
+        <p className="max-w-[64ch] text-[12px] text-ink-3">
+          В файле выгрузки видно каждую заявку: кому она досталась, а если не досталась
+          никому, то почему. С ним разговор о людях идёт по числам, а не на словах.
         </p>
       </div>
     </Modal>

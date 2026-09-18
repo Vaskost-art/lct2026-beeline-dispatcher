@@ -8,10 +8,12 @@ interface Props {
   onClose: () => void;
 }
 
+/** Подписи для человека, а не для разработчика: «то, что на экране» ничего
+    не говорит тому, кто видит таблицу впервые. */
 const ROW_MARK: Record<string, string> = {
-  baseline: 'из технического задания',
-  greedy: 'быстрый',
-  optimized: 'то, что на экране',
+  baseline: 'как раздают заявки без планировщика',
+  greedy: 'простое правило: ближайшая подходящая бригада',
+  optimized: 'наш план, он и показан на экране',
 };
 
 function Row({ row, best }: { row: CompareRow; best: boolean }) {

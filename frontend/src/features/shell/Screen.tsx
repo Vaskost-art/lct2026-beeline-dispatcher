@@ -1,6 +1,7 @@
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
 import { ApiError } from '../../api/client';
 import { useDay } from '../../state/day';
+import { MapView } from '../map/MapView';
 import { WorkList } from '../routes/WorkList';
 import { Header } from './Header';
 import { Metrics } from './Metrics';
@@ -64,6 +65,14 @@ export function Screen() {
         {payload ? (
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
             <WorkList plan={payload} selected={day.selectedOrder} onSelect={day.selectOrder} />
+            <MapView
+              plan={payload}
+              hiddenCrews={day.hiddenCrews}
+              selected={day.selectedOrder}
+              apiKey={meta.data?.map_api_key ?? ''}
+              theme={day.theme}
+              onSelect={day.selectOrder}
+            />
           </div>
         ) : null}
       </main>

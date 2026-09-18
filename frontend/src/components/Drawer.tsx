@@ -16,6 +16,7 @@ export function Drawer({ open, title, onClose, children }: Props) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px]" />
         <Dialog.Content
+          data-testid="drawer"
           className="fixed inset-y-0 left-0 z-50 flex w-[min(360px,88vw)] flex-col gap-4
                      overflow-auto border-r border-line bg-panel p-4 shadow-[0_0_48px_rgb(10_14_20/0.24)]"
         >

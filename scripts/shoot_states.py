@@ -51,11 +51,11 @@ async def _menu(page: Page, title: str) -> None:
     таким текстом» отказывает.
     """
     await page.click('button:has-text("Меню")')
-    await page.click(f'[role="dialog"]:has-text("Смена") button:has-text("{title}")')
-    # Ждём, пока шторка уйдёт: заголовок окна не повторяет название пункта
-    # («Проверить план» открывает «Проверку плана»), и ожидание по имени
-    # пункта висит до таймаута.
-    await page.wait_for_selector('[role="dialog"]:has-text("Смена")',
+    await page.click(f'[data-testid="drawer"] button:has-text("{title}")')
+    # Ждём, пока шторка уйдёт. Ищем её по метке, а не по словам: заголовок
+    # окна не повторяет название пункта («Проверить план» открывает
+    # «Проверку плана»), а слово «Смена» встречается и в карточке допущений.
+    await page.wait_for_selector('[data-testid="drawer"]',
                                  state="detached", timeout=30_000)
 
 
@@ -130,7 +130,7 @@ async def menu(page: Page) -> None:
     """Меню смены открыто."""
     await _plan(page)
     await page.click('button:has-text("Меню")')
-    await page.wait_for_selector('[role="dialog"]:has-text("Смена")')
+    await page.wait_for_selector('[data-testid="drawer"]')
 
 
 async def compare(page: Page) -> None:

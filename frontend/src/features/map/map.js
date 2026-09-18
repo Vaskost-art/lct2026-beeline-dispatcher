@@ -199,7 +199,7 @@
         node.className = 'scheme-label';
         node.textContent = d.name;
         node.style.left = `${s.x}px`;
-        node.style.top = `${s.y}px`;
+        node.style.top = `${s.y - 26}px`;
         districtLayer.appendChild(node);
       });
 

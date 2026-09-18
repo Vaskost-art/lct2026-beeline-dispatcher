@@ -58,7 +58,7 @@ export function RouteRow({
         className={
           'grid h-9 w-full grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px] items-center gap-2 ' +
           'pl-2 pr-3 text-left transition-colors duration-[120ms] ' +
-          (focused ? 'bg-accent-soft' : 'hover:bg-raised')
+          (focused ? 'bg-raised' : 'hover:bg-raised')
         }
       >
         <CaretRight

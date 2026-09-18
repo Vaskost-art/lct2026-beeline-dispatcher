@@ -70,8 +70,11 @@ export function CompareDialog({ region, open, onClose }: Props) {
 
       {compare.data ? (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse">
+          <p className="mb-1 text-[11px] text-ink-4 sm:hidden">
+            Таблицу можно прокрутить вбок
+          </p>
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full min-w-[560px] border-collapse">
               <thead>
                 <tr className="border-b border-line text-left">
                   <th className="px-3 py-2 eyebrow">Способ</th>

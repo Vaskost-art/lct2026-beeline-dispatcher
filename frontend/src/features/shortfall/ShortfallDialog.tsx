@@ -74,7 +74,7 @@ export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExpor
 
         <p className="max-w-[64ch] text-[12px] text-ink-3">
           В файле выгрузки видно каждую заявку: кому она досталась, а если не досталась
-          никому, то почему. С ним разговор о людях идёт по числам, а не на словах.
+          никому, то почему. Этот файл и есть обоснование заявки на дополнительных людей.
         </p>
       </div>
     </Modal>

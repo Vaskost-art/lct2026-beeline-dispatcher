@@ -30,7 +30,7 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
           'flex w-full min-w-0 items-stretch gap-3 border-l-2 py-1.5 pl-3 pr-3 text-left ' +
           'transition-colors duration-[120ms] ' +
           (selected
-            ? 'border-accent bg-accent-soft'
+            ? 'border-accent bg-raised'
             : 'border-transparent hover:border-line-2 hover:bg-panel')
         }
       >

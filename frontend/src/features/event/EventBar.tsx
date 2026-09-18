@@ -35,7 +35,18 @@ export function EventBar({ plan }: Props) {
   };
 
   return (
-    <section className="shrink-0 rounded-lg border border-line bg-panel">
+    <section
+      className={
+        'shrink-0 rounded-lg border border-line bg-panel ' +
+        // Раскрытая форма ложится поверх рабочего поля, а не сжимает его:
+        // иначе карта обрезается по маркерам, а список теряет последнюю
+        // бригаду под итоговой строкой.
+        (open
+          ? 'lg:absolute lg:inset-x-3 lg:bottom-3 lg:z-30 lg:max-h-[72vh] lg:overflow-auto ' +
+            'lg:shadow-[0_-8px_32px_rgb(10_14_20/0.18)]'
+          : '')
+      }
+    >
       <button
         type="button"
         onClick={() => setOpen(!open)}

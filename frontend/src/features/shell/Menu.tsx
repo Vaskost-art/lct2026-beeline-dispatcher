@@ -85,7 +85,7 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
   };
 
   return (
-    <Drawer open={open} title="Смена" onClose={onClose}>
+    <Drawer open={open} title="Инструменты дня" onClose={onClose}>
       <nav className="flex flex-col gap-4">
         <section className="sm:hidden">
           <h3 className="eyebrow mb-1 px-2">Проверки</h3>

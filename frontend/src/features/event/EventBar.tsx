@@ -24,6 +24,7 @@ export function EventBar({ plan }: Props) {
   const [draft, setDraft] = useState<EventDraft>(EMPTY_DRAFT);
   const replan = useReplan();
   const preview = replan.data && !replan.data.applied ? replan.data : null;
+  const applied = replan.data?.applied ? replan.data : null;
   const missing = whatIsMissing(draft);
 
   const change = (next: EventDraft) => {
@@ -107,6 +108,12 @@ export function EventBar({ plan }: Props) {
           {replan.error ? (
             <p role="alert" className="text-[13px] text-danger">
               {(replan.error as ApiError).message}
+            </p>
+          ) : null}
+
+          {applied ? (
+            <p className="rounded-md bg-ok-soft px-3 py-2 text-[13px] text-ink">
+              Событие применено: план пересчитан. {applied.diff.event.description}
             </p>
           ) : null}
 

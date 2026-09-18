@@ -93,7 +93,7 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
             onClick={() => picker.current?.click()}
           >
             <UploadSimple size={15} weight="bold" aria-hidden />
-            Выбрать файл
+            Загрузить файл
           </Button>
           {upload.data ? (
             <span className="text-[13px] text-ink-2 tnum">

@@ -6,6 +6,7 @@ import {
   Info,
   ScalesIcon,
   ShieldCheck,
+  UploadSimple,
   Timer,
   Toolbox,
 } from '@phosphor-icons/react';
@@ -128,6 +129,12 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
             title="Как считаем"
             hint="допущения, принятые за отсутствующие данные"
             onClick={() => go('assumptions')}
+          />
+          <Item
+            icon={UploadSimple}
+            title="Загрузить свой набор"
+            hint="выгрузка заявок в CSV или набор в JSON"
+            onClick={() => go('upload')}
           />
           <Item
             icon={DownloadSimple}

@@ -5,6 +5,7 @@ import { useMeta, usePlan, useRunPlan } from '../../api/queries';
 import { useDay } from '../../state/day';
 import { CompareDialog } from '../compare/CompareDialog';
 import { AssumptionsDialog } from '../data/AssumptionsDialog';
+import { UploadDialog } from '../data/UploadDialog';
 import { ValidateDialog } from '../data/ValidateDialog';
 import { EventBar } from '../event/EventBar';
 import { PickupDialog } from '../pickup/PickupDialog';
@@ -87,6 +88,15 @@ export function Screen() {
         onTheme={day.setTheme}
         onPanel={day.openPanel}
         onClose={day.closePanel}
+      />
+
+      <UploadDialog
+        open={day.panel === 'upload'}
+        onClose={day.closePanel}
+        onLoaded={(region) => {
+          day.closePanel();
+          day.selectRegion(region);
+        }}
       />
 
       <AssumptionsDialog

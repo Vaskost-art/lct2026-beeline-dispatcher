@@ -3,6 +3,7 @@ import { MapTrifold, WarningOctagon } from '@phosphor-icons/react';
 import { ApiError } from '../../api/client';
 import { useMeta, usePlan, useRunPlan } from '../../api/queries';
 import { useDay } from '../../state/day';
+import { EventBar } from '../event/EventBar';
 import { Header } from './Header';
 import { Summary } from './Summary';
 import { Workspace } from './Workspace';
@@ -62,7 +63,10 @@ export function Screen() {
         ) : null}
 
         {payload ? (
-          <Workspace plan={payload} day={day} apiKey={meta.data?.map_api_key ?? ''} />
+          <>
+            <Workspace plan={payload} day={day} apiKey={meta.data?.map_api_key ?? ''} />
+            <EventBar plan={payload} />
+          </>
         ) : (
           <FirstRun region={day.region} loading={run.isPending || plan.isFetching} />
         )}

@@ -6,7 +6,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { request, send } from './client';
-import type { Meta, OrderExplanation, PlanPayload } from './types';
+import type {
+  Meta,
+  OrderExplanation,
+  PlanPayload,
+  ReplanPayload,
+  ReplanRequest,
+} from './types';
 
 export const planKey = (region: string) => ['plan', region] as const;
 
@@ -54,5 +60,23 @@ export function useExplanation(region: string | null, orderId: string | null) {
     enabled: Boolean(region && orderId),
     queryFn: () =>
       send<OrderExplanation>('/api/explain', { region, order_id: orderId }),
+  });
+}
+
+/** Событие в течение дня.
+
+Предпросмотр и применение это один и тот же запрос с разным полем `apply`:
+сервис считает одно и то же, и предпросмотр не может разойтись с тем, что
+получится на самом деле.
+*/
+export function useReplan() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ReplanRequest) => send<ReplanPayload>('/api/replan', body),
+    onSuccess: (answer) => {
+      // Рабочий день меняется только при «применить». Предпросмотр живёт
+      // в своём состоянии и в кеш плана не попадает.
+      if (answer.applied) client.setQueryData(planKey(answer.region), answer);
+    },
   });
 }

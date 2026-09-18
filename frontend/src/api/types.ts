@@ -200,3 +200,50 @@ export interface OrderExplanation {
   alternatives_total?: number;
   summary?: string;
 }
+
+export interface PlanChange {
+  order_id: string;
+  status: string;
+  from_engineer: string | null;
+  to_engineer: string | null;
+  from_position: number | null;
+  to_position: number | null;
+}
+
+export interface ReplanDiff {
+  event: { kind: string; title: string; at: string; description: string };
+  changes: PlanChange[];
+}
+
+/** Ответ на событие: тот же план плюс что именно изменилось. */
+export interface ReplanPayload extends PlanPayload {
+  diff: ReplanDiff;
+  narrative: string[];
+  applied: boolean;
+  frozen: Record<string, string[]>;
+}
+
+export interface NewOrderDraft {
+  id: string;
+  lat: number;
+  lon: number;
+  address: string;
+  district: string;
+  duration_min: number;
+  window_start: string;
+  window_end: string;
+  required_skill: string;
+  required_vehicle: string | null;
+}
+
+export interface ReplanRequest {
+  region: string;
+  kind: 'urgent_order' | 'cancel_order' | 'engineer_unavailable' | 'engineer_delayed';
+  at: string;
+  order_id?: string | null;
+  engineer_id?: string | null;
+  delay_min?: number;
+  new_order?: NewOrderDraft | null;
+  mode: 'minimal' | 'full';
+  apply: boolean;
+}

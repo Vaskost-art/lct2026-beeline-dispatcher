@@ -66,6 +66,16 @@ export function MapView({ plan, hiddenCrews, selected, apiKey, theme, onSelect }
     map.current.render(buildMapModel(plan, hiddenCrews));
   }, [plan, hiddenCrews, ready]);
 
+  // Контейнер меняет размер не только вместе с окном: раскрытая полоса
+  // события отнимает высоту, и без пересчёта точки уезжают за край.
+  useEffect(() => {
+    const node = box.current;
+    if (!node || !ready) return;
+    const watch = new ResizeObserver(() => map.current?.fit());
+    watch.observe(node);
+    return () => watch.disconnect();
+  }, [ready]);
+
   useEffect(() => {
     if (!map.current) return;
     map.current.focusOrder(selected);

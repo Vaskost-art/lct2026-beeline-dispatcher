@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Светлая тема по умолчанию, тёмная приходит выбором человека или настройкой
+   системы. Переменные объявляются в :root целиком: алиас, объявленный один
+   раз, «запекает» тему и перестаёт переключаться. */
+:root {
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --text: #171a1f;
+  --muted: #5d6674;
+  --line: #dde2e8;
+  --accent: #2563eb;
+  --accent-text: #ffffff;
+  --warn: #b45309;
+  --danger: #b91c1c;
+  --ok: #15803d;
+}
+
+:root[data-theme="dark"] {
+  --bg: #13161b;
+  --panel: #1b1f26;
+  --text: #eef1f5;
+  --muted: #98a2b0;
+  --line: #2a303a;
+  --accent: #60a5fa;
+  --accent-text: #0b1220;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --ok: #4ade80;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #13161b;
+    --panel: #1b1f26;
+    --text: #eef1f5;
+    --muted: #98a2b0;
+    --line: #2a303a;
+    --accent: #60a5fa;
+    --accent-text: #0b1220;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --ok: #4ade80;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+}

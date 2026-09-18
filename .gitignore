@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 node_modules/
+frontend/dist/
 .env
 .env.local
 data/saved/*

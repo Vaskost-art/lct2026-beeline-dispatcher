@@ -10,6 +10,7 @@ import os
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from dispatcher.api import deps
 from dispatcher.api.envelope import code_of, failed
@@ -23,6 +24,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
+DIST_DIR = os.path.join(FRONTEND_DIR, "dist")
+# Витрина-прототип живёт рядом со сборкой нового интерфейса, пока тот
+# не займёт её место целиком.
+LEGACY_DIR = os.path.join(FRONTEND_DIR, "legacy")
 
 # Ключ Яндекс Карт. Без него интерфейс рисует собственную схему и честно
 # об этом сообщает. Как получить ключ, написано в README.
@@ -58,7 +63,7 @@ def _startup() -> None:
 
 
 def _static(name: str, media_type: str) -> FileResponse:
-    return FileResponse(os.path.join(FRONTEND_DIR, name), media_type=media_type)
+    return FileResponse(os.path.join(LEGACY_DIR, name), media_type=media_type)
 
 
 @app.get("/")
@@ -79,3 +84,9 @@ def map_js() -> FileResponse:
 @app.get("/styles.css")
 def styles_css() -> FileResponse:
     return _static("styles.css", "text/css")
+
+
+# Новый интерфейс собирается Vite и живёт на /ui, пока не заменит витрину.
+# При разработке он поднимается своим сервером и ходит сюда через прокси.
+if os.path.isdir(DIST_DIR):
+    app.mount("/ui", StaticFiles(directory=DIST_DIR, html=True), name="ui")

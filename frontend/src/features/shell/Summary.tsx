@@ -93,7 +93,12 @@ export function Summary({ plan, stale, onShortfall, actions }: Props) {
         stale={stale}
       />
 
-      <div className="hidden flex-wrap items-center gap-2 sm:ml-auto sm:flex">{actions}</div>
+      <div
+        data-testid="day-checks"
+        className="hidden flex-wrap items-center gap-2 sm:ml-auto sm:flex"
+      >
+        {actions}
+      </div>
 
       <button
         type="button"

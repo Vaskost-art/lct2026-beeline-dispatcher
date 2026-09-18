@@ -64,9 +64,11 @@ export function RouteRow({
           style={{ background: crewColor(index) }}
         />
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-[13px] font-medium">{route.engineer_id}</span>
+          <span className="shrink-0 text-[13px] font-medium">{route.engineer_id}</span>
           {vehicle ? (
-            <span className="hidden truncate text-[11px] text-ink-4 sm:inline">{vehicle}</span>
+            <span className="hidden min-w-0 truncate text-[11px] text-ink-4 lg:inline">
+              {vehicle}
+            </span>
           ) : null}
         </span>
         <span className="text-right text-[12px] tnum">{route.stops.length}</span>

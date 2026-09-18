@@ -1,5 +1,6 @@
 import {
   ArrowCounterClockwise,
+  ScalesIcon,
   ClipboardText,
   DownloadSimple,
   FloppyDisk,
@@ -108,6 +109,17 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
             hint="ведомость на выдачу по бригадам"
             disabled={!planned}
             onClick={() => go('pickup')}
+          />
+        </section>
+
+        <section>
+          <h3 className="eyebrow mb-1 px-2">Разбор</h3>
+          <Item
+            icon={ScalesIcon}
+            title="Сравнить способы расчёта"
+            hint="базовый вариант из ТЗ, быстрый и оптимальный"
+            disabled={!planned}
+            onClick={() => go('compare')}
           />
         </section>
 

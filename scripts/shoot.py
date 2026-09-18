@@ -62,6 +62,9 @@ _MEASURE = """
   // Ближайший предок, который обрезает содержимое: по нему видно, что
   // человек на экране действительно видит.
   function clipped(el, box) {
+    // Содержимое свёрнутого <details> браузер не рисует, но координаты у
+    // него есть: все абзацы ложатся в одну точку и читаются как наложения.
+    if (el.closest('details:not([open])')) return true;
     for (let node = el.parentElement; node && node !== root; node = node.parentElement) {
       const how = getComputedStyle(node);
       if (how.overflowY === 'visible' && how.overflowX === 'visible') continue;

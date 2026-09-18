@@ -44,10 +44,34 @@ async def _plan(page: Page) -> None:
 
 
 async def _menu(page: Page, title: str) -> None:
-    """Открыть пункт меню и дождаться его окна."""
+    """Открыть пункт меню и дождаться его окна.
+
+    Пункт ищется внутри самой шторки: те же слова встречаются и на экране
+    (кнопка пустого состояния, кнопка проверки), и выбор «любой кнопки с
+    таким текстом» отказывает.
+    """
     await page.click('button:has-text("Меню")')
-    await page.click(f'button:has-text("{title}")')
-    await page.wait_for_selector('[role="dialog"]', timeout=PLAN_TIMEOUT_MS)
+    await page.click(f'[role="dialog"]:has-text("Смена") button:has-text("{title}")')
+    # Ждём, пока шторка уйдёт: заголовок окна не повторяет название пункта
+    # («Проверить план» открывает «Проверку плана»), и ожидание по имени
+    # пункта висит до таймаута.
+    await page.wait_for_selector('[role="dialog"]:has-text("Смена")',
+                                 state="detached", timeout=30_000)
+
+
+async def _check(page: Page, button: str, menu_title: str, window: str) -> None:
+    """Открыть проверку дня.
+
+    На широком экране проверки стоят кнопками в сводке, на узком уезжают в
+    меню: сценарий идёт тем же путём, что и человек.
+    """
+    top = page.locator(f'[data-testid="day-checks"] button:has-text("{button}")').first
+    if await top.count() and await top.is_visible():
+        await top.click()
+    else:
+        await _menu(page, menu_title)
+    await page.wait_for_selector(f'[role="dialog"]:has-text("{window}")',
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
 async def first_run(page: Page) -> None:
@@ -119,16 +143,13 @@ async def compare(page: Page) -> None:
 async def risk(page: Page) -> None:
     """Прогноз опозданий."""
     await _plan(page)
-    # Проверки дня живут в строке сводки, а не в меню: они нужны каждый день.
-    await page.click('button:has-text("Опоздания")')
-    await page.wait_for_selector('[role="dialog"]:has-text("Прогноз опозданий")',
-                                 timeout=PLAN_TIMEOUT_MS)
+    await _check(page, "Опоздания", "Прогноз опозданий", "Прогноз опозданий")
 
 
 async def validate(page: Page) -> None:
     """Независимая проверка плана."""
     await _plan(page)
-    await page.click('button:has-text("Проверить план")')
+    await _check(page, "Проверить план", "Проверить план", "Проверка плана")
     await page.wait_for_selector("text=/Нарушений нет|Найдены нарушения/",
                                  timeout=PLAN_TIMEOUT_MS)
 
@@ -136,9 +157,7 @@ async def validate(page: Page) -> None:
 async def pickup(page: Page) -> None:
     """Ведомость на выдачу оборудования."""
     await _plan(page)
-    await page.click('button:has-text("Ведомость")')
-    await page.wait_for_selector('[role="dialog"]:has-text("Что взять в офисе")',
-                                 timeout=PLAN_TIMEOUT_MS)
+    await _check(page, "Ведомость", "Что взять в офисе", "Что взять в офисе")
 
 
 async def shortfall(page: Page) -> None:
@@ -155,11 +174,14 @@ async def assumptions(page: Page) -> None:
 
 
 async def upload(page: Page) -> None:
-    """Загрузка своего набора данных."""
+    """Загрузка своего набора данных.
+
+    Путь человека: кнопка прямо в пустом состоянии, а не через меню.
+    """
     await _ready(page)
-    await page.click('button:has-text("Меню")')
-    await page.click('button:has-text("Загрузить свой набор")')
-    await page.wait_for_selector('[role="dialog"]:has-text("Загрузить свой набор")')
+    await page.click('button:has-text("Загрузить свой набор данных")')
+    await page.wait_for_selector('[role="dialog"]:has-text("Загрузить свой набор данных")',
+                                 timeout=PLAN_TIMEOUT_MS)
 
 
 #: Состояния, которые снимаются в обычном прогоне. Порядок такой же, как в

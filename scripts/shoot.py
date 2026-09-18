@@ -56,6 +56,19 @@ _MEASURE = """
     || document.querySelector('[data-testid="detail"]');
   const root = top || document.body;
 
+  // Ближайший предок, который обрезает содержимое: по нему видно, что
+  // человек на экране действительно видит.
+  function clipped(el, box) {
+    for (let node = el.parentElement; node && node !== root; node = node.parentElement) {
+      const how = getComputedStyle(node);
+      if (how.overflowY === 'visible' && how.overflowX === 'visible') continue;
+      const edge = node.getBoundingClientRect();
+      if (box.bottom > edge.bottom + 1 || box.top < edge.top - 1) return true;
+      if (box.right > edge.right + 1 || box.left < edge.left - 1) return true;
+    }
+    return false;
+  }
+
   const boxes = [];
   for (const el of root.querySelectorAll('*')) {
     if (map && map.contains(el)) continue;
@@ -78,7 +91,12 @@ _MEASURE = """
       }
     }
     const text = (el.textContent || '').trim();
-    if (text && el.children.length === 0) boxes.push({box, text: text.slice(0, 30)});
+    // Элемент, уехавший за край своего прокручиваемого контейнера, на экране
+    // обрезан. Сравнивать его с видимыми соседями значит находить наложения
+    // там, где человек видит аккуратный список.
+    if (text && el.children.length === 0 && !clipped(el, box)) {
+      boxes.push({box, text: text.slice(0, 30)});
+    }
   }
 
   // Наложение текста на текст: соседи по разметке, залезшие друг на друга.

@@ -55,3 +55,17 @@ def test_equipment_survives_writing_and_reading_the_dataset(scenarios):
     before = {o.id: o.equipment for o in scenario.orders}
     after = {o.id: o.equipment for o in restored.orders}
     assert before == after
+
+
+def test_equipment_assumption_is_declared():
+    """Доли, которые мы придумали, объявлены диспетчеру."""
+    from dispatcher.domain.assumptions import ASSUMPTIONS
+
+    titles = [title for title, _ in ASSUMPTIONS]
+    assert "Оборудование в заявке" in titles
+
+    text = next(body for title, body in ASSUMPTIONS
+                if title == "Оборудование в заявке")
+    # В тексте есть и то, что взято из данных, и то, что достроено.
+    assert "тип работ" in text.lower()
+    assert "%" in text

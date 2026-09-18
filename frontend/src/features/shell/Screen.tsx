@@ -158,6 +158,10 @@ export function Screen() {
             plan={payload}
             open={day.panel === 'shortfall'}
             onClose={day.closePanel}
+            onShowUnassigned={day.closePanel}
+            onExport={() => {
+              if (day.region) window.open(`/api/export/${day.region}`, '_blank');
+            }}
           />
         </>
       ) : null}

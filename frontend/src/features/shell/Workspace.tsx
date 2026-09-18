@@ -55,6 +55,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
             focusCrew={day.focusCrew}
             onSelect={day.selectOrder}
             onFocusCrew={day.focusOnCrew}
+            onShortfall={() => day.openPanel('shortfall')}
           />
         </div>
 

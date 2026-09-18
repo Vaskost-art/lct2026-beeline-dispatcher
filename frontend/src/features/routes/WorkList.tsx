@@ -12,6 +12,7 @@ interface Props {
   focusCrew: string | null;
   onSelect: (orderId: string) => void;
   onFocusCrew: (crew: string | null) => void;
+  onShortfall: () => void;
 }
 
 const COLUMNS = 'grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px]';
@@ -21,7 +22,14 @@ const COLUMNS = 'grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px]';
 Поиск обязателен: заявок под сотню, и без него единственный способ найти
 нужную это читать список глазами.
 */
-export function WorkList({ plan, selected, focusCrew, onSelect, onFocusCrew }: Props) {
+export function WorkList({
+  plan,
+  selected,
+  focusCrew,
+  onSelect,
+  onFocusCrew,
+  onShortfall,
+}: Props) {
   const [tab, setTab] = useState('routes');
   const [query, setQuery] = useState('');
   const used = plan.routes.filter((route) => route.stops.length > 0);
@@ -114,6 +122,9 @@ export function WorkList({ plan, selected, focusCrew, onSelect, onFocusCrew }: P
                   route={route}
                   index={plan.routes.indexOf(route)}
                   orders={plan.orders}
+                  vehicle={
+                    plan.engineers.find((engineer) => engineer.id === route.engineer_id)?.vehicle
+                  }
                   open={focusCrew === route.engineer_id}
                   focused={focusCrew === route.engineer_id}
                   selected={selected}
@@ -135,6 +146,7 @@ export function WorkList({ plan, selected, focusCrew, onSelect, onFocusCrew }: P
             orders={plan.orders}
             selected={selected}
             onSelect={onSelect}
+            onShortfall={onShortfall}
           />
         )}
       </div>

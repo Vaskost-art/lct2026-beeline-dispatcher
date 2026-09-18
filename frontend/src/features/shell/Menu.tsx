@@ -86,6 +86,31 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
   return (
     <Drawer open={open} title="Смена" onClose={onClose}>
       <nav className="flex flex-col gap-4">
+        <section className="sm:hidden">
+          <h3 className="eyebrow mb-1 px-2">Проверки</h3>
+          <Item
+            icon={Info}
+            title="Проверить план"
+            hint="окна, смены, навыки и транспорт заново"
+            disabled={!planned}
+            onClick={() => go('validate')}
+          />
+          <Item
+            icon={Info}
+            title="Прогноз опозданий"
+            hint="где план сломается от первой задержки"
+            disabled={!planned}
+            onClick={() => go('risk')}
+          />
+          <Item
+            icon={Info}
+            title="Что взять в офисе"
+            hint="ведомость на выдачу по бригадам"
+            disabled={!planned}
+            onClick={() => go('pickup')}
+          />
+        </section>
+
         <section>
           <h3 className="eyebrow mb-1 px-2">Данные</h3>
           <Item

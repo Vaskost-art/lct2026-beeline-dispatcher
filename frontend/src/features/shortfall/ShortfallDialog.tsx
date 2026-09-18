@@ -1,4 +1,5 @@
 import type { PlanPayload } from '../../api/types';
+import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 import { plural } from '../../text';
 
@@ -6,6 +7,10 @@ interface Props {
   plan: PlanPayload;
   open: boolean;
   onClose: () => void;
+  /** Из разбора видно, что делать дальше: посмотреть сами заявки или
+      выгрузить обоснование для разговора о людях. */
+  onShowUnassigned: () => void;
+  onExport: () => void;
 }
 
 /** Разбор нехватки людей.
@@ -13,7 +18,7 @@ interface Props {
 Различает два случая: заявку заберёт дополнительная бригада, и заявку не
 берёт никто. Во втором случае искать людей бесполезно, и это сказано прямо.
 */
-export function ShortfallDialog({ plan, open, onClose }: Props) {
+export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExport }: Props) {
   const s = plan.shortfall;
   const stuck = s.still_unassigned;
 
@@ -55,10 +60,22 @@ export function ShortfallDialog({ plan, open, onClose }: Props) {
         )}
 
         {stuck > 0 ? (
-          <p className="rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] text-ink">
+          <p className="rounded-md border-l-2 border-warn bg-raised/60 px-3 py-2 text-[13px] text-ink">
             {s.reason || 'Эти заявки не берёт даже свободная бригада: мешает окно или требования заявки.'}
           </p>
         ) : null}
+
+        <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+          <Button variant="primary" onClick={onShowUnassigned}>
+            Показать заявки без исполнителя
+          </Button>
+          <Button onClick={onExport}>Выгрузить план с обоснованием</Button>
+        </div>
+
+        <p className="text-[12px] text-ink-3">
+          Обоснование это тот же файл выгрузки: в нём есть каждая заявка, её бригада и
+          причина по тем, что не разошлись.
+        </p>
       </div>
     </Modal>
   );

@@ -8,6 +8,8 @@ interface Props {
   orders: Order[];
   selected: string | null;
   onSelect: (orderId: string) => void;
+  /** Разбор нехватки людей: туда ведёт совет «добавить бригаду». */
+  onShortfall: () => void;
 }
 
 /** Что делать с отказом. Причина называет препятствие, а диспетчеру нужно
@@ -32,7 +34,7 @@ function advice(reason: string): string {
 которой не видно ни одной заявки. Причина называется один раз, а рядом с ней
 стоит действие: диспетчер по этому экрану работает, а не читает.
 */
-export function UnassignedList({ items, orders, selected, onSelect }: Props) {
+export function UnassignedList({ items, orders, selected, onSelect, onShortfall }: Props) {
   const byId = new Map(orders.map((order) => [order.id, order]));
 
   if (items.length === 0) {
@@ -66,7 +68,14 @@ export function UnassignedList({ items, orders, selected, onSelect }: Props) {
               </span>
               <span className="min-w-0 text-[12px] text-ink-2">{reason}</span>
             </span>
-            <span className="text-[12px] font-medium text-ink">→ {advice(reason)}</span>
+            <button
+              type="button"
+              onClick={onShortfall}
+              className="w-fit rounded-md border border-line bg-panel px-2 py-1 text-[12px]
+                         font-medium text-ink transition-colors duration-[120ms] hover:border-accent"
+            >
+              {advice(reason)}
+            </button>
           </header>
 
           <ul>

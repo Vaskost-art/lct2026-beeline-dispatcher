@@ -30,7 +30,7 @@ export function EventFields({ plan, draft, onChange }: Props) {
       <Label text="Время события">
         <input
           type="time"
-          className={INPUT}
+          className={`${INPUT} w-32 tnum`}
           value={draft.at}
           onChange={(event) => onChange({ ...draft, at: event.target.value })}
         />
@@ -104,7 +104,7 @@ export function EventFields({ plan, draft, onChange }: Props) {
           <Label text="Окно с">
             <input
               type="time"
-              className={INPUT}
+              className={`${INPUT} w-32 tnum`}
               value={draft.windowStart}
               onChange={(event) => onChange({ ...draft, windowStart: event.target.value })}
             />
@@ -113,7 +113,7 @@ export function EventFields({ plan, draft, onChange }: Props) {
           <Label text="Окно до">
             <input
               type="time"
-              className={INPUT}
+              className={`${INPUT} w-32 tnum`}
               value={draft.windowEnd}
               onChange={(event) => onChange({ ...draft, windowEnd: event.target.value })}
             />

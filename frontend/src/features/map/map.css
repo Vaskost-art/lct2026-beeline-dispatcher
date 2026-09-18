@@ -17,6 +17,7 @@
 .scheme-districts {
   position: absolute;
   inset: 0;
+  z-index: 3;
   pointer-events: none;
 }
 
@@ -50,15 +51,21 @@
   position: absolute;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-4);
+  color: var(--ink-3);
   white-space: nowrap;
-  text-shadow:
-    0 0 3px var(--panel),
-    0 0 6px var(--panel);
+}
+
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .scheme-label {
+    background: var(--panel);
+  }
 }
 
 .scheme-controls {
@@ -151,7 +158,17 @@
   background: var(--danger);
   color: #fff;
   border-color: var(--panel);
+  border-radius: 3px;
+  width: 17px;
+  height: 17px;
+  transform: translate(-50%, -50%) rotate(45deg);
   z-index: 4;
+}
+
+/* Знак внутри ромба возвращается в вертикальное положение. */
+.scheme-pin.scheme-loose > * ,
+.scheme-pin.scheme-loose {
+  font-size: 10px;
 }
 
 /* Точки приглушённой бригады гаснут вместе с её линией. */

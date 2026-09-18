@@ -233,7 +233,8 @@
           }
         });
       });
-      model.loose.forEach((p) => place(p, '!', 'scheme-pin scheme-loose'));
+      model.loose.forEach((p) => place(p, '<span style="transform:rotate(-45deg)">!</span>',
+                                       'scheme-pin scheme-loose'));
       if (pick) place(pick, '+', 'scheme-pin scheme-pick');
 
       drawScale();

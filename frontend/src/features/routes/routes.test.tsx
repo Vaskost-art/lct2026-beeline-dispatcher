@@ -21,7 +21,7 @@ const route: Route = {
 
 describe('список маршрутов', () => {
   it('показывает остановки с оборудованием', () => {
-    render(<RouteRow route={route} orders={[order]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText(/Роутер/)).toBeInTheDocument();
     expect(screen.getByText(/Улица, дом/)).toBeInTheDocument();
@@ -30,7 +30,7 @@ describe('список маршрутов', () => {
   it('не ставит прочерк там, где значения нет', () => {
     // Прочерк читается как ноль. Обычная заявка просто не помечается,
     // а срочная получает явную метку.
-    render(<RouteRow route={route} orders={[order]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.queryByText('срочная')).not.toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('список маршрутов', () => {
 
   it('помечает срочную заявку', () => {
     const urgent = { ...order, priority: 'Срочная' };
-    render(<RouteRow route={route} orders={[urgent]} index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow route={route} orders={[urgent]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('срочная')).toBeInTheDocument();
   });
@@ -52,6 +52,7 @@ describe('нераспределённые', () => {
         orders={[{ ...order, id: '53587', assigned_to: null }]}
         onSelect={() => {}}
         selected={null}
+        onShortfall={() => {}}
       />,
     );
 

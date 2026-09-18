@@ -7,6 +7,8 @@ import { StopRow } from './StopRow';
 interface Props {
   route: Route;
   orders: Order[];
+  /** Чем бригада ездит: транспорт различает людей лучше номера. */
+  vehicle: string | undefined;
   index: number;
   open: boolean;
   focused: boolean;
@@ -23,6 +25,7 @@ interface Props {
 export function RouteRow({
   route,
   orders,
+  vehicle,
   index,
   open,
   focused,
@@ -60,7 +63,12 @@ export function RouteRow({
           className="size-2.5 rounded-full"
           style={{ background: crewColor(index) }}
         />
-        <span className="min-w-0 truncate text-[13px] font-medium">{route.engineer_id}</span>
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate text-[13px] font-medium">{route.engineer_id}</span>
+          {vehicle ? (
+            <span className="hidden truncate text-[11px] text-ink-4 sm:inline">{vehicle}</span>
+          ) : null}
+        </span>
         <span className="text-right text-[12px] tnum">{route.stops.length}</span>
         <span className="text-right text-[12px] tnum">{route.total_km.toFixed(1)}</span>
         <span className="text-right text-[12px] tnum">

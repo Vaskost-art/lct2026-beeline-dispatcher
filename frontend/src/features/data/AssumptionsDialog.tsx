@@ -15,11 +15,24 @@ interface Props {
 export function AssumptionsDialog({ meta, open, onClose }: Props) {
   return (
     <Modal open={open} title="Как считаем" onClose={onClose}>
+      <p className="mb-3 max-w-[64ch] text-[13px] text-ink-2">
+        Этих данных нет в выгрузке заказчика, и мы их достроили. Каждое допущение
+        меняется одной строкой в коде, поэтому спорные можно переопределить.
+      </p>
+
       <ul className="flex flex-col divide-y divide-line border-y border-line">
         {(meta?.assumptions ?? []).map((item) => (
-          <li key={item.title} className="py-2">
-            <h3 className="text-[13px] font-semibold">{item.title}</h3>
-            <p className="mt-0.5 text-[13px] text-ink-2">{item.text}</p>
+          <li key={item.title}>
+            <details className="group py-2">
+              <summary className="cursor-pointer list-none text-[13px] font-medium">
+                <span className="text-ink-4 group-open:hidden">▸ </span>
+                <span className="hidden text-ink-4 group-open:inline">▾ </span>
+                {item.title}
+              </summary>
+              <p className="mt-1 max-w-[64ch] pl-4 text-[13px] leading-relaxed text-ink-2">
+                {item.text}
+              </p>
+            </details>
           </li>
         ))}
       </ul>

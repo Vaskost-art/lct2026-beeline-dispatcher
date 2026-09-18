@@ -9,7 +9,7 @@ import os
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from dispatcher.api import deps
@@ -62,31 +62,27 @@ def _startup() -> None:
     deps.STORE.reset(load_all(RAW_DIR, CACHE_PATH))
 
 
-def _static(name: str, media_type: str) -> FileResponse:
-    return FileResponse(os.path.join(LEGACY_DIR, name), media_type=media_type)
+# Витрина-прототип доживает рядом со сборкой нового интерфейса и доступна
+# по /legacy, пока он не займёт её место целиком.
+app.mount("/legacy", StaticFiles(directory=LEGACY_DIR, html=True), name="legacy")
 
 
-@app.get("/")
-def index() -> FileResponse:
-    return _static("index.html", "text/html")
+@app.get("/", include_in_schema=False)
+def index() -> Response:
+    """Интерфейс диспетчера. Собирается Vite, отдаётся как готовая статика."""
+    page = os.path.join(DIST_DIR, "index.html")
+    if os.path.isfile(page):
+        # Сама страница не кешируется, а файлы сборки лежат под именами с
+        # отпечатком и кешируются навсегда. Иначе человек неделю смотрит
+        # прежнюю сборку и шлёт замечания по уже исправленному.
+        return FileResponse(page, media_type="text/html",
+                            headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(
+        "<h1>Интерфейс не собран</h1>"
+        "<p>Соберите его: <code>cd frontend &amp;&amp; pnpm build</code></p>",
+        status_code=503)
 
 
-@app.get("/app.js")
-def app_js() -> FileResponse:
-    return _static("app.js", "application/javascript")
-
-
-@app.get("/map.js")
-def map_js() -> FileResponse:
-    return _static("map.js", "application/javascript")
-
-
-@app.get("/styles.css")
-def styles_css() -> FileResponse:
-    return _static("styles.css", "text/css")
-
-
-# Новый интерфейс собирается Vite и живёт на /ui, пока не заменит витрину.
-# При разработке он поднимается своим сервером и ходит сюда через прокси.
+# Монтирование идёт последним: иначе оно перехватило бы /api.
 if os.path.isdir(DIST_DIR):
-    app.mount("/ui", StaticFiles(directory=DIST_DIR, html=True), name="ui")
+    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="ui")

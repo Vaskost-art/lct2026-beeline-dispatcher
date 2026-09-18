@@ -16,7 +16,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY frontend/legacy/ ./frontend/legacy/
 COPY --from=ui /ui/dist/ ./frontend/dist/
 COPY data/ ./data/
 COPY scripts/ ./scripts/

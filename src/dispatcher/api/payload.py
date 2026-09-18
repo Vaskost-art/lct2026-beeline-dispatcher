@@ -8,6 +8,8 @@ from dispatcher.infrastructure import geo
 from dispatcher.services.equipment import pickup_list
 from dispatcher.services.explain import explain_plan, explain_route
 from dispatcher.services.impact import plan_risk
+from dispatcher.services.planning.baseline import solve_greedy
+from dispatcher.services.planning.crew_sizing import crews_shortfall
 from dispatcher.services.planning.strategies import STRATEGY_TITLES, status_text
 
 
@@ -58,6 +60,9 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         # интерфейсе риск нужен сразу рядом с каждым визитом
         "risk": plan_risk(plan, all_orders(scenario, plan), all_engineers(scenario)),
         "pickup": pickup_list(plan, all_orders(scenario, plan)),
+        "shortfall": crews_shortfall(
+            all_orders(scenario, plan), all_engineers(scenario), solve_greedy,
+            scenario.office_lat, scenario.office_lon, scenario.office_address),
         "geo": geo_warning(all_orders(scenario, plan)),
     }
     if extra:

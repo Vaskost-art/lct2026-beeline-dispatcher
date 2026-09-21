@@ -98,7 +98,7 @@ def reassign(request: ReassignRequest) -> dict:
     STORE.push(request.region, DayVersion(
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
-        engineers=list(engineers), locked=locked))
+        engineers=list(engineers), locked=locked, manual=True))
     return ok(plan_payload(scenario, new_plan, metrics))
 
 
@@ -165,7 +165,7 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
     STORE.push(request.region, DayVersion(
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
-        engineers=list(engineers), locked=locked))
+        engineers=list(engineers), locked=locked, manual=True))
     return ok(plan_payload(scenario, plan, metrics))
 
 

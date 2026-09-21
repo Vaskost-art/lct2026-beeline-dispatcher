@@ -27,8 +27,16 @@ function Row({ icon: Icon, tone, title, hint, onClick }: RowProps) {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-md border border-line px-2 py-1.5
-                 text-left transition-colors duration-[120ms] hover:border-line-2 hover:bg-raised"
+      className={
+        'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left ' +
+        'transition-colors duration-[120ms] hover:brightness-[0.98] ' +
+        // Очередь решений - единственное место на экране, где написано, что
+        // делать. Рамками на белом она была бледнее соседних кнопок отчётов
+        // и терялась; тон берётся у самой задачи.
+        (tone === 'danger'
+          ? 'border-danger/30 bg-danger-soft'
+          : 'border-warn/30 bg-warn-soft')
+      }
     >
       <Icon
         size={16}
@@ -40,7 +48,7 @@ function Row({ icon: Icon, tone, title, hint, onClick }: RowProps) {
         <span className="block truncate text-[13px] font-medium">{title}</span>
         <span className="block truncate text-[11px] text-ink-3">{hint}</span>
       </span>
-      <ArrowRight size={13} weight="bold" aria-hidden className="shrink-0 text-ink-4" />
+      <ArrowRight size={13} weight="bold" aria-hidden className="shrink-0 text-ink-3" />
     </button>
   );
 }

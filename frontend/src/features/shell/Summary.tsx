@@ -57,13 +57,13 @@ export function Summary({ plan, stale, actions, builtAt }: Props) {
         <span className="flex items-baseline gap-2">
           <span className="text-[34px] font-semibold leading-none tracking-[-0.03em] tnum">
             {m.orders_assigned}
-            <span className="text-ink-4">/{m.orders_total}</span>
+            <span className="text-ink-3">/{m.orders_total}</span>
           </span>
           <span className="text-[13px] font-medium text-ink-3 tnum">
             {Math.round(m.assigned_share * 100)} %
           </span>
         </span>
-        <span className="text-[11px] text-ink-4 tnum">план собран в {builtAt}</span>
+        <span className="text-[11px] text-ink-3 tnum">план собран в {builtAt}</span>
         <span
           aria-hidden
           className="h-1.5 w-full min-w-[184px] overflow-hidden rounded-full bg-raised"

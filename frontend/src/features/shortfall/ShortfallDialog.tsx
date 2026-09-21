@@ -36,7 +36,7 @@ export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExpor
             <span className="eyebrow">Станет назначено</span>
             <span className="readout">
               {s.assigned}
-              <span className="text-ink-4">/{plan.metrics.orders_total}</span>
+              <span className="text-ink-3">/{plan.metrics.orders_total}</span>
             </span>
           </span>
           <span className="flex min-w-0 flex-col">

@@ -80,26 +80,28 @@ export function WorkList({
         ]}
       />
 
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3">
-        <MagnifyingGlass size={14} aria-hidden className="shrink-0 text-ink-4" />
+      {/* Метка, а не div: само поле высотой 17 px, и без этого клик по
+          остальной части строки поиска никуда не попадал. */}
+      <label className="flex h-9 shrink-0 cursor-text items-center gap-2 border-b border-line px-3">
+        <MagnifyingGlass size={14} aria-hidden className="shrink-0 text-ink-3" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Номер заявки, адрес или район"
           aria-label="Поиск по заявкам"
-          className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-ink-4"
+          className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-ink-3"
         />
         {query ? (
           <button
             type="button"
             onClick={() => setQuery('')}
             aria-label="Очистить поиск"
-            className="rounded p-0.5 text-ink-4 hover:text-ink"
+            className="rounded p-0.5 text-ink-3 hover:text-ink"
           >
             <X size={12} weight="bold" />
           </button>
         ) : null}
-      </div>
+      </label>
 
       {tab === 'routes' ? (
         <div

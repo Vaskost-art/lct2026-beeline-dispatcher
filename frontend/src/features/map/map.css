@@ -87,7 +87,7 @@
   padding: 0;
   font-size: 15px;
   line-height: 1;
-  color: var(--text);
+  color: var(--ink-2);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -103,12 +103,12 @@
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--ink-3);
 }
 
 .scheme-scale-bar {
   height: 6px;
-  border: 1px solid var(--muted);
+  border: 1px solid var(--ink-3);
   border-top: 0;
   display: block;
 }
@@ -121,7 +121,7 @@
   max-width: 230px;
   font-size: 10px;
   line-height: 1.4;
-  color: var(--muted);
+  color: var(--ink-3);
   text-align: right;
   opacity: 0.8;
 }
@@ -191,6 +191,6 @@
 
 .scheme-pin.scheme-pick {
   background: var(--accent);
-  color: var(--accent-text);
+  color: var(--accent-ink);
   z-index: 6;
 }

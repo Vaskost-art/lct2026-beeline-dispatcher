@@ -5,7 +5,7 @@
 головы»: таблицу сравнения вариантов плана можно воспроизвести одной командой
 и сверить с тем, что написано.
 
-    python scripts/benchmark.py [--time-limit 15] [--runs 1] [--heuristics]
+    python scripts/benchmark.py [--time-limit 300] [--runs 1] [--heuristics]
 
 Несколько прогонов (--runs) нужны там, где важен разброс: поиск эвристический,
 и на границе «вывести ещё одного человека или проехать лишние километры»
@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
 from dispatcher.services.control import control_plan  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
 from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
+from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC  # noqa: E402
 from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
 from dispatcher.services.planning.strategies import STRATEGY_FULL_TITLES  # noqa: E402
 from dispatcher.services.scenario import load_all  # noqa: E402
@@ -42,8 +43,9 @@ def _brigades(count: int) -> str:
         count % 10, "бригад")
 
 
-def _row(title: str, metrics: dict, ok: bool | None) -> dict:
+def _row(title: str, metrics: dict, ok: bool | None, key: str = "") -> dict:
     return {
+        "key": key,
         "title": title,
         "assigned": metrics["orders_assigned"],
         "total": metrics["orders_total"],
@@ -59,13 +61,10 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
     orders, engineers = scenario.orders, scenario.engineers
     rows: list[dict] = []
 
-    for title, solver in (
-        (STRATEGY_FULL_TITLES["baseline"], solve_baseline),
-        (STRATEGY_FULL_TITLES["greedy"], solve_greedy),
-    ):
+    for key, solver in (("baseline", solve_baseline), ("greedy", solve_greedy)):
         plan = solver(orders, engineers)
-        rows.append(_row(title, plan_metrics(plan, orders, engineers),
-                         validate(plan, orders, engineers).ok))
+        rows.append(_row(STRATEGY_FULL_TITLES[key], plan_metrics(plan, orders, engineers),
+                         validate(plan, orders, engineers).ok, key))
 
     # оптимизатор — столько прогонов, сколько попросили, с разбросом
     trials = []
@@ -75,7 +74,7 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
                        validate(plan, orders, engineers).ok))
     best = min(trials, key=lambda t: (-t[0]["orders_assigned"],
                                       t[0]["used_engineers"], t[0]["total_km"]))
-    row = _row(STRATEGY_FULL_TITLES["optimized"], best[0], best[1])
+    row = _row(STRATEGY_FULL_TITLES["optimized"], best[0], best[1], "optimized")
     if runs > 1:
         row["spread"] = {
             "assigned": sorted({t[0]["orders_assigned"] for t in trials}),
@@ -88,7 +87,7 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
 
     fact, fact_report = control_plan(orders, engineers)
     fact_row = _row("Факт: живой диспетчер",
-                    plan_metrics(fact, orders, engineers), None)
+                    plan_metrics(fact, orders, engineers), None, "fact")
     fact_row["fact_report"] = fact_report
     rows.append(fact_row)
     return rows
@@ -132,7 +131,7 @@ def sweep_heuristics(scenarios, time_limit: int) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--time-limit", type=int, default=15,
+    parser.add_argument("--time-limit", type=int, default=DEFAULT_TIME_LIMIT_SEC,
                         help="секунд на район для оптимизатора")
     parser.add_argument("--runs", type=int, default=1,
                         help="сколько раз прогнать оптимизатор")
@@ -152,8 +151,8 @@ def main() -> int:
         summary[scenario.region_name] = {r["title"]: r for r in rows}
         for i, r in enumerate(rows):
             region = scenario.region_name if i == 0 else ""
-            mark = "**" if "OR-Tools" in r["title"] else ""
-            italic = "*" if r["title"].startswith("Факт") else ""
+            mark = "**" if r["key"] == "optimized" else ""
+            italic = "*" if r["key"] == "fact" else ""
             wrap = mark or italic
             km = f"{r['km']:.1f}"
             print(f"| {region} | {wrap}{r['title']}{wrap} "
@@ -172,9 +171,9 @@ def main() -> int:
     print("| Район | Против базового | Против факта |")
     print("|---|---|---|")
     for region, rows in summary.items():
-        opt = next(r for t, r in rows.items() if "OR-Tools" in t)
-        base = next(r for t, r in rows.items() if "базовый" in t)
-        fact = next(r for t, r in rows.items() if t.startswith("Факт"))
+        opt = next(r for r in rows.values() if r["key"] == "optimized")
+        base = next(r for r in rows.values() if r["key"] == "baseline")
+        fact = next(r for r in rows.values() if r["key"] == "fact")
         def delta(other, optimized=opt):
             if not other["km_per_order"]:
                 return "—"
@@ -189,7 +188,7 @@ def main() -> int:
 
     print("\n\nФактическое распределение против правил ТЗ:\n")
     for region, rows in summary.items():
-        fact = next(r for t, r in rows.items() if t.startswith("Факт"))
+        fact = next(r for r in rows.values() if r["key"] == "fact")
         report = fact.get("fact_report") or {}
         print(f"  {region}: нарушений окна "
               f"{len(report.get('window_violations') or [])}, "

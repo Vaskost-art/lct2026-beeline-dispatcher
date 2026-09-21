@@ -38,6 +38,16 @@ export function ValidateDialog({ region, open, onClose }: Props) {
               : `Найдены нарушения: ${report.violations.length}.`}
           </p>
 
+          {report.not_in_plan > 0 ? (
+            <p className="rounded-md border-l-2 border-warn bg-warn-soft px-3 py-2 text-[13px] text-ink">
+              Проверка смотрит то, что попало в план. Ещё{' '}
+              <span className="tnum font-semibold">{report.not_in_plan}</span>{' '}
+              {plural(report.not_in_plan, 'заявка', 'заявки', 'заявок')} из{' '}
+              <span className="tnum">{report.orders_total}</span> в план не попали: это не
+              нарушение правил, а нехватка людей и окон. Разбор в списке «Без исполнителя».
+            </p>
+          ) : null}
+
           {/* Проверка считается заново и другим кодом, но доверять ей можно
               только зная, что она проверяла. */}
           <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
@@ -51,7 +61,7 @@ export function ValidateDialog({ region, open, onClose }: Props) {
                   }
                 >
                   {rule.checked - rule.failed}
-                  <span className="text-ink-4">/{rule.checked}</span>
+                  <span className="text-ink-3">/{rule.checked}</span>
                 </span>
               </li>
             ))}

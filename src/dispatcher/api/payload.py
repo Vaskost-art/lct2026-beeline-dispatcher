@@ -1,7 +1,7 @@
 """Сборка ответа с планом: одна форма для всех ручек."""
 from __future__ import annotations
 
-from dispatcher.api.deps import STORE, undo_labels
+from dispatcher.api.deps import STORE, manual_labels, undo_labels
 from dispatcher.domain import Order, Plan
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import geo
@@ -36,6 +36,9 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         "solve_seconds": plan.solve_seconds,
         "locked": dict(getattr(STORE.current(scenario.region_key), "locked", {}) or {}),
         "undo": undo_labels(scenario.region_key),
+        # Отдельно от истории: пересчёт откатывается шагом назад, но
+        # «что потеряется при сборке заново» - это только решения человека.
+        "manual_changes": manual_labels(scenario.region_key),
         "metrics": metrics,
         "explanation": explain_plan(plan, all_orders(scenario, plan),
                                     all_engineers(scenario), metrics),

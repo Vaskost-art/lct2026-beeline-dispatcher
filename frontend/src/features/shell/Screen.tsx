@@ -1,10 +1,17 @@
-import { MapTrifold, ShieldCheck, Timer, Toolbox, WarningOctagon } from '@phosphor-icons/react';
+import {
+  ArrowUUpLeft,
+  MapTrifold,
+  ShieldCheck,
+  Timer,
+  Toolbox,
+  WarningOctagon,
+} from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { Button } from '../../components/Button';
 
 import { ApiError } from '../../api/client';
-import { useMeta, usePlan, useRunPlan } from '../../api/queries';
+import { useMeta, usePlan, useRunPlan, useUndo } from '../../api/queries';
 import type { RegionSummary } from '../../api/types';
 import { useDay } from '../../state/day';
 import { CompareDialog } from '../compare/CompareDialog';
@@ -33,12 +40,14 @@ export function Screen() {
   const meta = useMeta();
   const plan = usePlan(day.region);
   const run = useRunPlan();
+  const undo = useUndo();
 
   const payload = plan.data;
-  // Пересчёт отменяет всё, что диспетчер применил за смену. Пока изменений
-  // нет, спрашивать не о чем, поэтому подтверждение появляется только тогда,
-  // когда есть что терять.
-  const applied = payload?.undo ?? [];
+  // Пересчёт отменяет решения человека, а не саму историю: сами пересчёты в
+  // ней тоже лежат, и подтверждение показывало десяток строк «Пересчёт:
+  // оптимальный план», которые терять не жалко.
+  const applied = payload?.manual_changes ?? [];
+  const history = payload?.undo ?? [];
   const [confirmReplan, setConfirmReplan] = useState(false);
 
   const startPlan = () => {
@@ -75,6 +84,22 @@ export function Screen() {
           builtAt={builtAt}
           actions={
             <>
+              {/* Шаг назад появляется, только когда есть что отменять, и
+                  называет последнее действие: за смену правок десятки, и
+                  без отката ошибку можно исправить лишь пересчётом дня. */}
+              {history.length > 0 ? (
+                <Button
+                  busy={undo.isPending}
+                  busyLabel="Отменяем"
+                  title={`Отменить: ${history[0]}`}
+                  onClick={() => {
+                    if (day.region) undo.mutate({ region: day.region });
+                  }}
+                >
+                  <ArrowUUpLeft size={15} weight="bold" aria-hidden />
+                  Шаг назад
+                </Button>
+              ) : null}
               <Button onClick={() => day.openPanel('validate')}>
                 <ShieldCheck size={15} weight="bold" aria-hidden />
                 Проверить план
@@ -227,7 +252,7 @@ function FirstRun({
   return (
     <div className="flex min-h-0 flex-1 justify-center rounded-lg border border-line bg-panel pt-[12vh]">
       <div className="flex w-full max-w-[44ch] flex-col items-center gap-4 px-6 py-12 text-center">
-        <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-4" />
+        <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-3" />
         <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
           {/* Во время расчёта заголовок «не построен» врёт: план как раз
               строится. Съёмка ловила эту надпись и снимала уже готовый план. */}
@@ -239,7 +264,8 @@ function FirstRun({
         </h2>
         <p className="text-[13px] leading-relaxed text-ink-3">
           {loading
-            ? 'Считаем маршруты. Это занимает несколько секунд.'
+            ? 'Перебираем варианты: разложить сотню заявок по бригадам так, чтобы '
+                + 'сошлись окна клиентов и смены, занимает от сорока секунд до двух минут.'
             : region
               ? 'Сервис разложит заявки по бригадам, покажет маршруты на карте и назовёт причину по каждой заявке, которая не поместилась.'
               : 'Возьмите участок из выгрузки организаторов или загрузите свой файл с заявками.'}

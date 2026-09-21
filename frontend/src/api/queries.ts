@@ -90,7 +90,7 @@ export function useCompare(region: string | null, enabled: boolean) {
   return useQuery({
     queryKey: ['compare', region ?? ''],
     enabled: Boolean(region) && enabled,
-    queryFn: () => request<ComparePayload>(`/api/compare/${region ?? ''}?time_limit_sec=5`),
+    queryFn: () => request<ComparePayload>(`/api/compare/${region ?? ''}`),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -138,6 +138,20 @@ export function useReassign() {
   return useMutation({
     mutationFn: (body: { region: string; order_id: string; engineer_id: string | null }) =>
       send<PlanPayload>('/api/reassign', body),
+    onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
+  });
+}
+
+/** Шаг назад: вернуть план к состоянию до последнего изменения.
+
+За смену диспетчер вносит десятки правок, и ошибиться в одной - обычное дело.
+Без отката единственным способом исправиться было пересобрать день целиком,
+то есть потерять и все остальные решения.
+*/
+export function useUndo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { region: string }) => send<PlanPayload>('/api/undo', body),
     onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
   });
 }

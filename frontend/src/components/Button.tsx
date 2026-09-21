@@ -8,7 +8,7 @@ const BASE =
   // Выключенная кнопка становится нейтральной, а не блёклой цветной:
   // полупрозрачный акцент читается как ошибка отрисовки.
   'disabled:cursor-not-allowed disabled:border-line disabled:bg-raised ' +
-  'disabled:text-ink-4 disabled:shadow-none';
+  'disabled:text-ink-3 disabled:shadow-none';
 
 const BY_VARIANT: Record<Variant, string> = {
   // Главное действие экрана. На экране оно одно.

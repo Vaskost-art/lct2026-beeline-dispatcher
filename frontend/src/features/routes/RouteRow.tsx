@@ -48,6 +48,9 @@ export function RouteRow({
     return total + (order ? order.equipment.length : 0);
   }, 0);
   const last = route.stops.at(-1);
+  // Простой в строках визитов виден поштучно, а решение принимается по
+  // сумме: три ожидания по часу это несделанная заявка.
+  const idle = route.stops.reduce((sum, stop) => sum + stop.wait_min, 0);
 
   return (
     <li className="border-b border-line last:border-0">
@@ -65,7 +68,7 @@ export function RouteRow({
           size={12}
           weight="bold"
           aria-hidden
-          className={'text-ink-4 transition-transform duration-[120ms] ' + (open ? 'rotate-90' : '')}
+          className={'text-ink-3 transition-transform duration-[120ms] ' + (open ? 'rotate-90' : '')}
         />
         <span
           aria-hidden
@@ -75,7 +78,7 @@ export function RouteRow({
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="shrink-0 text-[13px] font-medium">{route.engineer_id}</span>
           {vehicle ? (
-            <span className="hidden min-w-0 truncate text-[11px] text-ink-4 sm:inline">
+            <span className="hidden min-w-0 truncate text-[11px] text-ink-3 sm:inline">
               {SHORT_VEHICLE[vehicle] ?? vehicle}
             </span>
           ) : null}
@@ -83,7 +86,7 @@ export function RouteRow({
         <span className="text-right text-[12px] tnum">{route.stops.length}</span>
         <span className="text-right text-[12px] tnum">{route.total_km.toFixed(1)}</span>
         <span className="hidden text-right text-[12px] tnum lg:block">
-          {items > 0 ? items : <span className="text-ink-4">0</span>}
+          {items > 0 ? items : <span className="text-ink-3">0</span>}
         </span>
       </button>
 
@@ -93,6 +96,14 @@ export function RouteRow({
             <p className="px-4 pb-1 pt-1.5 text-[11px] text-ink-3">
               Смена занята до <span className="tnum font-medium">{last.end}</span> ·{' '}
               {route.total_travel_min} мин в дороге
+              {/* Простой в строках визитов виден поштучно, а решение принимается
+                  по сумме: три ожидания по часу это несделанная заявка. */}
+              {idle > 0 ? (
+                <span className="whitespace-nowrap">
+                  {' · '}
+                  <span className="font-medium text-warn tnum">{idle} мин</span> ждём окон
+                </span>
+              ) : null}
             </p>
           ) : null}
           <ul>

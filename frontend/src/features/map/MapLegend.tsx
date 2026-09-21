@@ -37,9 +37,12 @@ export function MapLegend({ plan, hiddenCrews, onToggleCrew }: Props) {
                  overflow-auto rounded-md border border-line bg-panel/95 px-2 py-1.5
                  text-[11px] text-ink-3 backdrop-blur-[1px]"
     >
+      {/* Список бригад уходит ниже 1024: карта там вдвое уже, и легенда
+          накрывала собой подписи районов и узлы. Цвета видно в списке
+          маршрутов слева, он на этой ширине рядом. */}
       {crews.length > 0 ? (
-        <>
-          <span className="font-semibold uppercase tracking-[0.05em] text-ink-4">
+        <div className="hidden flex-col gap-0.5 lg:flex">
+          <span className="font-semibold uppercase tracking-[0.05em] text-ink-3">
             Бригады
           </span>
           {crews.map((crew) => {
@@ -63,11 +66,11 @@ export function MapLegend({ plan, hiddenCrews, onToggleCrew }: Props) {
                            boxShadow: `inset 0 0 0 1.5px ${crew.color}` }}
                 />
                 <span className="min-w-0 flex-1 truncate text-ink-2">{crew.name}</span>
-                <span className="shrink-0 text-ink-4 tnum">{crew.stops}</span>
+                <span className="shrink-0 text-ink-3 tnum">{crew.stops}</span>
               </button>
             );
           })}
-        </>
+        </div>
       ) : null}
 
       <span className="mt-0.5 flex items-center gap-1.5 border-t border-line pt-1">

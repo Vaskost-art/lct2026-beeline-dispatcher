@@ -51,7 +51,7 @@ function Tile({ label, was, now, unit, lessIsBetter = false }: TileProps) {
           </span>
         )}
       </span>
-      <span className="text-[11px] text-ink-4 tnum">
+      <span className="text-[11px] text-ink-3 tnum">
         {diff === 0 ? 'без изменений' : `было ${was}`}
       </span>
     </div>
@@ -70,7 +70,13 @@ export function EventPreview({ before, preview, onSelect }: Props) {
   // Нетронутые заявки перечислять незачем: их десятки, и они как раз то, что
   // НЕ изменилось. Остальное - поимённо.
   const frozen = preview.diff.changes.filter((change) => change.status === 'frozen').length;
-  const touched = preview.diff.changes.filter((change) => change.status !== 'frozen');
+  // Выпавшая заявка идёт первой: именно по ней диспетчеру звонить клиенту,
+  // а в общем порядке она терялась среди «сменила место в маршруте».
+  const WEIGHT: Record<string, number> = { dropped: 0, added: 1, moved: 2, resequenced: 3 };
+  const touched = preview.diff.changes
+    .filter((change) => change.status !== 'frozen')
+    .slice()
+    .sort((a, b) => (WEIGHT[a.status] ?? 9) - (WEIGHT[b.status] ?? 9));
   // Список открывается коротким: иначе он отодвигает решение «применить или
   // отказаться» за нижний край панели, а именно его и ждут от предпросмотра.
   const [all, setAll] = useState(false);
@@ -136,7 +142,8 @@ export function EventPreview({ before, preview, onSelect }: Props) {
             <button
               type="button"
               onClick={() => setAll(!all)}
-              className="w-fit text-[12px] font-medium text-accent hover:underline"
+              className="-mx-1 w-fit rounded px-1 py-1 text-[12px] font-medium text-accent
+                         hover:bg-raised hover:underline"
             >
               {all ? 'Свернуть список' : `Показать все ${touched.length}`}
             </button>

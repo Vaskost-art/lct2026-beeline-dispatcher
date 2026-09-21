@@ -38,7 +38,7 @@ WIDTHS = (1440, 1024, 768, 390)
 #: проверив.
 MIN_CONTENT = 3
 
-_MEASURE = """
+_MEASURE = r"""
 () => {
   const problems = [];
   const doc = document.documentElement;
@@ -75,6 +75,55 @@ _MEASURE = """
     return false;
   }
 
+
+  // --- читаемость и доступность -------------------------------------------
+  // Геометрия ловит только сдвиги. Всё остальное - контраст, размер целей,
+  // безымянные кнопки, текст, срезанный вместе с контейнером - до сих пор
+  // держалось на чужих глазах, и каждый круг ревью находил это заново.
+
+  function channel(v) {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  function luminance(rgb) {
+    return 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+  }
+
+  function parseColor(value) {
+    const m = value.match(/rgba?\(([^)]+)\)/);
+    if (!m) return null;
+    const parts = m[1].split(/[,\s\/]+/).filter(Boolean).map(Number);
+    if (parts.length < 3 || parts.some(Number.isNaN)) return null;
+    return {rgb: parts.slice(0, 3), alpha: parts.length > 3 ? parts[3] : 1};
+  }
+
+  // Фон элемента: первый непрозрачный предок. Полупрозрачные слои смешиваем
+  // с тем, что под ними, иначе подложка bg-raised/50 даёт неверный расчёт.
+  function backdrop(el) {
+    let rgb = [255, 255, 255];
+    const stack = [];
+    for (let node = el; node; node = node.parentElement) {
+      const how = getComputedStyle(node);
+      if (how.backgroundImage && how.backgroundImage !== 'none') return null;
+      const color = parseColor(how.backgroundColor);
+      if (!color || color.alpha === 0) continue;
+      stack.push(color);
+      if (color.alpha === 1) { rgb = color.rgb; break; }
+    }
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const layer = stack[i];
+      if (layer.alpha === 1) { rgb = layer.rgb; continue; }
+      rgb = rgb.map((base, k) => base * (1 - layer.alpha) + layer.rgb[k] * layer.alpha);
+    }
+    return rgb;
+  }
+
+  function ratio(a, b) {
+    const la = luminance(a), lb = luminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
   const boxes = [];
   for (const el of root.querySelectorAll('*')) {
     if (map && map.contains(el)) continue;
@@ -97,6 +146,62 @@ _MEASURE = """
       }
     }
     const text = (el.textContent || '').trim();
+
+    // --- контраст текста ---
+    if (text && el.children.length === 0 && !clipped(el, box)) {
+      const ink = parseColor(style.color);
+      const paper = backdrop(el);
+      if (ink && paper && ink.alpha > 0.85) {
+        const size = parseFloat(style.fontSize);
+        const heavy = Number(style.fontWeight) >= 700;
+        // Порог WCAG AA: крупному тексту хватает 3.0, остальному нужно 4.5.
+        const need = (size >= 24 || (size >= 18.66 && heavy)) ? 3.0 : 4.5;
+        const got = ratio(ink.rgb, paper);
+        if (got < need) {
+          problems.push({kind: 'contrast',
+            detail: `«${text.slice(0, 24)}» ${got.toFixed(1)}:1 при нужных ${need}`});
+        }
+      }
+    }
+
+    // --- размер цели нажатия ---
+    const clickable = el.matches('button, a[href], input, select, [role="button"], [role="tab"]');
+    if (clickable && !clipped(el, box) && style.display !== 'contents') {
+      // Поле внутри метки - одна цель с ней: клик по метке попадает в поле.
+      const owner = el.closest('label') || el;
+      const reach = owner.getBoundingClientRect();
+      const side = Math.min(Math.max(box.width, reach.width),
+                            Math.max(box.height, reach.height));
+      // Порог WCAG 2.2: цель меньше 24 px не берётся пальцем и плохо берётся
+      // мышью. Скрытые поля выбора файла не считаем.
+      if (side < 24 && style.opacity !== '0') {
+        problems.push({kind: 'target',
+          detail: `«${(el.getAttribute('aria-label') || text || el.tagName).slice(0, 24)}»`
+            + ` ${Math.round(box.width)}x${Math.round(box.height)}`});
+      }
+    }
+
+    // --- кнопка без имени ---
+    if (el.matches('button, a[href], [role="button"]') && !clipped(el, box)) {
+      const named = text || el.getAttribute('aria-label') || el.getAttribute('title')
+        || el.querySelector('[aria-label], title, svg title');
+      if (!named) {
+        problems.push({kind: 'nameless',
+          detail: `${el.tagName.toLowerCase()}.${el.className.toString().slice(0, 30)}`});
+      }
+    }
+
+    // --- текст, срезанный контейнером без многоточия ---
+    if (text && el.children.length === 0) {
+      const room = getComputedStyle(el);
+      const hides = room.overflowX === 'hidden' || room.overflowY === 'hidden';
+      const ellipsis = room.textOverflow === 'ellipsis';
+      if (hides && !ellipsis
+          && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)) {
+        problems.push({kind: 'cut', detail: `«${text.slice(0, 24)}» не помещается и обрезан`});
+      }
+    }
+
     // Элемент, уехавший за край своего прокручиваемого контейнера, на экране
     // обрезан. Сравнивать его с видимыми соседями значит находить наложения
     // там, где человек видит аккуратный список.

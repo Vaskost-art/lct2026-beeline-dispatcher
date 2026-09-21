@@ -176,7 +176,8 @@ def restore_plan(request: RegionRequest) -> dict:
         label="Восстановлен сохранённый день",
         plan=plan, metrics=metrics, orders=orders, engineers=engineers,
         locked={k: v for k, v in (data.get("locked") or {}).items()
-                if k in by_id and v in engineer_by_id}))
+                if k in by_id and v in engineer_by_id},
+        manual=True))
     payload = plan_payload(scenario, plan, metrics)
     payload["restored"] = {"name": data.get("name", request.region),
                            "saved_at": data.get("saved_at", ""),

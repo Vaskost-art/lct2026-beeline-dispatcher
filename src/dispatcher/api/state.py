@@ -31,6 +31,11 @@ class DayVersion:
     orders: list[Order]
     engineers: list[Engineer]
     locked: dict[str, str] = field(default_factory=dict)
+    #: Решение человека, а не пересчёт. Шаг назад откатывает и то и другое,
+    #: но вопрос «что потеряется, если собрать день заново» касается только
+    #: ручных правок: пересчёты в этом списке - шум, и после десятка прогонов
+    #: подтверждение показывало десять одинаковых строк «Пересчёт».
+    manual: bool = False
 
 
 @dataclass
@@ -62,6 +67,11 @@ class DayState:
     def undo_labels(self) -> list[str]:
         """Что откатит шаг назад, новое первым."""
         return [version.label for version in reversed(self.versions[:-1])]
+
+    @property
+    def manual_labels(self) -> list[str]:
+        """Решения человека, принятые за смену: их отменит сборка заново."""
+        return [version.label for version in reversed(self.versions) if version.manual]
 
 
 class DayStore:

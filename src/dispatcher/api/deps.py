@@ -28,6 +28,12 @@ def undo_labels(region: str) -> list[str]:
     return day.undo_labels if day else []
 
 
+def manual_labels(region: str) -> list[str]:
+    """Решения человека за смену. Пересчёты сюда не попадают."""
+    day = STORE.day(region)
+    return day.manual_labels if day else []
+
+
 def day(region: str) -> DayState:
     day = STORE.day(region)
     if day is None:

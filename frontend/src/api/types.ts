@@ -132,6 +132,9 @@ export interface PlanPayload {
   solve_seconds: number;
   locked: Record<string, string>;
   undo: string[];
+  /** Решения человека за смену: ручные переносы, применённые события,
+      восстановление сохранения. Пересчёты сюда не входят. */
+  manual_changes: string[];
   metrics: Metrics;
   explanation: { lines: string[]; text: string };
   engineers: Engineer[];
@@ -305,6 +308,10 @@ export interface ValidationReport {
   /** Перечень правил со счётчиками: без него зелёный ответ ничего не
       доказывает - не видно, что именно проверялось. */
   rules: ValidationRule[];
+  orders_total: number;
+  /** Заявки, которых в плане нет. Правила их не проверяют, но молчать о них
+      нельзя: иначе «нарушений нет» читается как «день в порядке». */
+  not_in_plan: number;
 }
 
 export interface SavedDayInfo {

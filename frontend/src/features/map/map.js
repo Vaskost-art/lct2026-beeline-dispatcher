@@ -142,7 +142,11 @@
       const target = Math.min(150, Math.max(70, w * 0.12));
       const roughKm = kmPerPx * target;
       const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500];
-      const km = steps.find((s) => s >= roughKm) || steps[steps.length - 1];
+      // Ближайший круглый шаг, а не первый больший: «первый больший» давал
+      // полосу вдвое шире задуманной, и линейка растягивалась через пол-карты.
+      const km = steps.reduce((best, step) =>
+        Math.abs(step / kmPerPx - target) < Math.abs(best / kmPerPx - target) ? step : best,
+      steps[0]);
       scaleBar.style.width = `${Math.round(km / kmPerPx)}px`;
       scaleText.textContent = km < 1 ? `${km * 1000} м` : `${km} км`;
     }

@@ -11,10 +11,13 @@ interface Props {
     первого взгляда и не спорит с соседним числом. Красный здесь не
     используется: на карте он означает заявку без исполнителя, и одно и то
     же пятно не должно значить два разных явления. */
+//  Три ступени различаются количеством краски, а не оттенком слова: при
+//  заливке 15% «высокий» и «средний» отличались на процент светлоты и с
+//  рабочего расстояния читались как одна плашка.
 const BADGE: Record<string, string> = {
-  высокий: 'bg-warn/15 text-warn',
-  средний: 'bg-raised text-ink-2',
-  низкий: 'bg-raised text-ink-3',
+  высокий: 'bg-warn text-white',
+  средний: 'bg-warn-soft text-warn',
+  низкий: 'text-ink-3',
 };
 
 /** Прогноз опозданий: где план сломается от первой же задержки. */
@@ -25,13 +28,13 @@ export function RiskDialog({ plan, open, onClose }: Props) {
     <Modal open={open} title="Прогноз опозданий" onClose={onClose}>
       <p className="mb-3 max-w-[68ch] text-[13px] text-ink-2">{plan.risk.summary}</p>
       <div className="flex items-center gap-3 border-t border-line pb-1 pt-2">
-        <span className="flex-1 text-[11px] font-medium uppercase tracking-[0.05em] text-ink-4">
+        <span className="flex-1 text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
           Бригада
         </span>
-        <span className="w-20 text-[11px] font-medium uppercase tracking-[0.05em] text-ink-4">
+        <span className="w-20 text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
           Риск
         </span>
-        <span className="w-20 text-right text-[11px] font-medium uppercase tracking-[0.05em] text-ink-4">
+        <span className="w-20 text-right text-[11px] font-medium uppercase tracking-[0.05em] text-ink-3">
           Запас
         </span>
       </div>

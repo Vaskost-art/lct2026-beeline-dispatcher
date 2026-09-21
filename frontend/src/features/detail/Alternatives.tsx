@@ -44,7 +44,7 @@ export function Alternatives({ items, total }: Props) {
               </span>
               {item.extra_km === undefined ? null : (
                 <span className="shrink-0 text-[12px] text-ink-2 tnum">
-                  +{item.extra_km.toFixed(1)} <span className="text-ink-4">км</span>
+                  +{item.extra_km.toFixed(1)} <span className="text-ink-3">км</span>
                 </span>
               )}
             </li>

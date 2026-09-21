@@ -23,11 +23,11 @@ function Row({ row, best }: { row: CompareRow; best: boolean }) {
       <td className="px-3 py-2 align-top">
         <p className="text-[13px] font-medium">{row.title}</p>
         <p className="text-[12px] text-ink-3">{ROW_MARK[row.key] ?? ''}</p>
-        <p className="text-[11px] text-ink-4">{row.method}</p>
+        <p className="text-[11px] text-ink-3">{row.method}</p>
       </td>
       <td className="px-3 py-2 text-right align-top text-[13px] font-semibold tnum">
         {m.orders_assigned}
-        <span className="text-ink-4">/{m.orders_total}</span>
+        <span className="text-ink-3">/{m.orders_total}</span>
       </td>
       <td className="px-3 py-2 text-right align-top text-[13px] tnum">
         {m.used_engineers}
@@ -59,7 +59,7 @@ export function CompareDialog({ region, open, onClose }: Props) {
     <Modal open={open} title="Сравнение способов расчёта" onClose={onClose}>
       {compare.isPending ? (
         <p className="text-[13px] text-ink-3">
-          Считаем три плана подряд. Это занимает около полуминуты.
+          Считаем три плана подряд теми же настройками, что и план на экране: это занимает одну-две минуты. Быстрее нельзя - иначе оптимизатор остановят на полпути и сравнение выйдет нечестным.
         </p>
       ) : null}
 
@@ -80,7 +80,7 @@ export function CompareDialog({ region, open, onClose }: Props) {
             </p>
           ) : null}
 
-          <p className="mb-1 text-[11px] text-ink-4 sm:hidden">
+          <p className="mb-1 text-[11px] text-ink-3 sm:hidden">
             Таблицу можно прокрутить вбок
           </p>
           <div className="overflow-x-auto rounded-md border border-line">
@@ -101,6 +101,17 @@ export function CompareDialog({ region, open, onClose }: Props) {
               </tbody>
             </table>
           </div>
+
+          {/* Первый вопрос к таблице - «а с чем вы сравниваете». Отвечаем
+              сразу: колонки исполнителя в выгрузке нет, поэтому точкой
+              отсчёта служит вариант, заданный техническим заданием. */}
+          <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+            В выгрузке организаторов нет колонки исполнителя: все{' '}
+            <span className="tnum">{optimized?.metrics.orders_total ?? ''}</span> заявок
+            в ней без бригады. Поэтому точка отсчёта - базовый вариант, заданный
+            техническим заданием дословно: заявки по порядку поступления первому
+            подходящему исполнителю.
+          </p>
 
           {baseline && optimized && greedy ? (
             <div className="mt-4 flex flex-col gap-2 rounded-md border border-line bg-raised px-3 py-2">

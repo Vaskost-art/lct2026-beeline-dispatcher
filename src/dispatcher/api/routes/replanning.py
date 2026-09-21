@@ -117,7 +117,7 @@ def do_replan(request: ReplanRequest) -> dict:
             label=f"{KIND_TITLES.get(request.kind, request.kind)} в {hhmm(at)}",
             plan=result.plan, metrics=metrics,
             orders=new_orders, engineers=new_engineers,
-            locked=dict(state.locked)))
+            locked=dict(state.locked), manual=True))
         state_day.preview = None
         return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,

@@ -45,7 +45,7 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="text-[12px] font-semibold tnum">
               {stop.start}
-              <span className="text-ink-4">–{stop.end}</span>
+              <span className="text-ink-3">–{stop.end}</span>
             </span>
             {urgent ? (
               <span className="rounded-sm bg-danger-soft px-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-danger">
@@ -75,7 +75,7 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
           ) : null}
         </span>
 
-        <span className="shrink-0 pt-0.5 text-right text-[11px] text-ink-4 tnum">
+        <span className="shrink-0 pt-0.5 text-right text-[11px] text-ink-3 tnum">
           <span className="block">{stop.travel_min} мин в пути</span>
           {stop.wait_min > 0 ? (
             <span className="block text-warn">ждём {stop.wait_min} мин</span>

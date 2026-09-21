@@ -94,7 +94,13 @@ def validate_plan(region: str) -> dict:
     scenario_of(region)
     state = version_of(region)
     report = validate(state.plan, state.orders, state.engineers)
-    return ok(report.to_dict())
+    payload = report.to_dict()
+    # Правила проверяют то, что в плане. Заявки, которые в план не попали,
+    # нарушением не являются, но зелёный ответ без их числа читается как
+    # «весь день в порядке», хотя часть заявок сорвана.
+    payload["orders_total"] = len(state.orders)
+    payload["not_in_plan"] = len(state.orders) - report.checked_stops
+    return ok(payload)
 
 
 # --- выгрузка результата в формате ТЗ ---------------------------------------

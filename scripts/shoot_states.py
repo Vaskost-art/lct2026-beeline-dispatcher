@@ -7,6 +7,7 @@
 from collections.abc import Awaitable, Callable
 
 from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeout
 
 #: Сколько ждать построение плана. Расчёт ограничен временем на стороне
 #: сервиса, но геокодирование и отрисовка карты добавляют сверху.
@@ -86,15 +87,33 @@ async def first_run(page: Page) -> None:
 async def not_planned(page: Page) -> None:
     """Участок выбран, план ещё не построен.
 
-    Берём участок, который в прогоне никто не планирует: сервис держит
-    построенный план в памяти, и на рабочем участке это состояние живёт
-    ровно до первой съёмки. Дополнительно убеждаемся, что сводки на экране
-    нет: заголовок появляется и во время расчёта.
+    Сервис держит построенные планы в памяти, поэтому подходит только тот
+    участок, который в этом запуске никто не планировал. Перебираем все и
+    берём первый чистый: жёстко заданный участок ломался, стоило посчитать
+    его руками. Сводки на экране при этом быть не должно - заголовок
+    «ещё не построен» показывается и во время расчёта.
     """
     await _ready(page)
-    await page.select_option('select[aria-label="Участок"]', UNPLANNED_REGION)
-    await page.wait_for_selector("text=План на сегодня ещё не построен")
-    await page.wait_for_selector('[data-testid="metric-assigned"]', state="detached")
+    options = await page.eval_on_selector_all(
+        'select[aria-label="Участок"] option[value]:not([value=""])',
+        "nodes => nodes.map(node => node.value)")
+
+    for region in [UNPLANNED_REGION, *options]:
+        if region not in options:
+            continue
+        await page.select_option('select[aria-label="Участок"]', region)
+        try:
+            await page.wait_for_selector("text=План на сегодня ещё не построен",
+                                         timeout=5_000)
+            await page.wait_for_selector('[data-testid="metric-assigned"]',
+                                         state="detached", timeout=5_000)
+        except PlaywrightTimeout:
+            continue
+        return
+
+    raise PlaywrightTimeout(
+        "ни один участок не подошёл: планы построены на всех. Перезапустите "
+        "сервис перед съёмкой этого состояния.")
 
 
 async def planned(page: Page) -> None:

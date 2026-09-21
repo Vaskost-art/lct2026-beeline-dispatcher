@@ -71,7 +71,7 @@ export function EventBar({ plan, onSelectOrder }: Props) {
           size={12}
           weight="bold"
           aria-hidden
-          className={'ml-auto text-ink-4 transition-transform ' + (open ? 'rotate-180' : '')}
+          className={'ml-auto text-ink-3 transition-transform ' + (open ? 'rotate-180' : '')}
         />
       </button>
 
@@ -126,9 +126,12 @@ export function EventBar({ plan, onSelectOrder }: Props) {
 
           {preview ? null : (
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-[13px] text-ink-2">
+            {/* Высота строки и размер флажка доведены до 24 px: цель меньше
+                этого не берётся ни пальцем, ни мышью с первого раза. */}
+            <label className="flex min-h-6 cursor-pointer items-center gap-2 text-[13px] text-ink-2">
               <input
                 type="checkbox"
+                className="size-4"
                 checked={draft.mode === 'full'}
                 onChange={(event) =>
                   change({ ...draft, mode: event.target.checked ? 'full' : 'minimal' })

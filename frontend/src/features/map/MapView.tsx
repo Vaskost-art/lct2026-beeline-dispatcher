@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlanPayload } from '../../api/types';
 import type { DispatcherMap } from './map';
 import { createDispatcherMap } from './map.js';
+import { MapLegend } from './MapLegend';
 import { buildMapModel } from './model';
 import './map.css';
 
@@ -14,6 +15,7 @@ interface Props {
   apiKey: string;
   theme: string;
   onSelect: (orderId: string) => void;
+  onToggleCrew: (crew: string) => void;
 }
 
 /** Карта плана.
@@ -30,6 +32,7 @@ export function MapView({
   apiKey,
   theme,
   onSelect,
+  onToggleCrew,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<DispatcherMap | null>(null);
@@ -110,21 +113,7 @@ export function MapView({
         </span>
       ) : null}
 
-      {/* Без легенды ромб и квадрат на схеме остаются загадкой. */}
-      <div className="pointer-events-none absolute bottom-3 right-3 flex flex-col gap-1 rounded-md border border-line bg-panel/92 px-2 py-1.5 text-[11px] text-ink-3">
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className="size-2.5 rounded-full bg-ink-4" />
-          визит бригады
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className="size-2.5 rotate-45 rounded-[2px] bg-ink-4" />
-          старт из офиса
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden className="size-2.5 rotate-45 rounded-[2px] bg-danger" />
-          без исполнителя
-        </span>
-      </div>
+      <MapLegend plan={plan} hiddenCrews={hiddenCrews} onToggleCrew={onToggleCrew} />
     </section>
   );
 }

@@ -28,10 +28,11 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
         <span className="hidden sm:inline">Меню</span>
       </Button>
 
-      <span className="hidden min-w-0 md:block">
-        <span className="truncate text-[13px] font-semibold tracking-[-0.01em]">
-          Планировщик выездных работ
-        </span>
+      {/* На телефоне полное имя не помещается, но экран без имени перестаёт
+          быть продуктом: остаётся гамбургер, список участков и кнопка. */}
+      <span className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.01em]">
+        <span className="md:hidden">Планировщик</span>
+        <span className="hidden md:inline">Планировщик выездных работ</span>
       </span>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -66,14 +67,18 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
           </span>
         ) : null}
 
+        {/* Пока плана нет, построить его - единственное осмысленное действие
+            на экране. Как только план есть, главным становится разбор очереди
+            решений, а повторный расчёт - служебным: акцент с него снимается,
+            иначе самая яркая кнопка экрана отменяет работу дня. */}
         <Button
-          variant="primary"
+          variant={planned ? 'shell' : 'primary'}
           data-testid="plan"
           onClick={onPlan}
           busy={busy}
           disabled={!region}
         >
-          {planned ? 'Пересчитать' : 'Спланировать'}
+          {planned ? 'Собрать заново' : 'Спланировать'}
         </Button>
       </div>
     </header>

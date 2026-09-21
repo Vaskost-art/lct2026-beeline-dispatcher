@@ -162,7 +162,7 @@ def crews_shortfall(orders: list[Order], crews: list[Engineer],
         # Форма ответа одна на обе ветки: экран не должен гадать, есть ли
         # ключ, и подставлять за сервис значение по умолчанию.
         return {"missing": 0, "assigned": plan.assigned_count,
-                "still_unassigned": 0,
+                "still_unassigned": 0, "profiles": [],
                 "reason": "", "limited_by_people": False}
 
     extended = list(crews)
@@ -186,8 +186,14 @@ def crews_shortfall(orders: list[Order], crews: list[Engineer],
             break
 
     still_left = len(orders) - best
+    # Чего именно не хватает. «Нужно ещё 2 бригады» не отвечает на вопрос
+    # диспетчера: людей каких - с машиной, с каким навыком, на какие часы.
+    added = extended[len(crews):len(crews) + useful]
+    profiles = [{"vehicle": crew.vehicle, "skills": list(crew.skills),
+                 "shift": crew.shift_text} for crew in added]
     return {
         "missing": useful,
+        "profiles": profiles,
         "assigned": best,
         "still_unassigned": still_left,
         # Заявки, которые не берёт даже свободная бригада, упираются не в

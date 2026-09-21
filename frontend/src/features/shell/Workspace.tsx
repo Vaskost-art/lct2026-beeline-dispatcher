@@ -15,15 +15,17 @@ interface Props {
 
 /** Рабочее поле: список слева, карта справа.
 
-На узком экране они не делят место пополам, а сменяют друг друга: половина
-телефона под карту бесполезна обоим.
+Две колонки включаются с 768: на планшете и в половине экрана ноутбука
+карта - это и есть продукт, а список без неё выглядит выгрузкой из базы.
+Сменяют друг друга они только на телефоне, где половина ширины бесполезна
+обоим.
 */
 export function Workspace({ plan, day, apiKey }: Props) {
   const [narrowView, setNarrowView] = useState<'list' | 'map'>('list');
 
   return (
     <div className="relative flex min-h-[520px] flex-1 flex-col gap-2 lg:min-h-0">
-      <div className="flex gap-1 rounded-md border border-line bg-panel p-1 lg:hidden">
+      <div className="flex gap-1 rounded-md border border-line bg-panel p-1 md:hidden">
         {(
           [
             ['list', 'Список', ListBullets],
@@ -47,8 +49,9 @@ export function Workspace({ plan, day, apiKey }: Props) {
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
-        <div className={'min-h-0 min-w-0 ' + (narrowView === 'list' ? 'flex' : 'hidden lg:flex')}>
+      <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]
+                      lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+        <div className={'min-h-0 min-w-0 ' + (narrowView === 'list' ? 'flex' : 'hidden md:flex')}>
           <WorkList
             plan={plan}
             selected={day.selectedOrder}
@@ -63,7 +66,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
 
         <div
           className={
-            'relative min-h-0 min-w-0 ' + (narrowView === 'map' ? 'flex' : 'hidden lg:flex')
+            'relative min-h-0 min-w-0 ' + (narrowView === 'map' ? 'flex' : 'hidden md:flex')
           }
         >
           <MapView
@@ -74,6 +77,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
             apiKey={apiKey}
             theme={day.theme}
             onSelect={day.selectOrder}
+            onToggleCrew={day.toggleCrew}
           />
         </div>
       </div>

@@ -56,7 +56,7 @@ export function RouteRow({
         onClick={onToggle}
         aria-expanded={open}
         className={
-          'grid h-9 w-full grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px] items-center gap-2 ' +
+          'grid h-9 w-full grid-cols-[14px_10px_minmax(0,1fr)_48px_56px] lg:grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px] items-center gap-2 ' +
           'pl-2 pr-3 text-left transition-colors duration-[120ms] ' +
           (focused ? 'bg-raised' : 'hover:bg-raised')
         }
@@ -82,7 +82,7 @@ export function RouteRow({
         </span>
         <span className="text-right text-[12px] tnum">{route.stops.length}</span>
         <span className="text-right text-[12px] tnum">{route.total_km.toFixed(1)}</span>
-        <span className="text-right text-[12px] tnum">
+        <span className="hidden text-right text-[12px] tnum lg:block">
           {items > 0 ? items : <span className="text-ink-4">0</span>}
         </span>
       </button>

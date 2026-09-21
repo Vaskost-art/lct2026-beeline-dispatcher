@@ -17,7 +17,10 @@ interface Props {
   onTab: (tab: 'routes' | 'unassigned') => void;
 }
 
-const COLUMNS = 'grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px]';
+/* Колонка груза уходит до 1024: на планшете рабочее поле делится пополам
+   с картой, и шесть колонок в 300 px слипаются в «БРИГАДАЗАЯВОК». */
+const COLUMNS =
+  'grid-cols-[14px_10px_minmax(0,1fr)_48px_56px] lg:grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px]';
 
 /** Работа дня двумя вкладками: что разошлось и что осталось.
 
@@ -107,11 +110,11 @@ export function WorkList({
           <span className="eyebrow">Бригада</span>
           <span className="eyebrow text-right">Заявок</span>
           <span className="eyebrow text-right">Км</span>
-          <span className="eyebrow text-right">Груз</span>
+          <span className="eyebrow hidden text-right lg:block">Груз</span>
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto overscroll-contain pb-1">
+      <div className="scroll-fade min-h-0 flex-1 overflow-auto overscroll-contain pb-1">
         {tab === 'routes' ? (
           shown.length === 0 ? (
             <p className="px-3 py-6 text-center text-[13px] text-ink-3">
@@ -155,17 +158,19 @@ export function WorkList({
       </div>
 
       {tab === 'routes' ? (
-        <div className="grid h-8 shrink-0 grid-cols-[14px_10px_minmax(0,1fr)_56px_64px_52px] items-center gap-2 border-t border-line bg-raised/50 pl-2 pr-3">
+        <div
+          className={`grid h-8 shrink-0 ${COLUMNS} items-center gap-2 border-t border-line bg-raised/50 pl-2 pr-3`}
+        >
           <span />
           <span />
-          <span className="text-[12px] font-medium text-ink-3">Всего за день</span>
+          <span className="truncate text-[12px] font-medium text-ink-3">Всего за день</span>
           <span className="text-right text-[12px] font-semibold tnum">
             {used.reduce((sum, route) => sum + route.stops.length, 0)}
           </span>
           <span className="text-right text-[12px] font-semibold tnum">
             {used.reduce((sum, route) => sum + route.total_km, 0).toFixed(1)}
           </span>
-          <span className="text-right text-[12px] font-semibold tnum">
+          <span className="hidden text-right text-[12px] font-semibold tnum lg:block">
             {plan.pickup.reduce((sum, row) => sum + row.total, 0)}
           </span>
         </div>

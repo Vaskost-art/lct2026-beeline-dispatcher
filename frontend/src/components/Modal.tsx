@@ -33,8 +33,7 @@ export function Modal({ open, title, onClose, children }: Props) {
             </Dialog.Close>
           </div>
           <div
-            className="min-h-0 flex-1 overflow-auto px-4 py-4
-                       [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]"
+            className="scroll-fade min-h-0 flex-1 overflow-auto px-4 py-4"
           >
             {children}
           </div>

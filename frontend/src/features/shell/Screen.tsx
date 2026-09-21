@@ -1,4 +1,5 @@
 import { MapTrifold, ShieldCheck, Timer, Toolbox, WarningOctagon } from '@phosphor-icons/react';
+import { useState } from 'react';
 
 import { Button } from '../../components/Button';
 
@@ -9,12 +10,13 @@ import { useDay } from '../../state/day';
 import { CompareDialog } from '../compare/CompareDialog';
 import { AssumptionsDialog } from '../data/AssumptionsDialog';
 import { UploadDialog } from '../data/UploadDialog';
-import { ValidateDialog } from '../data/ValidateDialog';
 import { EventBar } from '../event/EventBar';
+import { ValidateDialog } from '../data/ValidateDialog';
 import { PickupDialog } from '../pickup/PickupDialog';
 import { RiskDialog } from '../risk/RiskDialog';
 import { ShortfallDialog } from '../shortfall/ShortfallDialog';
 import { Menu } from './Menu';
+import { ReplanConfirm } from './ReplanConfirm';
 import { Decisions } from './Decisions';
 import { Header } from './Header';
 import { Summary } from './Summary';
@@ -33,6 +35,16 @@ export function Screen() {
   const run = useRunPlan();
 
   const payload = plan.data;
+  // Пересчёт отменяет всё, что диспетчер применил за смену. Пока изменений
+  // нет, спрашивать не о чем, поэтому подтверждение появляется только тогда,
+  // когда есть что терять.
+  const applied = payload?.undo ?? [];
+  const [confirmReplan, setConfirmReplan] = useState(false);
+
+  const startPlan = () => {
+    if (!day.region) return;
+    run.mutate({ region: day.region, strategy: 'optimized' });
+  };
   // Время берётся у самого ответа: сервис не присылает момент сборки, а без
   // него свежий план не отличить от того, что лежит с утра.
   const builtAt = plan.dataUpdatedAt
@@ -51,9 +63,7 @@ export function Screen() {
         region={day.region}
         onRegion={day.selectRegion}
         onMenu={() => day.openPanel('menu')}
-        onPlan={() => {
-          if (day.region) run.mutate({ region: day.region, strategy: 'optimized' });
-        }}
+        onPlan={() => (applied.length > 0 ? setConfirmReplan(true) : startPlan())}
         busy={run.isPending}
         planned={Boolean(payload)}
       />
@@ -112,7 +122,7 @@ export function Screen() {
         {payload ? (
           <>
             <Workspace plan={payload} day={day} apiKey={meta.data?.map_api_key ?? ''} />
-            <EventBar plan={payload} />
+            <EventBar plan={payload} onSelectOrder={day.selectOrder} />
           </>
         ) : (
           <FirstRun
@@ -120,13 +130,21 @@ export function Screen() {
             loading={run.isPending || plan.isFetching}
             regions={meta.data?.regions ?? []}
             onRegion={day.selectRegion}
-            onPlan={() => {
-              if (day.region) run.mutate({ region: day.region, strategy: 'optimized' });
-            }}
+            onPlan={startPlan}
             onUpload={() => day.openPanel('upload')}
           />
         )}
       </main>
+
+      <ReplanConfirm
+        open={confirmReplan}
+        changes={applied}
+        onCancel={() => setConfirmReplan(false)}
+        onConfirm={() => {
+          setConfirmReplan(false);
+          startPlan();
+        }}
+      />
 
       <Menu
         open={day.panel === 'menu'}
@@ -204,12 +222,20 @@ function FirstRun({
   onPlan: () => void;
   onUpload: () => void;
 }) {
+  const current = regions.find((item) => item.region_key === region);
+
   return (
     <div className="flex min-h-0 flex-1 justify-center rounded-lg border border-line bg-panel pt-[12vh]">
       <div className="flex w-full max-w-[44ch] flex-col items-center gap-4 px-6 py-12 text-center">
         <MapTrifold size={32} weight="duotone" aria-hidden className="text-ink-4" />
         <h2 className="text-[17px] font-semibold tracking-[-0.015em]">
-          {region ? 'План на сегодня ещё не построен' : 'Смена не выбрана'}
+          {/* Во время расчёта заголовок «не построен» врёт: план как раз
+              строится. Съёмка ловила эту надпись и снимала уже готовый план. */}
+          {loading
+            ? 'Считаем план на день'
+            : region
+              ? 'План на сегодня ещё не построен'
+              : 'Смена не выбрана'}
         </h2>
         <p className="text-[13px] leading-relaxed text-ink-3">
           {loading
@@ -218,6 +244,25 @@ function FirstRun({
               ? 'Сервис разложит заявки по бригадам, покажет маршруты на карте и назовёт причину по каждой заявке, которая не поместилась.'
               : 'Возьмите участок из выгрузки организаторов или загрузите свой файл с заявками.'}
         </p>
+
+        {/* Что сервис берёт в работу. Пустой экран перед расчётом - первое,
+            что видит человек, и он должен видеть свой день, а не приглашение
+            нажать кнопку. */}
+        {current && !loading ? (
+          <dl className="flex w-full flex-wrap justify-center gap-x-8 gap-y-3 rounded-md
+                         border border-line bg-raised px-4 py-3 text-left">
+            {[
+              ['Заявок на день', current.orders],
+              ['Бригад на участке', current.engineers],
+              ['Срочных', current.urgent],
+            ].map(([title, value]) => (
+              <div key={String(title)} className="flex min-w-0 flex-col">
+                <dt className="eyebrow">{title}</dt>
+                <dd className="text-[20px] font-semibold leading-tight tnum">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
 
         {region ? (
           <Button variant="primary" onClick={onPlan} busy={loading}>

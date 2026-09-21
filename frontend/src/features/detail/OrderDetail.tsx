@@ -37,14 +37,18 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // На узком экране карточка держится за окно, а не за свой контейнер: тот
+  // уезжает за нижний край при прокрутке страницы, и вместе с ним уходило
+  // действие «Передать другой бригаде».
   return (
     <aside
       data-testid="detail"
       aria-label={`Заявка ${orderId}`}
-      className="absolute inset-x-0 bottom-0 z-20 flex max-h-[72%] flex-col overflow-hidden
-                 rounded-lg border border-line bg-panel
+      className="fixed inset-x-0 bottom-0 z-30 flex max-h-[82dvh] flex-col overflow-hidden
+                 rounded-t-lg border border-line bg-panel
                  shadow-[0_12px_40px_rgb(10_14_20/0.18)]
-                 lg:inset-y-2 lg:left-auto lg:right-2 lg:max-h-none lg:w-[380px]"
+                 lg:absolute lg:inset-y-2 lg:bottom-auto lg:left-auto lg:right-2
+                 lg:max-h-none lg:w-[380px] lg:rounded-lg"
     >
       <header className="sticky top-0 z-10 flex items-start gap-2 border-b border-line bg-panel px-3 py-2">
         <div className="min-w-0 flex-1">
@@ -63,7 +67,7 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
+      <div className="scroll-fade min-h-0 flex-1 overflow-auto px-3 py-3">
         {explain.isPending ? <p className="text-[13px] text-ink-3">Собираем объяснение…</p> : null}
 
         {explain.error ? (
@@ -132,8 +136,8 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
         <div className="shrink-0 border-t border-line bg-panel px-3 py-2.5">
           {reassign.isSuccess ? (
             <p className="rounded-md bg-ok-soft px-2 py-1.5 text-[12px] text-ink">
-              Заявка передана бригаде «{picked}». Она закреплена и останется у неё при
-              следующем пересчёте.
+              Заявка передана бригаде «{crews.find((crew) => crew.id === picked)?.name ?? picked}».
+              Она закреплена и останется у неё при следующем пересчёте.
             </p>
           ) : (
             <>

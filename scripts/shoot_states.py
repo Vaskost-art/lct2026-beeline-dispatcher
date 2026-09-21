@@ -17,6 +17,10 @@ READY_TIMEOUT_MS = 60_000
 
 REGION = "vostok"
 
+#: Участок, который в прогоне не планируется: нужен состоянию «план ещё не
+#: построен», иначе оно достижимо только первым снимком за запуск сервиса.
+UNPLANNED_REGION = "yugocentr"
+
 
 async def _ready(page: Page) -> None:
     """Дождаться, пока страница получит список участков."""
@@ -80,10 +84,17 @@ async def first_run(page: Page) -> None:
 
 
 async def not_planned(page: Page) -> None:
-    """Участок выбран, план ещё не построен."""
+    """Участок выбран, план ещё не построен.
+
+    Берём участок, который в прогоне никто не планирует: сервис держит
+    построенный план в памяти, и на рабочем участке это состояние живёт
+    ровно до первой съёмки. Дополнительно убеждаемся, что сводки на экране
+    нет: заголовок появляется и во время расчёта.
+    """
     await _ready(page)
-    await page.select_option('select[aria-label="Участок"]', REGION)
+    await page.select_option('select[aria-label="Участок"]', UNPLANNED_REGION)
     await page.wait_for_selector("text=План на сегодня ещё не построен")
+    await page.wait_for_selector('[data-testid="metric-assigned"]', state="detached")
 
 
 async def planned(page: Page) -> None:
@@ -112,10 +123,19 @@ async def detail(page: Page) -> None:
 
 
 async def event_form(page: Page) -> None:
-    """Полоса события раскрыта, поля заполняются."""
+    """Полоса события раскрыта, поля заполняются.
+
+    Каждый шаг дожидается своего следствия: клик по свёрнутой полосе и клик
+    по виду события идут подряд, и без ожидания второй попадает в ещё не
+    отрисованную форму.
+    """
     await _plan(page)
     await page.click('button:has-text("Событие в течение дня")')
-    await page.click('button:has-text("Задержка бригады")')
+    kind = page.locator('button:has-text("Задержка бригады")')
+    await kind.wait_for(state="visible", timeout=30_000)
+    await kind.scroll_into_view_if_needed()
+    await kind.click()
+    await page.wait_for_selector('text=Задержка, мин', state="visible", timeout=30_000)
 
 
 async def event_preview(page: Page) -> None:

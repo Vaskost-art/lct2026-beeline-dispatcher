@@ -2,6 +2,7 @@ import { CheckCircle, WarningOctagon } from '@phosphor-icons/react';
 
 import { useValidation } from '../../api/queries';
 import { Modal } from '../../components/Modal';
+import { plural } from '../../text';
 
 interface Props {
   region: string;
@@ -33,9 +34,28 @@ export function ValidateDialog({ region, open, onClose }: Props) {
               <WarningOctagon size={18} weight="fill" aria-hidden className="text-danger" />
             )}
             {report.ok
-              ? `Нарушений нет: проверено ${report.checked_stops} визитов в ${report.checked_routes} маршрутах.`
+              ? `Нарушений нет: проверено ${report.checked_stops} ${plural(report.checked_stops, 'визит', 'визита', 'визитов')} в ${report.checked_routes} ${plural(report.checked_routes, 'маршруте', 'маршрутах', 'маршрутах')}.`
               : `Найдены нарушения: ${report.violations.length}.`}
           </p>
+
+          {/* Проверка считается заново и другим кодом, но доверять ей можно
+              только зная, что она проверяла. */}
+          <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+            {report.rules.map((rule) => (
+              <li key={rule.key} className="flex items-baseline gap-2 px-3 py-1.5">
+                <span className="min-w-0 flex-1 text-[13px] text-ink-2">{rule.title}</span>
+                <span
+                  className={
+                    'shrink-0 text-[13px] font-medium tnum ' +
+                    (rule.failed > 0 ? 'text-danger' : 'text-ok')
+                  }
+                >
+                  {rule.checked - rule.failed}
+                  <span className="text-ink-4">/{rule.checked}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
 
           {report.violations.length > 0 ? (
             <ul className="flex flex-col divide-y divide-line border-y border-line">

@@ -29,7 +29,7 @@ function show() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <EventBar plan={plan} />
+      <EventBar plan={plan} onSelectOrder={() => {}} />
     </QueryClientProvider>,
   );
 }

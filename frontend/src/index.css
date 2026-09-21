@@ -38,6 +38,7 @@
   --ok: #157f4b;
   --ok-soft: #e8f5ee;
   --warn: #a35a00;
+  --warn-soft: #fdf1dd;
   --danger: #b3261e;
   --danger-soft: #fdecea;
 
@@ -67,6 +68,7 @@
   --ok: #4ec98a;
   --ok-soft: rgb(78 201 138 / 0.14);
   --warn: #f0b429;
+  --warn-soft: rgb(240 180 41 / 0.14);
   --danger: #f2736a;
   --danger-soft: rgb(242 115 106 / 0.14);
 
@@ -97,6 +99,7 @@
     --ok: #4ec98a;
     --ok-soft: rgb(78 201 138 / 0.14);
     --warn: #f0b429;
+    --warn-soft: rgb(240 180 41 / 0.14);
     --danger: #f2736a;
     --danger-soft: rgb(242 115 106 / 0.14);
 
@@ -125,6 +128,7 @@
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-focus: var(--focus);
@@ -180,6 +184,21 @@ body {
   font-weight: 500;
   color: var(--ink-3);
   letter-spacing: 0;
+}
+
+/* Тень у края прокручиваемой области. Появляется только тогда, когда за
+   краем действительно есть содержимое: два слоя прокручиваются вместе с
+   содержимым и закрывают собой два неподвижных. Затемнение поверх текста
+   (mask-image) для этого не годится - оно гасит последнюю строку всегда,
+   в том числе когда докрутили до конца. */
+.scroll-fade {
+  background:
+    linear-gradient(var(--panel) 40%, rgb(0 0 0 / 0)) top / 100% 22px no-repeat local,
+    linear-gradient(rgb(0 0 0 / 0), var(--panel) 60%) bottom / 100% 22px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgb(10 14 20 / 0.14), rgb(0 0 0 / 0))
+      top / 100% 9px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgb(10 14 20 / 0.14), rgb(0 0 0 / 0))
+      bottom / 100% 9px no-repeat scroll;
 }
 
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {

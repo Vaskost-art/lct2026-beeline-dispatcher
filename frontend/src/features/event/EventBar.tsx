@@ -11,6 +11,8 @@ import { EventPreview } from './EventPreview';
 
 interface Props {
   plan: PlanPayload;
+  /** Переход к заявке из предпросмотра последствий. */
+  onSelectOrder: (orderId: string) => void;
 }
 
 /** Событие в течение дня.
@@ -19,7 +21,7 @@ interface Props {
 предсказание, а план остаётся прежним. Считает предпросмотр и применение
 одна и та же ручка сервиса, поэтому они не могут разойтись.
 */
-export function EventBar({ plan }: Props) {
+export function EventBar({ plan, onSelectOrder }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<EventDraft>(EMPTY_DRAFT);
   const replan = useReplan();
@@ -37,13 +39,20 @@ export function EventBar({ plan }: Props) {
   return (
     <section
       className={
-        'shrink-0 rounded-lg border border-line bg-panel ' +
-        // Раскрытая форма ложится поверх рабочего поля, а не сжимает его:
-        // иначе карта обрезается по маркерам, а список теряет последнюю
-        // бригаду под итоговой строкой.
+        // @container: раскрытая форма живёт то во всю ширину поля, то в
+        // колонке 440 px, и раскладка полей должна следовать за шириной
+        // панели, а не за шириной окна.
+        '@container shrink-0 rounded-lg border border-line bg-panel ' +
+        // Раскрытая форма встаёт колонкой справа, а не растягивается во всю
+        // ширину поверх поля: диспетчер вводит задержку конкретной бригады и
+        // должен видеть её маршрут, иначе от карты остаётся полоса, а от
+        // списка две строки.
+        // Высота ограничена так, чтобы форма не доросла до очереди решений
+        // наверху: та перекрывалась панелью и переставала читаться.
         (open
-          ? 'lg:absolute lg:inset-x-3 lg:bottom-3 lg:z-30 lg:max-h-[72vh] lg:overflow-auto ' +
-            'lg:shadow-[0_-8px_32px_rgb(10_14_20/0.18)]'
+          ? 'lg:absolute lg:bottom-3 lg:right-3 lg:z-30 lg:w-[440px] ' +
+            'lg:max-h-[calc(100%-96px)] lg:overflow-auto ' +
+            'lg:shadow-[0_8px_32px_rgb(10_14_20/0.22)]'
           : '')
       }
     >
@@ -54,7 +63,7 @@ export function EventBar({ plan }: Props) {
         className="flex h-10 w-full items-center gap-2 px-3 text-left"
       >
         <Lightning size={15} weight="fill" aria-hidden className="text-accent" />
-        <span className="text-[13px] font-medium">Событие в течение дня</span>
+        <span className="shrink-0 text-[13px] font-medium">Событие в течение дня</span>
         <span className="truncate text-[12px] text-ink-3">
           срочная заявка, отмена, задержка или бригада выбыла
         </span>
@@ -68,10 +77,27 @@ export function EventBar({ plan }: Props) {
 
       {open ? (
         <div className="flex flex-col gap-3 border-t border-line px-3 py-3">
+          {/* Как только посчитан предпросмотр, поля уходят: разговор идёт уже
+              о последствиях, а форма занимает место решения «применить или
+              отказаться» и выталкивает его за край панели. */}
+          {preview ? (
+            <button
+              type="button"
+              onClick={() => replan.reset()}
+              className="flex w-fit items-center gap-2 rounded-md border border-line
+                         px-2 py-1 text-[12px] text-ink-2 transition-colors duration-[120ms]
+                         hover:border-line-2 hover:bg-raised"
+            >
+              Изменить событие
+            </button>
+          ) : null}
+
+          {preview ? null : (
           <div
             role="group"
             aria-label="Вид события"
-            className="inline-flex w-fit rounded-md border border-line bg-raised/60 p-0.5"
+            className="flex flex-wrap gap-0.5 rounded-md border border-line bg-raised/60 p-0.5
+                       @[520px]:w-fit"
           >
             {KIND_TITLES.map(([kind, title]) => (
               <button
@@ -90,11 +116,15 @@ export function EventBar({ plan }: Props) {
               </button>
             ))}
           </div>
+          )}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {preview ? null : (
+          <div className="grid gap-3 @[400px]:grid-cols-2 @[760px]:grid-cols-4">
             <EventFields plan={plan} draft={draft} onChange={change} />
           </div>
+          )}
 
+          {preview ? null : (
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-[13px] text-ink-2">
               <input
@@ -119,6 +149,7 @@ export function EventBar({ plan }: Props) {
 
             {missing ? <span className="text-[12px] text-ink-3">{missing}</span> : null}
           </div>
+          )}
 
           {replan.error ? (
             <p role="alert" className="text-[13px] text-danger">
@@ -137,7 +168,7 @@ export function EventBar({ plan }: Props) {
               <span className="text-[12px] font-medium text-warn">
                 Предсказание. Рабочий день пока не изменился
               </span>
-              <EventPreview before={plan} preview={preview} />
+              <EventPreview before={plan} preview={preview} onSelect={onSelectOrder} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="primary"

@@ -90,10 +90,18 @@ export interface PickupRow {
   text: string;
 }
 
+export interface CrewProfile {
+  vehicle: string;
+  skills: string[];
+  shift: string;
+}
+
 export interface Shortfall {
   missing: number;
   assigned: number;
   still_unassigned: number;
+  /** Каких именно бригад не хватает: транспорт, навыки, часы смены. */
+  profiles: CrewProfile[];
   reason: string;
   limited_by_people: boolean;
 }
@@ -251,6 +259,8 @@ export interface ReplanRequest {
 export interface CompareRow {
   key: string;
   title: string;
+  /** Чем посчитано: решатель или правило. Стоит подписью, не в заголовке. */
+  method: string;
   hint: string;
   metrics: Metrics;
 }
@@ -266,6 +276,17 @@ export interface ComparePayload {
     km_per_order_pct: number | null;
   };
   basis: string;
+  /** День на экране отличается от дня, по которому считалось сравнение:
+      к нему уже применены события. Тогда числа в строке «наш план» и в
+      сводке расходятся, и об этом надо сказать прямо. */
+  changed: boolean;
+}
+
+export interface ValidationRule {
+  key: string;
+  title: string;
+  checked: number;
+  failed: number;
 }
 
 export interface Violation {
@@ -281,6 +302,9 @@ export interface ValidationReport {
   checked_stops: number;
   violations: Violation[];
   by_rule: Record<string, number>;
+  /** Перечень правил со счётчиками: без него зелёный ответ ничего не
+      доказывает - не видно, что именно проверялось. */
+  rules: ValidationRule[];
 }
 
 export interface SavedDayInfo {

@@ -18,6 +18,7 @@ from dispatcher.services.planning.optimizer import solve_optimized
 from dispatcher.services.planning.strategies import (
     STRATEGY_FULL_TITLES,
     STRATEGY_HINTS,
+    STRATEGY_METHODS,
     STRATEGY_TITLES,
 )
 
@@ -97,12 +98,14 @@ def compare_strategies(region: str, time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC
         metrics = plan_metrics(plan, scenario.orders, scenario.engineers)
         by_key[key] = metrics
         rows.append({"key": key, "title": STRATEGY_FULL_TITLES[key],
+                     "method": STRATEGY_METHODS[key],
                      "hint": STRATEGY_HINTS[key], "metrics": metrics})
 
     return ok({
         "region": region,
         "region_name": scenario.region_name,
         "rows": rows,
+        "changed": changed,
         "fact": {"key": "control", "title": "Фактическое распределение диспетчера",
                  "metrics": fact_metrics, "report": fact_report},
         "vs_baseline": compare(by_key["optimized"], by_key["baseline"]),

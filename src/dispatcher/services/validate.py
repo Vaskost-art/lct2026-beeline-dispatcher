@@ -37,6 +37,16 @@ class Violation:
                 "order_id": self.order_id, "text": self.text}
 
 
+#: Правила, по которым проверяется каждый визит плана. Ключ совпадает с
+#: пометкой нарушения, название написано для диспетчера.
+RULE_TITLES = {
+    "Навык": "Навык исполнителя под вид работ",
+    "Ресурс": "Транспорт, которого требует заявка",
+    "Время": "Окно клиента и конец смены",
+    "Логика": "Целостность: одна заявка одному, пробег сходится",
+}
+
+
 @dataclass
 class ValidationReport:
     violations: list[Violation] = field(default_factory=list)
@@ -53,6 +63,17 @@ class ValidationReport:
             out[v.rule] = out.get(v.rule, 0) + 1
         return out
 
+    def rules(self) -> list[dict]:
+        """Что именно проверено и на скольких визитах.
+
+        Без перечня зелёный ответ «нарушений нет» ничего не доказывает:
+        не видно, проверялись ли окна клиента, смена и транспорт.
+        """
+        failed = self.by_rule()
+        return [{"key": key, "title": title, "checked": self.checked_stops,
+                 "failed": failed.get(key, 0)}
+                for key, title in RULE_TITLES.items()]
+
     def to_dict(self) -> dict:
         return {
             "ok": self.ok,
@@ -60,6 +81,7 @@ class ValidationReport:
             "checked_stops": self.checked_stops,
             "violations": [v.to_dict() for v in self.violations],
             "by_rule": self.by_rule(),
+            "rules": self.rules(),
         }
 
 

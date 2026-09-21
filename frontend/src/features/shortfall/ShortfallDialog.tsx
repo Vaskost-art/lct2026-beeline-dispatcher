@@ -59,6 +59,35 @@ export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExpor
           </p>
         )}
 
+        {s.profiles.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="eyebrow">Каких людей искать</span>
+            <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+              {s.profiles.map((profile, index) => (
+                <li
+                  key={`${profile.vehicle}-${index}`}
+                  className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-2"
+                >
+                  <span className="text-[13px] font-medium">
+                    Бригада {index + 1}: {profile.vehicle.toLowerCase()}
+                  </span>
+                  <span className="text-[12px] text-ink-3">смена {profile.shift}</span>
+                  <span className="flex flex-wrap gap-1">
+                    {profile.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-sm border border-line bg-raised px-1 text-[11px] text-ink-2"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {stuck > 0 ? (
           <p className="rounded-md border-l-2 border-warn bg-raised/60 px-3 py-2 text-[13px] text-ink">
             {s.reason || 'Эти заявки не берёт даже свободная бригада: мешает окно или требования заявки.'}

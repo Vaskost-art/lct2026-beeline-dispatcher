@@ -12,12 +12,14 @@
   height: 100%;
 }
 
-/* Подписи районов лежат ПОД маршрутами: поверх линий они затаптывались
-   и не читались. */
+/* Подписи районов лежат поверх всего. Схема без картографической подложки
+   держится на них одних, а под маркерами они перечёркивались кружками
+   визитов: «ТЕКСТИЛЬЩИКИ» и «КУЗЬМИНКИ» не читались вовсе. Плотный фон и
+   рамка перекрывают линию под подписью, но подписей всего восемь. */
 .scheme-districts {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 7;
   pointer-events: none;
 }
 
@@ -53,7 +55,8 @@
   pointer-events: none;
   padding: 1px 5px;
   border-radius: 3px;
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;

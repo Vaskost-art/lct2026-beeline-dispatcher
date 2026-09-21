@@ -23,6 +23,7 @@ function Row({ row, best }: { row: CompareRow; best: boolean }) {
       <td className="px-3 py-2 align-top">
         <p className="text-[13px] font-medium">{row.title}</p>
         <p className="text-[12px] text-ink-3">{ROW_MARK[row.key] ?? ''}</p>
+        <p className="text-[11px] text-ink-4">{row.method}</p>
       </td>
       <td className="px-3 py-2 text-right align-top text-[13px] font-semibold tnum">
         {m.orders_assigned}
@@ -70,6 +71,15 @@ export function CompareDialog({ region, open, onClose }: Props) {
 
       {compare.data ? (
         <>
+          {compare.data.changed ? (
+            <p className="mb-2 rounded-md border border-warn/40 bg-warn-soft px-3 py-2 text-[12px] text-ink">
+              К плану на экране уже применены события дня, поэтому его числа
+              отличаются от строки «наш план»: все три способа посчитаны по
+              исходному дню участка. Иначе сравнение шло бы на разных наборах
+              заявок.
+            </p>
+          ) : null}
+
           <p className="mb-1 text-[11px] text-ink-4 sm:hidden">
             Таблицу можно прокрутить вбок
           </p>
@@ -112,7 +122,9 @@ export function CompareDialog({ region, open, onClose }: Props) {
                 </span>{' '}
                 км меньше.
               </p>
-              <p className="text-[12px] text-ink-3">{compare.data.basis}</p>
+              {compare.data.changed ? null : (
+                <p className="text-[12px] text-ink-3">{compare.data.basis}</p>
+              )}
             </div>
           ) : null}
         </>

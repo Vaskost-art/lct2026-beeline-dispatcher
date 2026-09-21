@@ -20,19 +20,16 @@ export function AssumptionsDialog({ meta, open, onClose }: Props) {
         расходится с вашей практикой, скажите: оно настраивается и план пересчитается.
       </p>
 
+      {/* Раньше все двенадцать допущений были свёрнуты: человек открывал окно
+          «Как считаем» и не узнавал ни одного допущения. Текст каждого - две
+          строки, прятать тут нечего. */}
       <ul className="flex flex-col divide-y divide-line border-y border-line">
         {(meta?.assumptions ?? []).map((item) => (
-          <li key={item.title}>
-            <details className="group py-2 [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden">
-              <summary className="cursor-pointer list-none text-[13px] font-medium">
-                <span className="text-ink-4 group-open:hidden">▸ </span>
-                <span className="hidden text-ink-4 group-open:inline">▾ </span>
-                {item.title}
-              </summary>
-              <p className="mt-1 max-w-[64ch] pl-4 text-[13px] leading-relaxed text-ink-2">
-                {item.text}
-              </p>
-            </details>
+          <li key={item.title} className="py-2">
+            <p className="text-[13px] font-medium">{item.title}</p>
+            <p className="mt-0.5 max-w-[64ch] text-[13px] leading-relaxed text-ink-2">
+              {item.text}
+            </p>
           </li>
         ))}
       </ul>

@@ -18,6 +18,7 @@ const SHORT_LIST = 4;
 const STATUS_TITLES: Record<string, string> = {
   moved: 'передана другой бригаде',
   resequenced: 'сменила место в маршруте',
+  retimed: 'визит сдвинут',
   dropped: 'выпала из плана',
   added: 'добавлена в план',
   frozen: 'уже начата, не трогаем',
@@ -72,7 +73,13 @@ export function EventPreview({ before, preview, onSelect }: Props) {
   const frozen = preview.diff.changes.filter((change) => change.status === 'frozen').length;
   // Выпавшая заявка идёт первой: именно по ней диспетчеру звонить клиенту,
   // а в общем порядке она терялась среди «сменила место в маршруте».
-  const WEIGHT: Record<string, number> = { dropped: 0, added: 1, moved: 2, resequenced: 3 };
+  const WEIGHT: Record<string, number> = {
+    dropped: 0,
+    added: 1,
+    moved: 2,
+    retimed: 3,
+    resequenced: 4,
+  };
   const touched = preview.diff.changes
     .filter((change) => change.status !== 'frozen')
     .slice()
@@ -82,9 +89,41 @@ export function EventPreview({ before, preview, onSelect }: Props) {
   const [all, setAll] = useState(false);
   const shown = all ? touched : touched.slice(0, SHORT_LIST);
 
+  const arrived = preview.diff.new_order;
+  const reaction = preview.diff.reaction;
+
   return (
     <div data-testid="event-preview" className="flex min-w-0 flex-col gap-2.5">
       <p className="text-[13px] text-ink-2">{preview.diff.event.description}</p>
+
+      {/* Судьба новой заявки - первое, что ищет диспетчер. В списке
+          изменений её нет, если она не встала: в плане её и не было. */}
+      {arrived ? (
+        <p
+          data-testid="new-order-outcome"
+          className={
+            'rounded-md border-l-2 px-2 py-1.5 text-[13px] ' +
+            (arrived.engineer_id ? 'border-ok bg-ok-soft' : 'border-danger bg-danger-soft')
+          }
+        >
+          {arrived.engineer_id ? (
+            <>
+              Заявку {arrived.order_id} берёт «{nameOf(arrived.engineer_id)}».
+              {reaction ? (
+                <>
+                  {' '}Приедет через <span className="font-semibold tnum">{reaction.minutes} мин</span>{' '}
+                  после поступления
+                  {reaction.within
+                    ? ' - в пределах ориентира 1-2 часа.'
+                    : ' - дольше ориентира 1-2 часа.'}
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>Заявка {arrived.order_id} ни к кому не встала. {arrived.reason}</>
+          )}
+        </p>
+      ) : null}
 
       <div className="grid gap-2 sm:grid-cols-3">
         <Tile
@@ -127,6 +166,12 @@ export function EventPreview({ before, preview, onSelect }: Props) {
                     }
                   >
                     {STATUS_TITLES[change.status] ?? change.status}
+                    {change.status === 'retimed' && change.shift_min ? (
+                      <span className="tnum">
+                        {' '}
+                        {change.shift_min > 0 ? 'позже' : 'раньше'} на {Math.abs(change.shift_min)} мин
+                      </span>
+                    ) : null}
                   </span>
                   {change.from_engineer && change.to_engineer &&
                   change.from_engineer !== change.to_engineer ? (

@@ -2,8 +2,33 @@ import type { PlanPayload, ReplanRequest } from '../../api/types';
 
 export type EventKind = ReplanRequest['kind'];
 
+/** Какая заявка пришла днём. Днём приходят не только аварии (организаторы,
+    22.09), и от типа зависит, что заявке разрешено: авария может
+    перестроить остаток дня, обычная встаёт только в свободное окно. */
+export type NewOrderWork = 'emergency' | 'connect' | 'local';
+
+export const WORK_TITLES: [NewOrderWork, string][] = [
+  ['emergency', 'Авария'],
+  ['connect', 'Подключение'],
+  ['local', 'Ремонт у клиента'],
+];
+
+const WORK_SKILL: Record<NewOrderWork, string> = {
+  emergency: 'Аварийные работы',
+  connect: 'Работы на подключение и дозаказы',
+  local: 'Локальные работы',
+};
+
+/** Минут на адресе по нормативу заказчика: базовый норматив минус дорога. */
+export const WORK_MINUTES: Record<NewOrderWork, number> = {
+  emergency: 80,
+  connect: 70,
+  local: 30,
+};
+
 export interface EventDraft {
   kind: EventKind;
+  work: NewOrderWork;
   at: string;
   orderId: string;
   engineerId: string;
@@ -16,7 +41,7 @@ export interface EventDraft {
 }
 
 export const KIND_TITLES: [EventKind, string][] = [
-  ['urgent_order', 'Срочная заявка'],
+  ['urgent_order', 'Новая заявка'],
   ['cancel_order', 'Отмена заявки'],
   ['engineer_unavailable', 'Бригада выбыла'],
   ['engineer_delayed', 'Задержка бригады'],
@@ -24,6 +49,7 @@ export const KIND_TITLES: [EventKind, string][] = [
 
 export const EMPTY_DRAFT: EventDraft = {
   kind: 'urgent_order',
+  work: 'emergency',
   at: '13:00',
   orderId: '',
   engineerId: '',
@@ -31,7 +57,7 @@ export const EMPTY_DRAFT: EventDraft = {
   district: '',
   windowStart: '14:00',
   windowEnd: '18:00',
-  durationMin: 60,
+  durationMin: WORK_MINUTES.emergency,
   mode: 'minimal',
 };
 
@@ -54,7 +80,7 @@ export function whatIsMissing(draft: EventDraft): string {
 
 /** Точка новой заявки: середина уже известных заявок этого района.
 
-Координат у срочной заявки взяться неоткуда, а район диспетчер называет
+Координат у новой заявки взяться неоткуда, а район диспетчер называет
 сразу. Это допущение видно на карте: точка ставится среди соседних заявок.
 */
 function districtCenter(plan: PlanPayload, district: string): { lat: number; lon: number } {
@@ -81,9 +107,12 @@ export function toRequest(draft: EventDraft, plan: PlanPayload, apply: boolean):
   }
 
   const point = districtCenter(plan, draft.district);
-  const id = `СРОЧНО-${draft.at.replace(':', '')}`;
+  const prefix = draft.work === 'emergency' ? 'АВАРИЯ' : 'НОВАЯ';
+  const id = `${prefix}-${draft.at.replace(':', '')}`;
   return {
     ...base,
+    // Пересобрать остаток дня можно ради аварии, но не ради обычной заявки.
+    mode: draft.work === 'emergency' ? draft.mode : 'minimal',
     new_order: {
       id,
       lat: point.lat,
@@ -93,7 +122,7 @@ export function toRequest(draft: EventDraft, plan: PlanPayload, apply: boolean):
       duration_min: draft.durationMin,
       window_start: draft.windowStart,
       window_end: draft.windowEnd,
-      required_skill: 'Аварийные работы',
+      required_skill: WORK_SKILL[draft.work],
       required_vehicle: null,
     },
   };

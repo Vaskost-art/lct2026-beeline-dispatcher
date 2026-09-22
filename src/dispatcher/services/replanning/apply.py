@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Unassigned, hhmm
+from dispatcher.domain import Engineer, Order, Plan, Unassigned, hhmm
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.optimizer import solve_optimized
 from dispatcher.services.replanning.diff import build_diff, describe_diff
@@ -19,7 +19,14 @@ from dispatcher.services.replanning.freeze import (
     merge_frozen,
     shifts_after_event,
 )
-from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL, MODE_TITLES, _repair
+from dispatcher.services.replanning.newcomer import (
+    describe_reaction,
+    newcomer_outcome,
+    ordinary_newcomer,
+    reaction,
+    stuck_emergencies,
+)
+from dispatcher.services.replanning.repair import MODE_MINIMAL, MODE_TITLES, _repair
 from dispatcher.services.statuses import frozen_by_status
 from dispatcher.services.statuses import plannable as plannable_by_status
 
@@ -44,6 +51,10 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     """
     now = event.at
     marks = statuses or {}
+    # Пересобрать остаток дня можно ради аварии, но не ради обычной заявки:
+    # она не должна перестраивать сформированный план (организаторы, 22.09).
+    if ordinary_newcomer(event) is not None:
+        mode = MODE_MINIMAL
     new_orders, new_engineers = apply_event(orders, engineers, event)
     new_orders = plannable_by_status(new_orders, marks)
 
@@ -165,24 +176,16 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     diff["mode_title"] = MODE_TITLES.get(mode, mode)
 
     narrative = describe_diff(diff, event)
+    arrival = reaction(new_plan, event)
+    if arrival is not None:
+        diff["reaction"] = arrival
+        narrative.append(describe_reaction(arrival))
+    outcome = newcomer_outcome(new_plan, event)
+    if outcome is not None:
+        diff["new_order"] = outcome
 
-    # Если срочная заявка не встала — это решение диспетчера, а не тупик:
-    # называем причину и говорим, чем за неё придётся заплатить.
-    assigned_ids = {s.order_id for r in new_plan.routes for s in r.stops}
-    stuck = [o for o in new_orders
-             if o.priority == PRIORITY_URGENT and o.id not in assigned_ids]
-    if stuck and mode == MODE_MINIMAL:
-        # Причину берём из диагностики, а не придумываем: она может быть
-        # любой — от отсутствия навыка до занятого окна.
-        reasons = {u.order_id: u.reason_text for u in new_plan.unassigned}
-        for order in stuck:
-            narrative.append(
-                f"Срочная заявка {order.id} не размещена точечной правкой. "
-                f"{reasons.get(order.id, 'Причина не определена.')} "
-                f"Попробуйте режим «{MODE_TITLES[MODE_FULL]}»: "
-                f"он может найти для неё место ценой перестановок в маршрутах "
-                f"и, возможно, снятия другой заявки. Решение за диспетчером."
-            )
+    if mode == MODE_MINIMAL:
+        narrative.extend(stuck_emergencies(new_plan, new_orders))
 
     return ReplanResult(plan=new_plan, diff=diff, narrative=narrative,
                         frozen=frozen, engineers=adjusted, orders=new_orders)

@@ -19,6 +19,23 @@ class EngineerDiff(TypedDict):
     km_delta: float
 
 
+#: Сдвиг визита меньше этого клиенту не заметен и звонка не требует, минут.
+RETIME_TOLERANCE_MIN = 5
+
+
+def _ranks(plan: Plan, keep: set[str]) -> dict[str, int]:
+    """Порядковый номер визита среди заявок из `keep` в его маршруте."""
+    out: dict[str, int] = {}
+    for route in plan.routes:
+        kept = [stop.order_id for stop in route.stops if stop.order_id in keep]
+        out.update({order_id: rank for rank, order_id in enumerate(kept)})
+    return out
+
+
+def _starts(plan: Plan) -> dict[str, int]:
+    return {stop.order_id: stop.start for route in plan.routes for stop in route.stops}
+
+
 def build_diff(before: Plan, after: Plan, orders_before: list[Order],
                orders_after: list[Order], frozen_ids: set[str],
                event: ReplanEvent) -> dict:
@@ -34,6 +51,14 @@ def build_diff(before: Plan, after: Plan, orders_before: list[Order],
         return out
 
     pos_before, pos_after = positions(before), positions(after)
+    # Порядок сравнивается только среди заявок, оставшихся у той же бригады:
+    # вставка новой заявки сдвигает номера всех следующих визитов, и раньше
+    # они значились как «сменила место», хотя ни порядок, ни время у них не
+    # менялись.
+    same_crew = {oid for oid, (crew, _) in pos_before.items()
+                 if pos_after.get(oid, ("", 0))[0] == crew}
+    rank_before, rank_after = _ranks(before, same_crew), _ranks(after, same_crew)
+    start_before, start_after = _starts(before), _starts(after)
     changes: list[dict] = []
 
     for order_id in sorted(ids_before | ids_after):
@@ -54,8 +79,10 @@ def build_diff(before: Plan, after: Plan, orders_before: list[Order],
             status = "dropped"
         elif b[0] != a[0]:
             status = "moved"
-        elif b[1] != a[1]:
+        elif rank_before.get(order_id) != rank_after.get(order_id):
             status = "resequenced"
+        elif abs(start_after[order_id] - start_before[order_id]) > RETIME_TOLERANCE_MIN:
+            status = "retimed"
         else:
             status = "unchanged"
 
@@ -69,6 +96,10 @@ def build_diff(before: Plan, after: Plan, orders_before: list[Order],
             "to_engineer": a[0] if a else None,
             "from_position": b[1] + 1 if b else None,
             "to_position": a[1] + 1 if a else None,
+            # На сколько минут сдвинулся визит: по нему служба поддержки
+            # предупреждает клиента, которому уже назвали время.
+            "shift_min": (start_after[order_id] - start_before[order_id]
+                          if a and b else None),
         })
 
     km_before = {r.engineer_id: r.total_km for r in before.routes}
@@ -119,6 +150,7 @@ STATUS_TEXT = {
     "cancelled": "снята с плана",
     "moved": "передана другому исполнителю",
     "resequenced": "изменила место в маршруте",
+    "retimed": "визит сдвинут по времени",
     "dropped": "выпала из плана",
     "rescued": "вернулась в план",
     "frozen": "не тронута — работы уже начаты",
@@ -134,7 +166,8 @@ def describe_diff(diff: dict, event: ReplanEvent) -> list[str]:
     totals = diff["totals"]
 
     parts = []
-    for key in ("added", "cancelled", "moved", "resequenced", "rescued", "dropped"):
+    for key in ("added", "cancelled", "moved", "resequenced", "retimed", "rescued",
+                "dropped"):
         if counts.get(key):
             parts.append(f"{STATUS_TEXT[key]}: {counts[key]}")
     if parts:

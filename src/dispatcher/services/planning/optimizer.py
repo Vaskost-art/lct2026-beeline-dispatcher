@@ -12,8 +12,6 @@ from collections.abc import Callable
 from ortools.constraint_solver import pywrapcp
 
 from dispatcher.domain import (
-    PRIORITY_HIGH,
-    PRIORITY_NORMAL,
     PRIORITY_URGENT,
     Engineer,
     Order,
@@ -24,13 +22,12 @@ from dispatcher.domain.distance import road_km, travel_minutes
 from dispatcher.services.planning.baseline import _finalize
 from dispatcher.services.planning.costs import (
     DEFAULT_TIME_LIMIT_SEC,
-    DROP_PENALTY_HIGH,
-    DROP_PENALTY_NORMAL,
-    DROP_PENALTY_URGENT,
     ENGINEER_FIXED_COST,
     URGENT_DELAY_COST_PER_MIN,
 )
+from dispatcher.services.planning.eligibility import restrict_crews
 from dispatcher.services.planning.extract import routes_from_solution
+from dispatcher.services.planning.frozen import pin_prefixes
 from dispatcher.services.planning.search import (
     FIRST_SOLUTION,
     METAHEURISTIC,
@@ -132,13 +129,6 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
         # CumulVar в узле = момент НАЧАЛА работ; по ТЗ он обязан попасть в окно
         time_dim.CumulVar(index).SetRange(order.window_start, order.window_end)
 
-    #: Цена пропуска по приоритету: авария, подключение, остальное.
-    PENALTY_BY_PRIORITY = {
-        PRIORITY_URGENT: DROP_PENALTY_URGENT,
-        PRIORITY_HIGH: DROP_PENALTY_HIGH,
-        PRIORITY_NORMAL: DROP_PENALTY_NORMAL,
-    }
-
     # Срочные тянутся к началу своего окна. Мягкая граница, а не жёсткая:
     # жёсткая выкинула бы заявку из плана, если бригада не успевает, а нам
     # нужно «как можно раньше», а не «либо рано, либо никак».
@@ -164,45 +154,8 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
         routing.AddVariableMinimizedByFinalizer(time_dim.CumulVar(start_index))
         routing.AddVariableMinimizedByFinalizer(time_dim.CumulVar(end_index))
 
-    # --- ограничения «Навык» и «Ресурс»: список допустимых исполнителей ---
-    for node, order in enumerate(orders):
-        index = manager.NodeToIndex(node)
-        allowed = [v for v, e in enumerate(engineers) if e.can_do(order)]
-
-        pinned = locked.get(order.id)
-        if pinned is not None:
-            allowed = [v for v, e in enumerate(engineers)
-                       if e.id == pinned and v in allowed]
-
-        if not allowed:
-            # Заявку не может взять никто. Домен из одного значения -1
-            # означает «обязана остаться неназначенной»: без этого солвер
-            # вправе отдать её любому исполнителю, и план нарушит
-            # ограничение по навыку или по транспорту.
-            routing.VehicleVar(index).SetValues([-1])
-            routing.AddDisjunction([index], 0)
-            continue
-
-        # -1 в домене означает «заявка не назначена»: без него солвер не смог бы
-        # снять заявку, для которой не хватает ресурсов.
-        routing.VehicleVar(index).SetValues([-1] + allowed)
-        penalty = PENALTY_BY_PRIORITY.get(order.priority, DROP_PENALTY_NORMAL)
-        routing.AddDisjunction([index], penalty)
-
-    # --- замороженные префиксы маршрутов при перепланировании ---
-    order_index = {o.id: i for i, o in enumerate(orders)}
-    for engineer_id, prefix in frozen.items():
-        found = next((v for v, e in enumerate(engineers) if e.id == engineer_id), None)
-        if found is None:
-            continue
-        vehicle_id = found
-        chain = [order_index[oid] for oid in prefix if oid in order_index]
-        prev_index = routing.Start(vehicle_id)
-        for node in chain:
-            index = manager.NodeToIndex(node)
-            routing.solver().Add(routing.NextVar(prev_index) == index)
-            routing.VehicleVar(index).SetValue(vehicle_id)
-            prev_index = index
+    restrict_crews(routing, manager, orders, engineers, locked)
+    pin_prefixes(routing, manager, time_dim, orders, engineers, frozen)
 
     # --- параметры поиска ---
     params = pywrapcp.DefaultRoutingSearchParameters()

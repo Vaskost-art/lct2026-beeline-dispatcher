@@ -65,7 +65,7 @@ export function EventBar({ plan, onSelectOrder }: Props) {
         <Lightning size={15} weight="fill" aria-hidden className="text-accent" />
         <span className="shrink-0 text-[13px] font-medium">Событие в течение дня</span>
         <span className="truncate text-[12px] text-ink-3">
-          срочная заявка, отмена, задержка или бригада выбыла
+          новая заявка или авария, отмена, задержка, бригада выбыла
         </span>
         <CaretDown
           size={12}
@@ -128,17 +128,25 @@ export function EventBar({ plan, onSelectOrder }: Props) {
           <div className="flex flex-wrap items-center gap-3">
             {/* Высота строки и размер флажка доведены до 24 px: цель меньше
                 этого не берётся ни пальцем, ни мышью с первого раза. */}
-            <label className="flex min-h-6 cursor-pointer items-center gap-2 text-[13px] text-ink-2">
-              <input
-                type="checkbox"
-                className="size-4"
-                checked={draft.mode === 'full'}
-                onChange={(event) =>
-                  change({ ...draft, mode: event.target.checked ? 'full' : 'minimal' })
-                }
-              />
-              Пересобрать остаток дня целиком
-            </label>
+            {draft.kind === 'urgent_order' && draft.work !== 'emergency' ? (
+              // Обычная заявка встаёт только в свободное окно и план не
+              // перестраивает: пересборка дня - право аварии (организаторы, 22.09).
+              <span className="text-[12px] text-ink-3">
+                Встанет только в свободное окно, чужие визиты не сдвинет
+              </span>
+            ) : (
+              <label className="flex min-h-6 cursor-pointer items-center gap-2 text-[13px] text-ink-2">
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  checked={draft.mode === 'full'}
+                  onChange={(event) =>
+                    change({ ...draft, mode: event.target.checked ? 'full' : 'minimal' })
+                  }
+                />
+                Пересобрать остаток дня целиком
+              </label>
+            )}
 
             <Button
               variant="quiet"

@@ -1,5 +1,5 @@
 import type { PlanPayload } from '../../api/types';
-import type { EventDraft } from './draft';
+import { type EventDraft, type NewOrderWork, WORK_MINUTES, WORK_TITLES } from './draft';
 
 interface Props {
   plan: PlanPayload;
@@ -86,6 +86,25 @@ export function EventFields({ plan, draft, onChange }: Props) {
 
       {draft.kind === 'urgent_order' ? (
         <>
+          <Label text="Что пришло">
+            <select
+              className={INPUT}
+              value={draft.work}
+              onChange={(event) => {
+                const work = event.target.value as NewOrderWork;
+                // Длительность подставляется по нормативу заказчика: у аварии
+                // и ремонта она различается почти втрое.
+                onChange({ ...draft, work, durationMin: WORK_MINUTES[work] });
+              }}
+            >
+              {WORK_TITLES.map(([key, title]) => (
+                <option key={key} value={key}>
+                  {title}
+                </option>
+              ))}
+            </select>
+          </Label>
+
           <Label text="Район">
             <select
               className={INPUT}

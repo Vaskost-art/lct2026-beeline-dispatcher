@@ -19,7 +19,7 @@ from dispatcher.services.replanning.events import (
     KIND_UNAVAILABLE,
     KIND_URGENT,
     ReplanEvent,
-    make_urgent_order,
+    make_new_order,
 )
 
 router = APIRouter()
@@ -41,7 +41,7 @@ def do_replan(request: ReplanRequest) -> dict:
     new_order = None
     if request.kind == KIND_URGENT:
         if request.new_order is None:
-            raise HTTPException(400, "Для срочной заявки нужен полный набор полей")
+            raise HTTPException(400, "Для новой заявки нужен полный набор полей")
         payload = request.new_order
         if any(o.id == payload.id for o in orders):
             raise HTTPException(400, f"Заявка {payload.id} уже есть в плане")
@@ -59,7 +59,7 @@ def do_replan(request: ReplanRequest) -> dict:
         except DatasetError as exc:
             raise HTTPException(400, str(exc)) from exc
 
-        new_order = make_urgent_order(
+        new_order = make_new_order(
             order_id=payload.id, lat=payload.lat, lon=payload.lon,
             address=payload.address, district=payload.district,
             duration_min=payload.duration_min,

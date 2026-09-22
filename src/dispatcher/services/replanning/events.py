@@ -1,7 +1,8 @@
 """Событие в течение дня: описание, разбор, срочная заявка.
 
-Поддержаны все события из справочника ТЗ: появилась срочная заявка,
-заявка отменена, исполнитель недоступен, исполнитель задерживается.
+Поддержаны все события из справочника ТЗ: появилась новая заявка (авария,
+подключение или ремонт), заявка отменена, исполнитель недоступен,
+исполнитель задерживается.
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 from dispatcher.domain import (
+    PRIORITY_HIGH,
     PRIORITY_URGENT,
     SKILL_CONNECT,
     SKILL_EMERGENCY,
@@ -26,7 +28,7 @@ KIND_UNAVAILABLE = "engineer_unavailable"
 KIND_DELAYED = "engineer_delayed"
 
 KIND_TITLES = {
-    KIND_URGENT: "Появилась срочная заявка",
+    KIND_URGENT: "Появилась новая заявка",
     KIND_CANCEL: "Заявка отменена",
     KIND_UNAVAILABLE: "Инженер стал недоступен",
     KIND_DELAYED: "Бригада задерживается",
@@ -51,8 +53,13 @@ class ReplanEvent:
     def describe(self) -> str:
         if self.kind == KIND_URGENT and self.new_order:
             o = self.new_order
-            return (f"В {hhmm(self.at)} поступила срочная заявка {o.id}: "
-                    f"{o.type_hd}, {o.district}, окно {o.window_text}, "
+            kind = ("авария" if o.priority == PRIORITY_URGENT
+                    else "заявка на подключение" if o.priority == PRIORITY_HIGH
+                    else "заявка")
+            # Тип работ повторять незачем, если он и есть «авария».
+            work = "" if o.type_hd.strip().lower() == kind else f"{o.type_hd}, "
+            return (f"В {hhmm(self.at)} поступила {kind} {o.id}: "
+                    f"{work}{o.district}, окно {o.window_text}, "
                     f"{o.duration_min} мин.")
         if self.kind == KIND_CANCEL:
             return f"В {hhmm(self.at)} отменена заявка {self.order_id}."
@@ -78,7 +85,7 @@ class ReplanResult:
     состава корректно проверять полученный план."""
 
     orders: list[Order] = field(default_factory=list)
-    """Заявки с учётом события: добавленная срочная или без отменённой."""
+    """Заявки с учётом события: с добавленной новой или без отменённой."""
 
 
 def apply_event(orders: list[Order], engineers: list[Engineer],
@@ -99,15 +106,17 @@ def apply_event(orders: list[Order], engineers: list[Engineer],
     return new_orders, new_engineers
 
 
-def make_urgent_order(order_id: str, lat: float, lon: float, address: str,
-                      district: str, duration_min: int, window_start: int,
-                      window_end: int, required_skill: str,
-                      required_vehicle: str | None = None,
-                      type_hd: str | None = None) -> Order:
-    """Собирает срочную заявку с полным набором полей (ТЗ п. 2.4.1).
+def make_new_order(order_id: str, lat: float, lon: float, address: str,
+                   district: str, duration_min: int, window_start: int,
+                   window_end: int, required_skill: str,
+                   required_vehicle: str | None = None,
+                   type_hd: str | None = None) -> Order:
+    """Собирает заявку, поступившую днём, с полным набором полей (ТЗ п. 2.4.1).
 
-    Тип работ выводится из требуемого навыка, чтобы карточка заявки в
-    интерфейсе не противоречила сама себе.
+    Тип работ и приоритет выводятся из требуемого навыка тем же правилом,
+    что и для утренней выгрузки: авария срочная, подключение повышенное,
+    ремонт обычный. Днём приходят не только аварии (организаторы, 22.09), и
+    обычная заявка не получает права двигать чужие визиты.
     """
     type_bk = next((bk for bk, skill in norms.SKILL_BY_TYPE_BK.items()
                     if skill == required_skill), "Глобальная проблема")
@@ -119,7 +128,7 @@ def make_urgent_order(order_id: str, lat: float, lon: float, address: str,
     return Order(
         id=order_id, lat=lat, lon=lon, address=address, district=district,
         duration_min=duration_min, window_start=window_start,
-        window_end=window_end, priority=PRIORITY_URGENT,
+        window_end=window_end, priority=norms.priority_for(type_bk, ""),
         required_skill=required_skill, required_vehicle=required_vehicle,
         type_bk=type_bk, type_hd=type_hd or defaults.get(required_skill, "Авария"),
         geocode_precision="manual",

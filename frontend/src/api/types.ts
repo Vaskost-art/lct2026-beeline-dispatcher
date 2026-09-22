@@ -238,11 +238,22 @@ export interface PlanChange {
   to_engineer: string | null;
   from_position: number | null;
   to_position: number | null;
+  /** На сколько минут сдвинулся визит: по нему предупреждают клиента. */
+  shift_min?: number | null;
 }
 
 export interface ReplanDiff {
   event: { kind: string; title: string; at: string; description: string };
   changes: PlanChange[];
+  /** Что стало с заявкой, поступившей днём. */
+  new_order?: {
+    order_id: string;
+    priority: string;
+    engineer_id: string | null;
+    reason: string | null;
+  };
+  /** Через сколько бригада приедет на аварию. Ориентир организаторов - 1-2 часа. */
+  reaction?: { engineer_id: string; minutes: number; target_min: number; within: boolean };
 }
 
 /** Ответ на событие: тот же план плюс что именно изменилось. */

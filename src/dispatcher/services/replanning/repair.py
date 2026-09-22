@@ -1,16 +1,20 @@
 """Режим минимальной правки: чиним день, не перестраивая его целиком."""
 from __future__ import annotations
 
-from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route, Unassigned
+from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route
 from dispatcher.services.equipment import Stock
 from dispatcher.services.planning.costs import ENGINEER_FIXED_COST
-from dispatcher.services.planning.reasons import diagnose
 from dispatcher.services.replanning.displacement import (
-    REASON_DISPLACED,
     _place_urgent_with_displacement,
     _resequence_with,
 )
 from dispatcher.services.replanning.events import KIND_UNAVAILABLE, ReplanEvent
+from dispatcher.services.replanning.newcomer import (
+    delay_cost,
+    keeps_schedule,
+    ordinary_newcomer,
+    repair_reason,
+)
 from dispatcher.services.routing import evaluate_sequence, insertion_cost
 
 MODE_MINIMAL = "minimal"
@@ -78,6 +82,9 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     stock = Stock(issued or {})
     stock.fill(sequences)
+    # Обычная новая заявка встаёт только в свободный интервал: соседей не
+    # двигает, хвосты не пересобирает, никого не вытесняет.
+    newcomer = ordinary_newcomer(event)
 
     # маршруты, оставшиеся после изъятия
     routes: dict[str, Route] = {}
@@ -129,13 +136,22 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                     engineer, route, by_id, order, position)
                 if not ok:
                     continue
+                if (newcomer is not None and order.id == newcomer.id
+                        and new_route is not None
+                        and not keeps_schedule(route, new_route)):
+                    continue
                 score = delta + (ENGINEER_FIXED_COST / 1000.0
                                  if not route.is_used else 0.0)
+                if new_route is not None:
+                    score += delay_cost(order, new_route, now)
                 if new_route is not None and (best is None or score < best[0]):
                     best = (score, engineer.id, new_route)
         if best is not None:
             routes[best[1]] = best[2]
             stock.take(best[1], order)
+            continue
+
+        if newcomer is not None and order.id == newcomer.id:
             continue
 
         # Вставка «как есть» не удалась — пробуем пересобрать хвост маршрута.
@@ -150,6 +166,7 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
             delta, new_route = attempt
             score = delta + (ENGINEER_FIXED_COST / 1000.0
                              if not route.is_used else 0.0)
+            score += delay_cost(order, new_route, now)
             if best is None or score < best[0]:
                 best = (score, engineer.id, new_route)
         if best is not None:
@@ -170,19 +187,6 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                 solver_status="MINIMAL_REPAIR")
     assigned = {s.order_id for r in plan.routes for s in r.stops}
 
-    reasons = []
-    for o in orders:
-        if o.id in assigned:
-            continue
-        if o.id in displaced:
-            reasons.append(Unassigned(
-                order_id=o.id, reason=REASON_DISPLACED,
-                reason_text=f"Вытеснена срочной заявкой {displaced[o.id]}: "
-                            f"освободить место было больше негде. "
-                            f"Окно {o.window_text}, требуется навык "
-                            f"«{o.required_skill}».",
-            ))
-        else:
-            reasons.append(diagnose(o, engineers))
-    plan.unassigned = reasons
+    plan.unassigned = [repair_reason(o, engineers, displaced, newcomer)
+                       for o in orders if o.id not in assigned]
     return plan

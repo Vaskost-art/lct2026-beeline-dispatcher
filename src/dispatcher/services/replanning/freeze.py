@@ -61,12 +61,23 @@ def shifts_after_event(current: Plan, orders: list[Order],
             frozen_end[route.engineer_id] = max(
                 frozen_end.get(route.engineer_id, 0), end)
 
-    # Исполнители, у которых ничего не заморожено, начинают остаток дня «сейчас».
+    alive = {o.id for o in orders}
+    heading = {route.engineer_id: next(
+                   (stop.order_id for stop in route.stops
+                    if stop.order_id not in (frozen.get(route.engineer_id) or [])
+                    and stop.order_id in alive), "")
+               for route in current.routes}
+
     adjusted: list[Engineer] = []
     for engineer in engineers:
         e = deepcopy(engineer)
-        if not frozen.get(e.id):
-            e.shift_start = max(e.shift_start, min(now, e.shift_end))
+        # Начатые визиты бригада доделывает, а к новому заданию выезжает не
+        # раньше события: только тогда она о нём и узнаёт. К заявке, к
+        # которой она уже едет по прежнему плану, правило не относится -
+        # её она знала с утра.
+        e.resume_after = len(frozen.get(e.id) or [])
+        e.resume_at = now
+        e.en_route_to = heading.get(e.id, "")
         need = frozen_end.get(e.id)
         if need is not None and e.work_end < need:
             # Ровно столько, чтобы начатое поместилось: свободного места

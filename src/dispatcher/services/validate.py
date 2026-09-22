@@ -105,8 +105,13 @@ def validate(plan: Plan, orders: list[Order], engineers: list[Engineer]) -> Vali
 
         lat, lon, clock = engineer.lat, engineer.lon, engineer.shift_start
 
-        for stop in route.stops:
+        for position, stop in enumerate(route.stops):
             report.checked_stops += 1
+            if (position == engineer.resume_after
+                    and stop.order_id != engineer.en_route_to):
+                # После события: начатое бригада доделывает, а к новому
+                # заданию выезжает не раньше, чем о нём узнала.
+                clock = max(clock, engineer.resume_at)
             order = by_id.get(stop.order_id)
             if order is None:
                 report.violations.append(Violation(

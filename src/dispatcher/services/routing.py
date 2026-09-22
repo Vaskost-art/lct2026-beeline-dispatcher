@@ -60,7 +60,11 @@ def evaluate_sequence(engineer: Engineer, orders: list[Order]) -> tuple[Route | 
     lat, lon = engineer.lat, engineer.lon
     clock = engineer.shift_start
 
-    for order in orders:
+    for position, order in enumerate(orders):
+        if position == engineer.resume_after and order.id != engineer.en_route_to:
+            # Начатое бригада доделывает, а к новому заданию выезжает не
+            # раньше, чем о нём узнала.
+            clock = max(clock, engineer.resume_at)
         leg = build_leg(engineer, lat, lon, clock, order)
         if not leg.feasible or leg.stop is None:
             return None, leg.reason

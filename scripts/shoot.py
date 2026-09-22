@@ -15,7 +15,10 @@ from typing import TypedDict
 
 from playwright.async_api import Page, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeout
-from shoot_states import STATES
+from shoot_events import EVENT_STATES
+from shoot_states import STATES as BASE_STATES
+
+STATES = {**BASE_STATES, **EVENT_STATES}
 
 
 class Measured(TypedDict):

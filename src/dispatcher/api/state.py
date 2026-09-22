@@ -1,94 +1,80 @@
-"""Рабочее состояние диспетчера за узким интерфейсом.
+"""Хранилище рабочих дней за узким интерфейсом.
 
 Ручки не трогают хранилище напрямую: они просят состояние участка, кладут
 новую версию плана и делают шаг назад. Благодаря этому реализация хранения
 меняется в одном месте, а не в двадцати двух ручках.
 
-Версия плана неизменяема: каждая правка кладёт следующую. Отсюда история дня
-и шаг назад, и отсюда же невозможность отдать диспетчеру чужой предпросмотр.
+Версии дублируются в журнал (базу), если он передан: перезапуск сервиса
+посреди смены не должен стирать работу диспетчера. Сам день и его версии
+описаны в `dispatcher.api.day`.
 """
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass, field
 
-from dispatcher.domain import Engineer, Order, Plan
+from dispatcher.api.day import DayState, DayVersion, PreviewCache
+from dispatcher.api.journal import DayJournal
 from dispatcher.domain.scenario import Scenario
-from dispatcher.services.replanning.events import ReplanResult
+from dispatcher.services.dataset import (
+    DatasetError,
+    rebuild,
+    snapshot_from_json,
+    snapshot_of,
+    snapshot_to_json,
+)
 
 #: Сколько версий дня держим. Глубже диспетчеру не нужно, а каждая версия
 #: хранит полную копию плана.
 HISTORY_LIMIT = 20
 
-
-@dataclass
-class DayVersion:
-    """Одна версия рабочего дня участка."""
-
-    label: str
-    plan: Plan
-    metrics: dict[str, object]
-    orders: list[Order]
-    engineers: list[Engineer]
-    locked: dict[str, str] = field(default_factory=dict)
-    #: Решение человека, а не пересчёт. Шаг назад откатывает и то и другое,
-    #: но вопрос «что потеряется, если собрать день заново» касается только
-    #: ручных правок: пересчёты в этом списке - шум, и после десятка прогонов
-    #: подтверждение показывало десять одинаковых строк «Пересчёт».
-    manual: bool = False
-
-
-@dataclass
-class PreviewCache:
-    """Посчитанный, но ещё не применённый результат события дня."""
-
-    signature: tuple[object, ...]
-    version_number: int
-    result: ReplanResult
-
-
-@dataclass
-class DayState:
-    """Текущий день участка и его история."""
-
-    scenario: Scenario
-    versions: list[DayVersion] = field(default_factory=list)
-    dataset_events: list[dict[str, object]] = field(default_factory=list)
-    #: Предпросмотр перепланирования: признак события и номер версии, на
-    #: которой он посчитан. Привязка к номеру, а не к объекту плана: иначе
-    #: диспетчер может получить предпросмотр, посчитанный для другого дня.
-    preview: PreviewCache | None = None
-
-    @property
-    def current(self) -> DayVersion | None:
-        return self.versions[-1] if self.versions else None
-
-    @property
-    def undo_labels(self) -> list[str]:
-        """Что откатит шаг назад, новое первым."""
-        return [version.label for version in reversed(self.versions[:-1])]
-
-    @property
-    def manual_labels(self) -> list[str]:
-        """Решения человека, принятые за смену: их отменит сборка заново."""
-        return [version.label for version in reversed(self.versions) if version.manual]
+__all__ = ["DayState", "DayStore", "DayVersion", "HISTORY_LIMIT", "PreviewCache"]
 
 
 class DayStore:
     """Хранилище рабочих дней по участкам."""
 
-    def __init__(self, scenarios: dict[str, Scenario]) -> None:
+    def __init__(self, scenarios: dict[str, Scenario],
+                 journal: DayJournal | None = None) -> None:
+        self._journal = journal
         self._days = {key: DayState(scenario=value)
                       for key, value in scenarios.items()}
 
-    def reset(self, scenarios: dict[str, Scenario]) -> None:
+    def reset(self, scenarios: dict[str, Scenario],
+              journal: DayJournal | None = None) -> None:
         """Наполняет хранилище участками, не подменяя сам объект.
 
         Подмена объекта на старте оставила бы ручки со ссылкой на пустое
         хранилище: они берут его один раз, при импорте.
         """
+        if journal is not None:
+            self._journal = journal
         self._days = {key: DayState(scenario=value)
                       for key, value in scenarios.items()}
+        for key in self._days:
+            self._restore(key)
+
+    def _restore(self, region: str) -> int:
+        """Поднимает версии дня из журнала. Возвращает, сколько подняли.
+
+        Непрочитанная версия не должна мешать работе: до неё день уже был
+        рабочим, и лучше начать со свежего расчёта, чем не открыться вовсе.
+        """
+        if self._journal is None:
+            return 0
+        day = self._days.get(region)
+        if day is None:
+            return 0
+        for payload in self._journal.load(region):
+            try:
+                snapshot = snapshot_from_json(payload)
+                plan, metrics, _ = rebuild(snapshot)
+            except (DatasetError, KeyError, TypeError, ValueError):
+                break
+            day.versions.append(DayVersion(
+                label=snapshot.label, plan=plan, metrics=metrics,
+                orders=snapshot.orders, engineers=snapshot.engineers,
+                locked=snapshot.locked, manual=snapshot.manual))
+        return len(day.versions)
 
     def regions(self) -> list[str]:
         return list(self._days)
@@ -105,6 +91,8 @@ class DayStore:
         """Загружен новый набор данных: день участка начинается заново."""
         self._days[region] = DayState(scenario=scenario,
                                       dataset_events=list(events or []))
+        if self._journal is not None:
+            self._journal.clear(region)
 
     def day(self, region: str) -> DayState | None:
         return self._days.get(region)
@@ -124,6 +112,11 @@ class DayStore:
         day.versions.append(version)
         if len(day.versions) > HISTORY_LIMIT:
             del day.versions[0]
+        if self._journal is not None:
+            self._journal.record(region, version.label, snapshot_to_json(
+                snapshot_of(day.scenario.region_key, day.scenario.region_name,
+                            version.label, version.plan, version.orders,
+                            version.engineers, version.locked, version.manual)))
         return version
 
     def step_back(self, region: str) -> DayVersion | None:
@@ -132,6 +125,8 @@ class DayStore:
         if day is None or len(day.versions) < 2:
             return None
         day.versions.pop()
+        if self._journal is not None:
+            self._journal.forget_last(region)
         return day.current
 
     def snapshot(self, region: str, label: str) -> DayVersion | None:

@@ -9,7 +9,6 @@
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import sys
@@ -29,7 +28,7 @@ RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
 
 
-async def seed_geo(active) -> int:
+def seed_geo(active) -> int:
     """Переносит кэш координат из файла в базу."""
     if not os.path.exists(CACHE_PATH):
         return 0
@@ -37,34 +36,33 @@ async def seed_geo(active) -> int:
         cache = json.load(fh)
     geo = GeoRepository(active)
     for key, value in cache.items():
-        await geo.put(key, value.get("lat"), value.get("lon"),
-                      str(value.get("source") or ""), str(value.get("query") or ""))
+        geo.put(key, value.get("lat"), value.get("lon"),
+                str(value.get("source") or ""), str(value.get("query") or ""))
     return len(cache)
 
 
-async def seed_regions(active) -> int:
+def seed_regions(active) -> int:
     """Записывает участки задачи с их заявками и офисом."""
     regions = RegionRepository(active)
     for key, name in REGIONS.items():
         data = load_synthetic(key, RAW_DIR, CACHE_PATH)
-        await regions.save(
-            key, name,
-            {"orders": [order.to_dict() for order in data.orders]},
-            data.office_address, data.office_lat, data.office_lon)
+        regions.save(key, name,
+                     {"orders": [order.to_dict() for order in data.orders]},
+                     data.office_address, data.office_lat, data.office_lon)
     return len(REGIONS)
 
 
-async def main() -> int:
+def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    async with session() as active:
-        points = await seed_geo(active)
-        regions = await seed_regions(active)
-        await active.commit()
-    await dispose()
+    with session() as active:
+        points = seed_geo(active)
+        regions = seed_regions(active)
+        active.commit()
+    dispose()
     print(f"Координат перенесено: {points}")
     print(f"Участков записано: {regions}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(asyncio.run(main()))
+    raise SystemExit(main())

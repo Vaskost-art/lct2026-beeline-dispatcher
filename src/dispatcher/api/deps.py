@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 from dispatcher.api.envelope import ApiError
+from dispatcher.api.journal import DbJournal
 from dispatcher.api.state import DayState, DayStore, DayVersion
 from dispatcher.domain.scenario import Scenario
 
-STORE = DayStore({})
+#: Журнал дня. Версии плана ложатся в базу и переживают перезапуск; если база
+#: недоступна, журнал выключается сам и сервис работает из памяти.
+JOURNAL = DbJournal()
+STORE = DayStore({}, JOURNAL)
 
 
 def scenario_of(region: str) -> Scenario:

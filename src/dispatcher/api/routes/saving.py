@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
@@ -14,19 +13,14 @@ from dispatcher.api.paths import ROOT, SAVED_DIR
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import RegionRequest, SavePlanRequest
 from dispatcher.api.state import DayVersion
-from dispatcher.domain import Plan, Route
-from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset import (
     DatasetError,
-    engineer_from_json,
-    engineer_to_json,
-    order_from_json,
-    order_to_json,
+    rebuild,
     scenario_from_json,
+    snapshot_from_json,
+    snapshot_of,
+    snapshot_to_json,
 )
-from dispatcher.services.metrics import plan_metrics
-from dispatcher.services.planning.reasons import diagnose
-from dispatcher.services.routing import evaluate_sequence
 
 router = APIRouter()
 
@@ -47,28 +41,6 @@ def _saved_path(region: str) -> str:
     return os.path.join(SAVED_DIR, f"{safe}.json")
 
 
-def _state_to_json(scenario: Scenario, state: DayVersion, name: str) -> dict:
-    plan: Plan = state.plan
-    return {
-        "format": "dispatcher-saved-plan/1",
-        "region": scenario.region_key,
-        "region_name": scenario.region_name,
-        "name": name or scenario.region_name,
-        "saved_at": datetime.now().isoformat(timespec="seconds"),
-        "strategy": plan.strategy,
-        "solver_status": plan.solver_status,
-        "locked": dict(state.locked or {}),
-        "orders": [order_to_json(o) for o in state.orders],
-        "engineers": [engineer_to_json(e) for e in state.engineers],
-        # Маршруты храним последовательностями заявок, а не готовыми временами:
-        # при загрузке они пересчитываются тем же кодом, что и в плане,
-        # и любое расхождение вылезет сразу, а не тихо переживёт сохранение.
-        "routes": [{"engineer": r.engineer_id,
-                    "orders": [s.order_id for s in r.stops]}
-                   for r in plan.routes if r.is_used],
-    }
-
-
 @router.post("/api/plan/save")
 def save_plan(request: SavePlanRequest) -> dict:
     """Пишет текущий рабочий день на диск, чтобы он пережил перезапуск."""
@@ -76,7 +48,10 @@ def save_plan(request: SavePlanRequest) -> dict:
     state = version_of(request.region)
     os.makedirs(SAVED_DIR, exist_ok=True)
     path = _saved_path(request.region)
-    data = _state_to_json(scenario, state, request.name)
+    data = snapshot_to_json(snapshot_of(
+        scenario.region_key, scenario.region_name, state.label, state.plan,
+        state.orders, state.engineers, state.locked, state.manual,
+        name=request.name))
     # Пишем рядом и переименовываем: прямая запись усекает файл до того,
     # как в него лягут данные, и обрыв на этом месте стирает сохранённый день.
     tmp = f"{path}.tmp"
@@ -130,56 +105,19 @@ def restore_plan(request: RegionRequest) -> dict:
     except (OSError, ValueError) as exc:
         raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
 
+    # Разбор и подъём маршрутов общие с журналом дня: день, поднятый из файла,
+    # не должен отличаться от поднятого из базы.
     try:
-        orders = [order_from_json(o) for o in data.get("orders") or []]
-        # У выбывшей за день бригады смена схлопнута в точку — это законное
-        # состояние сохранённого дня, а не порча файла.
-        engineers = [engineer_from_json(e, allow_empty_shift=True)
-                     for e in data.get("engineers") or []]
+        snapshot = snapshot_from_json(data)
+        plan, metrics, lost = rebuild(snapshot)
     except DatasetError as exc:
         raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
 
-    by_id = {o.id: o for o in orders}
-    engineer_by_id = {e.id: e for e in engineers}
-    routes = []
-    lost: list[str] = []
-    for saved_route in data.get("routes") or []:
-        engineer = engineer_by_id.get(saved_route.get("engineer"))
-        if engineer is None:
-            continue
-        sequence = [by_id[oid] for oid in saved_route.get("orders") or []
-                    if oid in by_id]
-        route, _ = evaluate_sequence(engineer, sequence)
-        if route is None:
-            # Данные в файле разошлись с правилами — не поднимаем битый план
-            # молча, а говорим, чей маршрут не сходится.
-            raise HTTPException(
-                400, f"Сохранённый маршрут «{engineer.name}» не проходит "
-                     f"проверку ограничений — файл не соответствует данным")
-        if len(route.stops) != len(saved_route.get("orders") or []):
-            lost.extend(oid for oid in saved_route.get("orders") or []
-                        if oid not in by_id)
-        routes.append(route)
-
-    covered = {r.engineer_id for r in routes}
-    routes.extend(Route(engineer_id=e.id) for e in engineers
-                  if e.id not in covered)
-
-    plan = Plan(routes=routes, strategy=data.get("strategy", "restored"),
-                solver_status="RESTORED")
-    assigned = {s.order_id for r in plan.routes for s in r.stops}
-    plan.unassigned = [diagnose(o, engineers) for o in orders
-                       if o.id not in assigned]
-    metrics = plan_metrics(plan, orders, engineers)
-
     STORE.push(request.region, DayVersion(
         label="Восстановлен сохранённый день",
-        plan=plan, metrics=metrics, orders=orders, engineers=engineers,
-        locked={k: v for k, v in (data.get("locked") or {}).items()
-                if k in by_id and v in engineer_by_id},
-        manual=True))
+        plan=plan, metrics=metrics, orders=snapshot.orders,
+        engineers=snapshot.engineers, locked=snapshot.locked, manual=True))
     payload = plan_payload(scenario, plan, metrics)
-    payload["restored"] = {"name": data.get("name", request.region),
-                           "saved_at": data.get("saved_at", ""),
-                           "lost": lost}
+    payload["restored"] = {"name": snapshot.name or request.region,
+                           "saved_at": snapshot.saved_at, "lost": lost}
     return ok(payload)

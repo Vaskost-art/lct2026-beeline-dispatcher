@@ -11,25 +11,34 @@
 
 ## Быстрый запуск
 
-```bash
-./run.sh                 # поднимет окружение и откроет сервис на :8000
-```
-
-Затем открыть <http://127.0.0.1:8000>.
-
-Вручную:
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cd backend && python -m uvicorn app:app --port 8000
-```
-
-Через Docker:
+Проще всего через Docker - нужен только сам Docker:
 
 ```bash
 docker compose up --build       # http://127.0.0.1:8000
 ```
+
+Без Docker - одной командой (Linux, macOS, Git Bash в Windows). Нужны
+Python 3.11+ и Node.js 20+:
+
+```bash
+./run.sh                        # http://127.0.0.1:8000
+```
+
+Скрипт сам ставит зависимости и собирает интерфейс при первом запуске
+(около двух минут), дальше стартует сразу. Проверено на свежем клоне.
+
+Вручную, те же шаги по отдельности:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate               # в Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cd frontend && npx pnpm@10.7.0 install --frozen-lockfile && npx pnpm@10.7.0 build && cd ..
+python -m uvicorn dispatcher.api.app:app --port 8000 --app-dir src
+```
+
+PostgreSQL для запуска не нужен: без базы сервис держит рабочий день в
+памяти (подробнее - в разделе «Хранение рабочего дня» ниже).
 
 Самопроверка (строит все планы по всем районам и независимо аудирует каждый):
 

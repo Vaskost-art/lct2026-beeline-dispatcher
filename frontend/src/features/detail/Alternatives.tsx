@@ -4,6 +4,10 @@ import { plural } from '../../text';
 interface Props {
   items: Alternative[];
   total?: number;
+  /** Свернуть разбор. Для назначенной заявки он справочный: постановщик
+   * просил краткое обоснование, а развёрнутое - прежде всего там, где
+   * исполнителя не нашлось. */
+  collapsed?: boolean;
 }
 
 /** Кто ещё мог взять заявку и почему не взял.
@@ -12,7 +16,7 @@ interface Props {
 Отказы с одинаковой причиной сводятся в строку: восемь одинаковых карточек
 «нет навыка» не говорят больше, чем одна.
 */
-export function Alternatives({ items, total }: Props) {
+export function Alternatives({ items, total, collapsed = false }: Props) {
   if (items.length === 0) return null;
 
   const could = items.filter((item) => item.possible);
@@ -25,13 +29,8 @@ export function Alternatives({ items, total }: Props) {
     byReason.set(item.reason, bucket);
   }
 
-  return (
-    <section className="mt-4">
-      <h3 className="mb-1.5 text-[13px] font-semibold">
-        Кто ещё мог взять
-        {total ? <span className="ml-1 font-normal text-ink-3">разобрано {total}</span> : null}
-      </h3>
-
+  const body = (
+    <>
       {could.length > 0 ? (
         <ul className="mb-2 flex flex-col gap-1">
           {could.map((item) => (
@@ -64,6 +63,29 @@ export function Alternatives({ items, total }: Props) {
           </li>
         ))}
       </ul>
+    </>
+  );
+
+  const title = (
+    <>
+      Кто ещё мог взять
+      {total ? <span className="ml-1 font-normal text-ink-3">разобрано {total}</span> : null}
+    </>
+  );
+
+  if (collapsed) {
+    return (
+      <details className="mt-4">
+        <summary className="cursor-pointer text-[13px] font-semibold">{title}</summary>
+        <div className="mt-1.5">{body}</div>
+      </details>
+    );
+  }
+
+  return (
+    <section className="mt-4">
+      <h3 className="mb-1.5 text-[13px] font-semibold">{title}</h3>
+      {body}
     </section>
   );
 }

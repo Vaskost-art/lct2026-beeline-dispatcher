@@ -146,7 +146,11 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
               </p>
             ) : null}
 
-            <Alternatives items={data.alternatives} total={data.alternatives_total} />
+            <Alternatives
+              items={data.alternatives}
+              total={data.alternatives_total}
+              collapsed={data.assigned}
+            />
 
             <details className="mt-4 border-t border-line pt-3">
               <summary className="cursor-pointer text-[13px] font-semibold">

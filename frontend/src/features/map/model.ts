@@ -89,7 +89,7 @@ export function buildMapModel(
       lon: order.lon,
       orderId: order.id,
       district: order.district,
-      title: `Заявка ${order.id} — не назначена\n${reasons.get(order.id) ?? ''}`,
+      title: `Заявка ${order.id}: не назначена\n${reasons.get(order.id) ?? ''}`,
     }));
 
   return { routes, loose };

@@ -1,7 +1,6 @@
 """Перестроение дня после события."""
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import replace
 
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Unassigned, hhmm
@@ -15,14 +14,21 @@ from dispatcher.services.replanning.events import (
     ReplanResult,
     apply_event,
 )
-from dispatcher.services.replanning.freeze import _frozen_prefixes
+from dispatcher.services.replanning.freeze import (
+    _frozen_prefixes,
+    merge_frozen,
+    shifts_after_event,
+)
 from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL, MODE_TITLES, _repair
+from dispatcher.services.statuses import frozen_by_status
+from dispatcher.services.statuses import plannable as plannable_by_status
 
 
 def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
            event: ReplanEvent, mode: str = "minimal",
            time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
-           issued: dict[str, dict[str, int]] | None = None) -> ReplanResult:
+           issued: dict[str, dict[str, int]] | None = None,
+           statuses: dict[str, str] | None = None) -> ReplanResult:
     """Строит новый план на остаток дня и объясняет, что изменилось.
 
     mode='minimal' — точечно встроить изменение, не трогая остальные назначения;
@@ -30,11 +36,19 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     `issued` — что бригады получили в офисе утром: днём заявку берёт только
     та, у кого нужное оборудование с собой.
+
+    `statuses` — что диспетчер отметил со слов бригад: отменённая заявка
+    уходит из дня, а начатая и завершённая остаются на своих местах, даже
+    если по расписанию бригада к ним ещё не подъезжала. Факт важнее
+    расписания: расписание - это прогноз, а отметка - то, что уже случилось.
     """
     now = event.at
+    marks = statuses or {}
     new_orders, new_engineers = apply_event(orders, engineers, event)
+    new_orders = plannable_by_status(new_orders, marks)
 
-    frozen = _frozen_prefixes(current, now)
+    frozen = merge_frozen(_frozen_prefixes(current, now),
+                           frozen_by_status(current, marks))
     # Событие могло убрать заявку из дня (отмена). Оставить её в префиксе
     # значит сдвинуть границу «уже начатого» и заморозить следующий визит,
     # к которому бригада ещё не подъезжала.
@@ -124,36 +138,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         else:
             plannable.append(order)
 
-    # Работа, к которой бригада уже приступила, обязана помещаться в её
-    # рабочее время. Иначе замороженный префикс не проходит пересчёт, и весь
-    # день бригады пропадает из плана, а закрытые утром заявки всплывают
-    # среди неназначенных.
-    frozen_end: dict[str, int] = {}
-    plannable_by_id = {o.id: o for o in new_orders}
-    for route in current.routes:
-        ids = frozen.get(route.engineer_id) or []
-        for stop in route.stops:
-            if stop.order_id not in ids:
-                continue
-            planned = plannable_by_id.get(stop.order_id)
-            # длительность могла вырасти: задержка записывается в неё
-            end = stop.start + (planned.duration_min if planned else
-                                stop.end - stop.start)
-            frozen_end[route.engineer_id] = max(
-                frozen_end.get(route.engineer_id, 0), end)
-
-    # Исполнители, у которых ничего не заморожено, начинают остаток дня «сейчас».
-    adjusted: list[Engineer] = []
-    for engineer in new_engineers:
-        e = deepcopy(engineer)
-        if not frozen.get(e.id):
-            e.shift_start = max(e.shift_start, min(now, e.shift_end))
-        need = frozen_end.get(e.id)
-        if need is not None and e.work_end < need:
-            # Ровно столько, чтобы начатое поместилось: свободного места
-            # после него не появляется.
-            e.shift_end = need + e.break_min
-        adjusted.append(e)
+    adjusted = shifts_after_event(current, new_orders, new_engineers, frozen, now)
 
     if mode == MODE_MINIMAL:
         new_plan = _repair(plannable, adjusted, current, event, now, frozen,

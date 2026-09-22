@@ -14,7 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from dispatcher.domain import Engineer, Order, Route, Stop
-from dispatcher.domain.distance import road_km, travel_minutes
+from dispatcher.domain.distance import road_km
+from dispatcher.domain.travel import plan_trip
 
 
 @dataclass
@@ -30,7 +31,8 @@ def build_leg(engineer: Engineer, prev_lat: float, prev_lon: float,
               ready_at: int, order: Order) -> Leg:
     """Считает визит к `order` из точки (prev_lat, prev_lon) с момента `ready_at`."""
     km = road_km(prev_lat, prev_lon, order.lat, order.lon)
-    travel = travel_minutes(km, engineer.vehicle)
+    trip = plan_trip(km, engineer.vehicle)
+    travel = trip.minutes
     arrival = ready_at + travel
 
     start = max(arrival, order.window_start)
@@ -45,7 +47,8 @@ def build_leg(engineer: Engineer, prev_lat: float, prev_lon: float,
         return Leg(False, reason="shift_overflow")
 
     return Leg(True, Stop(order_id=order.id, arrival=arrival, start=start, end=end,
-                          travel_min=travel, travel_km=km, wait_min=wait))
+                          travel_min=travel, travel_km=km, wait_min=wait,
+                          travel_text=trip.text, travel_mode=trip.mode_text))
 
 
 def evaluate_sequence(engineer: Engineer, orders: list[Order]) -> tuple[Route | None, str]:

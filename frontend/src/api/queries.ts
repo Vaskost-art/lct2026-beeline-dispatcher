@@ -142,6 +142,41 @@ export function useReassign() {
   });
 }
 
+/** Отметка хода работ: диспетчер записывает то, что сообщила бригада.
+
+Организаторы: факт выполнения или отмены фиксирует диспетчер, и закрытые
+заявки в дальнейшее планирование не включаются. Поэтому отметка - не
+украшение списка, а вход в перепланирование.
+*/
+export function useOrderStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { region: string; order_id: string; status: string }) =>
+      send<PlanPayload>('/api/order/status', body),
+    onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
+  });
+}
+
+/** Передача оборудования между бригадами в течение дня.
+
+Заказчик: оборудование выдаётся утром, но днём его можно передавать. Без
+этого ограничение по сумке было бы тупиком: бригада рядом с заявкой, а
+роутер у соседа через квартал.
+*/
+export function useEquipmentTransfer() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      region: string;
+      source: string;
+      target: string;
+      item: string;
+      count: number;
+    }) => send<PlanPayload>('/api/equipment/transfer', body),
+    onSuccess: (plan) => client.setQueryData(planKey(plan.region), plan),
+  });
+}
+
 /** Шаг назад: вернуть план к состоянию до последнего изменения.
 
 За смену диспетчер вносит десятки правок, и ошибиться в одной - обычное дело.

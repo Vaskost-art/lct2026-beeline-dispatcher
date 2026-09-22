@@ -11,12 +11,14 @@ from dispatcher.services.impact import plan_risk
 from dispatcher.services.planning.baseline import solve_greedy
 from dispatcher.services.planning.crew_sizing import crews_shortfall
 from dispatcher.services.planning.strategies import STRATEGY_TITLES, status_text
+from dispatcher.services.statuses import day_progress
 
 
 def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                   extra: dict | None = None) -> dict:
     current = STORE.current(scenario.region_key)
     issued = current.issued if current else {}
+    statuses = current.statuses if current else {}
     by_id: dict[str, Order | None] = dict(scenario.order_by_id)
     # заявки, появившиеся после события, тоже должны попасть в ответ
     for route in plan.routes:
@@ -73,6 +75,10 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
             all_orders(scenario, plan), all_engineers(scenario), solve_greedy,
             scenario.office_lat, scenario.office_lon, scenario.office_address),
         "geo": geo_warning(all_orders(scenario, plan)),
+        #: Что с заявками прямо сейчас и сколько уже закрыто: ход смены
+        #: виден диспетчеру, а не выводится им из маршрутов.
+        "statuses": dict(statuses),
+        "progress": day_progress(all_orders(scenario, plan), statuses),
     }
     if extra:
         payload.update(extra)

@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TypedDict
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
+from dispatcher.domain.catalog import VEHICLE_CAR
 
 
 class EngineerRow(TypedDict):
@@ -57,12 +58,23 @@ def plan_metrics(plan: Plan, orders: list[Order],
     travel_min = sum(r.total_travel_min for r in plan.routes)
     work_min = sum(r.total_work_min for r in plan.routes)
 
+    # Километр автомобиля и километр автобуса - разные деньги: у бригады без
+    # машины пробег не стоит компании ничего, кроме времени. Складывать их в
+    # одно число можно (этого требует ТЗ), но показывать надо и по отдельности.
+    car_km = sum(route.total_km for route in plan.routes
+                 if (engineer_by_id.get(route.engineer_id) is not None
+                     and engineer_by_id[route.engineer_id].vehicle == VEHICLE_CAR))
+
     return {
         "strategy": plan.strategy,
         # --- обязательные метрики ТЗ ---
         "used_engineers": plan.used_engineers,
         "total_km": round(plan.total_km, 2),
         "km_per_engineer": per_engineer,
+        #: Пробег на автомобиле и всё остальное - пешком и городским
+        #: транспортом. Бензин тратится только на первую половину.
+        "car_km": round(car_km, 2),
+        "no_car_km": round(plan.total_km - car_km, 2),
         # --- вспомогательные ---
         "orders_total": total,
         "orders_assigned": assigned,

@@ -98,7 +98,7 @@ def do_replan(request: ReplanRequest) -> dict:
         result = replan(orders, engineers, state.plan, event,
                         mode=request.mode,
                         time_limit_sec=request.time_limit_sec,
-                        issued=state.issued)
+                        issued=state.issued, statuses=state.statuses)
         if not request.apply:
             state_day.preview = PreviewCache(signature, version_number, result)
 
@@ -118,7 +118,8 @@ def do_replan(request: ReplanRequest) -> dict:
             label=f"{KIND_TITLES.get(request.kind, request.kind)} в {hhmm(at)}",
             plan=result.plan, metrics=metrics,
             orders=new_orders, engineers=new_engineers,
-            locked=dict(state.locked), issued=state.issued, manual=True))
+            locked=dict(state.locked), issued=state.issued,
+            statuses=dict(state.statuses), manual=True))
         state_day.preview = None
         return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
@@ -132,7 +133,8 @@ def do_replan(request: ReplanRequest) -> dict:
     preview_version = DayVersion(label="предпросмотр", plan=result.plan,
                                  metrics=metrics, orders=new_orders,
                                  engineers=new_engineers,
-                                 locked=dict(state.locked), issued=state.issued)
+                                 locked=dict(state.locked), issued=state.issued,
+                                 statuses=dict(state.statuses))
     state_day.versions.append(preview_version)
     try:
         return ok(plan_payload(scenario, result.plan, metrics, extra={

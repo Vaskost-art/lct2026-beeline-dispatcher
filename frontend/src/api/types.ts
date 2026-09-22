@@ -50,6 +50,10 @@ export interface Stop {
   travel_min: number;
   travel_km: number;
   wait_min: number;
+  /** Чем добирались: «12 мин пешком» или «25 мин: 12 пешком и 13 на транспорте». */
+  travel_text?: string;
+  /** То же коротко: «пешком и транспорт». */
+  travel_mode?: string;
 }
 
 export interface Route {
@@ -75,12 +79,24 @@ export interface Metrics {
   orders_unassigned: number;
   assigned_share: number;
   total_km: number;
+  /** Пробег на автомобиле: бензин тратится только на него. */
+  car_km: number;
+  /** Пешком и городским транспортом. */
+  no_car_km: number;
   total_travel_min: number;
   total_work_min: number;
   travel_share: number;
   avg_km_per_order: number;
   solver_status: string;
   solve_seconds: number;
+}
+
+/** Ход смены: сколько заявок закрыто, отменено и в работе. */
+export interface DayProgress {
+  done: number;
+  cancelled: number;
+  in_progress: number;
+  sent: number;
 }
 
 export interface PickupRow {
@@ -146,6 +162,9 @@ export interface PlanPayload {
   pickup: PickupRow[];
   shortfall: Shortfall;
   geo: GeoWarning;
+  /** Что с заявкой прямо сейчас: заявка -> статус. Пусто значит «Отправлено». */
+  statuses: Record<string, string>;
+  progress: DayProgress;
 }
 
 export interface RiskRoute {

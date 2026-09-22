@@ -18,6 +18,7 @@ from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.reasons import diagnose
 from dispatcher.services.planning.strategies import STRATEGIES
 from dispatcher.services.routing import evaluate_sequence
+from dispatcher.services.statuses import is_closed, is_started, status_of
 
 router = APIRouter()
 
@@ -35,6 +36,15 @@ def reassign(request: ReassignRequest) -> dict:
     order = next((o for o in orders if o.id == request.order_id), None)
     if order is None:
         raise HTTPException(404, f"Заявка {request.order_id} не найдена")
+
+    # Заявку, которую бригада уже делает или закрыла, переносить поздно:
+    # работа либо идёт, либо закончена, и план обязан это отражать.
+    mark = status_of(request.order_id, state.statuses)
+    if is_started(request.order_id, state.statuses) or is_closed(
+            request.order_id, state.statuses):
+        raise HTTPException(
+            400, f"Заявка {request.order_id} уже в состоянии «{mark}»: "
+                 f"переносить её поздно")
 
     # Ручной перенос — это решение диспетчера, и оно должно пережить пересчёт.
     # Оставить закрепление на прежней бригаде значит вернуть заявку обратно при
@@ -109,7 +119,7 @@ def reassign(request: ReassignRequest) -> dict:
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
         engineers=list(engineers), locked=locked, issued=state.issued,
-        manual=True))
+        statuses=dict(state.statuses), manual=True))
     return ok(plan_payload(scenario, new_plan, metrics))
 
 
@@ -177,7 +187,7 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
         engineers=list(engineers), locked=locked, issued=state.issued,
-        manual=True))
+        statuses=dict(state.statuses), manual=True))
     return ok(plan_payload(scenario, plan, metrics))
 
 

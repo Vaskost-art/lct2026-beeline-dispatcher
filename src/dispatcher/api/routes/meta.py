@@ -8,6 +8,7 @@ from dispatcher.api.envelope import ok
 from dispatcher.api.paths import MAP_API_KEY
 from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, norms
 from dispatcher.domain.assumptions import ASSUMPTIONS
+from dispatcher.domain.catalog import VEHICLES
 from dispatcher.infrastructure.ingest import REGIONS
 from dispatcher.services.planning.strategies import (
     STRATEGY_FULL_TITLES,
@@ -32,7 +33,7 @@ def meta() -> dict:
             if STORE.has(key)
         ],
         "skills": list(norms.SKILL_BY_TYPE_BK.values()),
-        "vehicles": list(norms.SPEED_KMH.keys()),
+        "vehicles": list(VEHICLES),
         "priorities": list(norms.PRIORITIES) if hasattr(norms, "PRIORITIES")
                       else [PRIORITY_NORMAL, PRIORITY_URGENT],
         "strategies": [{"key": k, "title": v,

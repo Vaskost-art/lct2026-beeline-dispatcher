@@ -1,16 +1,21 @@
 import { X } from '@phosphor-icons/react';
 import { Fragment, useEffect, useState } from 'react';
 
-import { useExplanation, useReassign } from '../../api/queries';
+import { useExplanation, useOrderStatus, useReassign } from '../../api/queries';
 import type { ApiError } from '../../api/client';
 import type { Order } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Alternatives } from './Alternatives';
 
+/** Состояния заявки в порядке смены: наряд, дорога, работа, закрытие. */
+const MARKS = ['Отправлено', 'В пути', 'Выполняется', 'Завершено', 'Отменена'];
+
 interface Props {
   region: string;
   orderId: string;
   order: Order | undefined;
+  /** Что отмечено по этой заявке сейчас. */
+  status: string;
   /** Кому можно передать заявку: бригады этого участка. */
   crews: { id: string; name: string }[];
   onClose: () => void;
@@ -21,9 +26,12 @@ interface Props {
 Выезжает поверх карты и закрывается по Escape: диспетчер разбирается с одной
 заявкой, не теряя из виду весь план.
 */
-export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
+export function OrderDetail({ region, orderId, order, status, crews, onClose }: Props) {
   const explain = useExplanation(region, orderId);
   const reassign = useReassign();
+  const mark = useOrderStatus();
+  const closed = status === 'Завершено' || status === 'Отменена';
+  const started = status === 'В пути' || status === 'Выполняется';
   // Выбор бригады и подтверждение разделены: список без кнопки не говорит,
   // применится ли решение и когда.
   const [picked, setPicked] = useState('');
@@ -68,6 +76,35 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
       </header>
 
       <div className="scroll-fade min-h-0 flex-1 overflow-auto px-3 py-3">
+        <div className="mb-3 border-b border-line pb-3">
+          <span className="text-[12px] font-medium text-ink-3">Ход работ</span>
+          <div role="group" aria-label="Ход работ" className="mt-1 flex flex-wrap gap-1">
+            {MARKS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                aria-pressed={status === name}
+                disabled={mark.isPending}
+                onClick={() => mark.mutate({ region, order_id: orderId, status: name })}
+                className={
+                  'min-h-6 rounded-md border px-2 py-1 text-[12px] transition-colors ' +
+                  (status === name
+                    ? 'border-accent bg-accent-soft font-medium text-ink'
+                    : 'border-line bg-panel text-ink-2 hover:bg-raised')
+                }
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {mark.error ? (
+            <p role="alert" className="mt-1.5 text-[12px] text-danger">
+              {(mark.error as ApiError).message}
+            </p>
+          ) : null}
+
+        </div>
+
         {explain.isPending ? <p className="text-[13px] text-ink-3">Собираем объяснение…</p> : null}
 
         {explain.error ? (
@@ -134,7 +171,12 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
 
       {data ? (
         <div className="shrink-0 border-t border-line bg-panel px-3 py-2.5">
-          {reassign.isSuccess ? (
+          <div>
+          {closed || started ? (
+            <p className="text-[12px] text-ink-3">
+              Заявка в состоянии «{status}»: переносить её другой бригаде поздно.
+            </p>
+          ) : reassign.isSuccess ? (
             <p className="rounded-md bg-ok-soft px-2 py-1.5 text-[12px] text-ink">
               Заявка передана бригаде «{crews.find((crew) => crew.id === picked)?.name ?? picked}».
               Она закреплена и останется у неё при следующем пересчёте.
@@ -177,6 +219,7 @@ export function OrderDetail({ region, orderId, order, crews, onClose }: Props) {
               ) : null}
             </>
           )}
+          </div>
         </div>
       ) : null}
     </aside>

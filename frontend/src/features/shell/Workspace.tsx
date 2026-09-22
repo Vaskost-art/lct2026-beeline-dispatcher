@@ -89,6 +89,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
           region={plan.region}
           orderId={day.selectedOrder}
           order={plan.orders.find((item) => item.id === day.selectedOrder)}
+          status={plan.statuses?.[day.selectedOrder] ?? 'Отправлено'}
           crews={plan.engineers.map((engineer) => ({ id: engineer.id, name: engineer.name }))}
           onClose={() => day.selectOrder(null)}
         />

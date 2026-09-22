@@ -130,6 +130,7 @@ export function WorkList({
                   route={route}
                   index={plan.routes.indexOf(route)}
                   orders={plan.orders}
+                  statuses={plan.statuses}
                   vehicle={
                     plan.engineers.find((engineer) => engineer.id === route.engineer_id)?.vehicle
                   }

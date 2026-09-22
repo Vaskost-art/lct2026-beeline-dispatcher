@@ -22,6 +22,8 @@ interface Props {
   open: boolean;
   focused: boolean;
   selected: string | null;
+  /** Отметки хода работ по заявкам этого участка. */
+  statuses?: Record<string, string>;
   onToggle: () => void;
   onSelect: (orderId: string) => void;
 }
@@ -38,6 +40,7 @@ export function RouteRow({
   index,
   open,
   focused,
+  statuses,
   selected,
   onToggle,
   onSelect,
@@ -113,6 +116,7 @@ export function RouteRow({
                 index={position + 1}
                 stop={stop}
                 order={byId.get(stop.order_id)}
+                status={statuses?.[stop.order_id] ?? 'Отправлено'}
                 selected={selected === stop.order_id}
                 onSelect={onSelect}
               />

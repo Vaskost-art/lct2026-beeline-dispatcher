@@ -72,6 +72,25 @@ class AdjustOrderRequest(BaseModel):
     time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
 
 
+class OrderStatusRequest(BaseModel):
+    """Диспетчер отмечает, что с заявкой происходит сейчас."""
+
+    region: str
+    order_id: str
+    status: Literal["Отправлено", "В пути", "Выполняется", "Завершено",
+                    "Отменена"]
+
+
+class EquipmentTransferRequest(BaseModel):
+    """Передача оборудования между бригадами в течение дня."""
+
+    region: str
+    source: str
+    target: str
+    item: str
+    count: int = Field(1, ge=1, le=20)
+
+
 class RegionRequest(BaseModel):
     region: str
 

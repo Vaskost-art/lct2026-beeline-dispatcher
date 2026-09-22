@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan, Route, Stop, hhmm
-from dispatcher.domain.distance import road_km, travel_minutes
+from dispatcher.domain.distance import road_km
+from dispatcher.domain.travel import plan_trip
 from dispatcher.services.routing import evaluate_sequence
 
 
@@ -117,12 +118,15 @@ def _relaxed_route(engineer: Engineer, sequence: list[Order]) -> Route:
     lat, lon, clock = engineer.lat, engineer.lon, engineer.shift_start
     for order in sequence:
         km = road_km(lat, lon, order.lat, order.lon)
-        travel = travel_minutes(km, engineer.vehicle)
+        trip = plan_trip(km, engineer.vehicle)
+        travel = trip.minutes
         arrival = clock + travel
         start = max(arrival, order.window_start)
         end = start + order.duration_min
         route.stops.append(Stop(order_id=order.id, arrival=arrival, start=start,
                                 end=end, travel_min=travel, travel_km=km,
-                                wait_min=start - arrival))
+                                wait_min=start - arrival,
+                                travel_text=trip.text,
+                                travel_mode=trip.mode_text))
         lat, lon, clock = order.lat, order.lon, end
     return route

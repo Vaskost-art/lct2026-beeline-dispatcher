@@ -17,11 +17,14 @@ function Figure({
   value,
   unit,
   stale,
+  note,
 }: {
   label: string;
   value: string;
   unit?: string;
   stale: boolean;
+  /** Пояснение под числом: то, что иначе пришлось бы спрашивать. */
+  note?: string;
 }) {
   return (
     <div
@@ -35,6 +38,7 @@ function Figure({
         {value}
         {unit ? <span className="unit"> {unit}</span> : null}
       </span>
+      {note ? <span className="text-[11px] text-ink-3 tnum">{note}</span> : null}
     </div>
   );
 }
@@ -46,6 +50,9 @@ function Figure({
 */
 export function Summary({ plan, stale, actions, builtAt }: Props) {
   const m = plan.metrics;
+  // Пока диспетчер ничего не отмечал, счётчик закрытых показывать незачем:
+  // ноль из шестидесяти трёх читается как провал смены, а не как «утро».
+  const closed = plan.progress.done + plan.progress.cancelled + plan.progress.in_progress;
 
   return (
     <section
@@ -83,13 +90,35 @@ export function Summary({ plan, stale, actions, builtAt }: Props) {
         value={`${m.used_engineers} из ${m.engineers_available}`}
         stale={stale}
       />
-      <Figure label="Пробег" value={m.total_km.toFixed(1)} unit="км" stale={stale} />
+      <Figure
+        label="Пробег"
+        value={m.total_km.toFixed(1)}
+        unit="км"
+        stale={stale}
+        note={
+          m.no_car_km > 0
+            ? `на авто ${m.car_km.toFixed(0)}, без авто ${m.no_car_km.toFixed(0)}`
+            : undefined
+        }
+      />
       <Figure
         label="Время в пути"
         value={String(Math.round(m.travel_share * 100))}
         unit="% смены"
         stale={stale}
       />
+      {closed > 0 ? (
+        <Figure
+          label="Закрыто за смену"
+          value={`${plan.progress.done} из ${m.orders_assigned}`}
+          stale={stale}
+          note={
+            plan.progress.cancelled > 0
+              ? `отменено ${plan.progress.cancelled}, в работе ${plan.progress.in_progress}`
+              : `в работе ${plan.progress.in_progress}`
+          }
+        />
+      ) : null}
 
       <div
         data-testid="day-checks"

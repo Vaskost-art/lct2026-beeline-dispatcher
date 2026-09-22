@@ -71,7 +71,8 @@ def make_plan(request: PlanRequest) -> dict:
     # диспетчер возвращается шагом назад, не пересчитывая заново.
     STORE.push(request.region, DayVersion(
         label=label, plan=plan, metrics=metrics, orders=orders,
-        engineers=engineers, locked=locked, issued=issued))
+        engineers=engineers, locked=locked, issued=issued,
+        statuses=dict(previous.statuses) if previous and not request.reset else {}))
     return ok(plan_payload(scenario, plan, metrics))
 
 

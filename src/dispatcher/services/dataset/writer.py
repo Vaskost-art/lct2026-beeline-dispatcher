@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, Engineer, Order, hhmm, norms
+from dispatcher.domain.catalog import VEHICLES
 from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import FORMAT_VERSION
 
@@ -66,7 +67,7 @@ def scenario_to_json(scenario: Scenario, events: list[dict] | None = None) -> di
             },
             "reference_books": {
                 "skills": list(dict.fromkeys(norms.SKILL_BY_TYPE_BK.values())),
-                "vehicles": list(norms.SPEED_KMH.keys()),
+                "vehicles": list(VEHICLES),
                 "priorities": [PRIORITY_NORMAL, PRIORITY_URGENT],
             },
         },

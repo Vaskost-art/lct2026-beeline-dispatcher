@@ -15,6 +15,7 @@ from dispatcher.domain import (
     hhmm,
     norms,
 )
+from dispatcher.domain.catalog import VEHICLES
 from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import DatasetError
 from dispatcher.services.dataset.fields import _coords, _require, _time
@@ -32,10 +33,10 @@ def order_from_json(data: dict) -> Order:
             f"Допустимы: {', '.join(dict.fromkeys(norms.SKILL_BY_TYPE_BK.values()))}")
 
     vehicle = data.get("required_vehicle") or None
-    if vehicle and vehicle not in norms.SPEED_KMH:
+    if vehicle and vehicle not in VEHICLES:
         raise DatasetError(
             f"{where}: транспорт «{vehicle}» отсутствует в справочнике. "
-            f"Допустимы: {', '.join(norms.SPEED_KMH)}")
+            f"Допустимы: {', '.join(VEHICLES)}")
 
     # Справочник берётся целиком: перечисление значений по месту разошлось
     # с доменом, как только приоритетов стало три.
@@ -93,10 +94,10 @@ def engineer_from_json(data: dict, allow_empty_shift: bool = False) -> Engineer:
             f"{where}: навыки {', '.join(unknown)} отсутствуют в справочнике")
 
     vehicle = str(data.get("vehicle") or VEHICLE_CAR)
-    if vehicle not in norms.SPEED_KMH:
+    if vehicle not in VEHICLES:
         raise DatasetError(
             f"{where}: транспорт «{vehicle}» отсутствует в справочнике. "
-            f"Допустимы: {', '.join(norms.SPEED_KMH)}")
+            f"Допустимы: {', '.join(VEHICLES)}")
 
     shift_start = _time(_require(data, "shift_start", where), where, "shift_start")
     shift_end = _time(_require(data, "shift_end", where), where, "shift_end")

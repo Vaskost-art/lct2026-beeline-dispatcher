@@ -38,6 +38,8 @@ class DaySnapshot:
     locked: dict[str, str] = field(default_factory=dict)
     #: Выданное утром оборудование: бригада -> устройство -> сколько.
     issued: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: Что с заявкой прямо сейчас: заявка -> статус.
+    statuses: dict[str, str] = field(default_factory=dict)
     strategy: str = ""
     solver_status: str = ""
     manual: bool = False
@@ -50,7 +52,8 @@ class DaySnapshot:
 def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
                 orders: list[Order], engineers: list[Engineer],
                 locked: dict[str, str], manual: bool, name: str = "",
-                issued: dict[str, dict[str, int]] | None = None) -> DaySnapshot:
+                issued: dict[str, dict[str, int]] | None = None,
+                statuses: dict[str, str] | None = None) -> DaySnapshot:
     """Собирает снимок из текущей версии дня."""
     return DaySnapshot(
         region_key=region_key,
@@ -62,6 +65,7 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
                    for route in plan.routes if route.is_used},
         locked=dict(locked or {}),
         issued={key: dict(value) for key, value in (issued or {}).items()},
+        statuses=dict(statuses or {}),
         strategy=plan.strategy,
         solver_status=plan.solver_status,
         manual=manual,
@@ -84,6 +88,7 @@ def snapshot_to_json(snapshot: DaySnapshot) -> dict[str, object]:
         "manual": snapshot.manual,
         "locked": dict(snapshot.locked),
         "issued": {key: dict(value) for key, value in snapshot.issued.items()},
+        "statuses": dict(snapshot.statuses),
         "orders": [order_to_json(order) for order in snapshot.orders],
         "engineers": [engineer_to_json(engineer) for engineer in snapshot.engineers],
         "routes": [{"engineer": engineer_id, "orders": list(sequence)}
@@ -122,6 +127,7 @@ def snapshot_from_json(data: dict[str, object]) -> DaySnapshot:
         sequences=sequences,
         locked=locked,
         issued=_issued(data),
+        statuses=_mapping(data, "statuses"),
         strategy=str(data.get("strategy") or "restored"),
         solver_status=str(data.get("solver_status") or "RESTORED"),
         manual=bool(data.get("manual", True)),

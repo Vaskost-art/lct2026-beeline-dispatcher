@@ -100,33 +100,36 @@ def sweep_heuristics(scenarios, time_limit: int) -> None:
     эта таблица — то, чем выбор подтверждается. Метаэвристика локального поиска
     при этом не меняется: сравниваются именно стартовые решения.
     """
-    import solver
     from ortools.constraint_solver import routing_enums_pb2
+
+    from dispatcher.services.planning import optimizer, search
 
     names = ["SAVINGS", "PARALLEL_CHEAPEST_INSERTION", "PATH_CHEAPEST_ARC",
              "CHRISTOFIDES", "LOCAL_CHEAPEST_INSERTION"]
     print(f"\n\nЭвристики первого решения, {time_limit} с на район "
-          f"(выбрана {solver.FIRST_SOLUTION_NAME}):\n")
+          f"(выбрана {search.FIRST_SOLUTION_NAME}):\n")
     print("| Район | Эвристика | Назначено | Исполнителей | Пробег, км |")
     print("|---|---|---|---|---|")
 
-    original = solver.FIRST_SOLUTION
+    original = optimizer.FIRST_SOLUTION
     try:
         for scenario in scenarios.values():
             for i, name in enumerate(names):
-                solver.FIRST_SOLUTION = getattr(
+                # Подменяется имя, уже импортированное оптимизатором: правка
+                # самого `search` до него не доходит - имя связано при импорте.
+                optimizer.FIRST_SOLUTION = getattr(
                     routing_enums_pb2.FirstSolutionStrategy, name)
-                plan = solver.solve_optimized(
+                plan = optimizer.solve_optimized(
                     scenario.orders, scenario.engineers, time_limit_sec=time_limit)
                 m = plan_metrics(plan, scenario.orders, scenario.engineers)
-                wrap = "**" if name == solver.FIRST_SOLUTION_NAME else ""
+                wrap = "**" if name == search.FIRST_SOLUTION_NAME else ""
                 region = scenario.region_name if i == 0 else ""
                 print(f"| {region} | {wrap}{name}{wrap} "
                       f"| {wrap}{m['orders_assigned']}/{m['orders_total']}{wrap} "
                       f"| {wrap}{m['used_engineers']}{wrap} "
                       f"| {wrap}{m['total_km']:.1f}{wrap} |")
     finally:
-        solver.FIRST_SOLUTION = original
+        optimizer.FIRST_SOLUTION = original
 
 
 def main() -> int:

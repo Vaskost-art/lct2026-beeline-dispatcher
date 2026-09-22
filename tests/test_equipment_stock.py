@@ -4,6 +4,8 @@
 день, и при перепланировании ей можно назначать только те заявки, под
 которые оборудование у неё есть.
 """
+import pytest
+
 from dispatcher.domain import Order, Plan, Route, Stop
 from dispatcher.domain.catalog import VEHICLE_CAR
 from dispatcher.domain.equipment import ROUTER, SPARE_PER_ITEM, TV_BOX
@@ -178,3 +180,54 @@ def test_issued_sheet_shows_what_was_given_out():
     assert row["engineer_id"] == "Бригада 1"
     assert row["items"][ROUTER] == 2 + SPARE_PER_ITEM
     assert row["total"] == sum(row["items"].values())
+
+
+def test_transfer_moves_a_free_device():
+    """Свободное устройство уходит соседу: заказчик это разрешил."""
+    from dispatcher.services.equipment import transfer
+
+    plan, orders = _day()
+    issued = issued_items(plan, orders)      # Бригада 1: 3 роутера, 2 под заявки
+
+    updated = transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 1)
+
+    assert updated["Бригада 1"][ROUTER] == 2
+    assert updated["Бригада 2"][ROUTER] == 1
+    # Ведомость не меняется на месте: прежняя версия дня остаётся целой.
+    assert issued["Бригада 1"][ROUTER] == 2 + SPARE_PER_ITEM
+
+
+def test_transfer_does_not_take_what_is_promised_to_clients():
+    """Отдать можно только свободное: под свои заявки устройство остаётся."""
+    from dispatcher.services.equipment import transfer
+
+    plan, orders = _day()
+    issued = issued_items(plan, orders)
+
+    with pytest.raises(ValueError, match="свободно"):
+        transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 2)
+
+
+def test_transfer_lets_the_receiver_take_the_order():
+    """Смысл передачи: после неё бригада может взять заявку."""
+    from dispatcher.services.equipment import transfer
+
+    plan, orders = _day()
+    issued = issued_items(plan, orders)
+    extra = _order("9", [ROUTER])
+    assert missing_for(extra, "Бригада 2", issued, plan, orders) == [ROUTER]
+
+    updated = transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 1)
+
+    assert missing_for(extra, "Бригада 2", updated, plan, orders) == []
+
+
+def test_transfer_refuses_nonsense():
+    from dispatcher.services.equipment import transfer
+
+    plan, orders = _day()
+    issued = issued_items(plan, orders)
+    with pytest.raises(ValueError):
+        transfer(issued, plan, orders, "Бригада 1", "Бригада 1", ROUTER, 1)
+    with pytest.raises(ValueError):
+        transfer(issued, plan, orders, "Бригада 1", "Бригада 2", "Дрель", 1)

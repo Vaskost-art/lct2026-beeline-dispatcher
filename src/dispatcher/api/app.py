@@ -14,7 +14,15 @@ from fastapi.staticfiles import StaticFiles
 
 from dispatcher.api import deps
 from dispatcher.api.envelope import code_of, failed
-from dispatcher.api.routes import datasets, manual, meta, planning, replanning, saving
+from dispatcher.api.routes import (
+    datasets,
+    manual,
+    meta,
+    planning,
+    progress,
+    replanning,
+    saving,
+)
 from dispatcher.infrastructure import envfile
 from dispatcher.services.scenario import load_all
 
@@ -33,7 +41,7 @@ envfile.load()
 app = FastAPI(title="Планировщик маршрутов выездных инженеров",
               version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
-for module in (meta, planning, replanning, manual, saving, datasets):
+for module in (meta, planning, replanning, manual, progress, saving, datasets):
     app.include_router(module.router)
 
 

@@ -1,4 +1,9 @@
+import { useState } from 'react';
+
+import type { ApiError } from '../../api/client';
+import { useEquipmentTransfer } from '../../api/queries';
 import type { PlanPayload } from '../../api/types';
+import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 
 interface Props {
@@ -7,13 +12,24 @@ interface Props {
   onClose: () => void;
 }
 
-/** Ведомость на выдачу: что каждая бригада забирает в офисе утром.
+/** Ведомость на выдачу и передача оборудования между бригадами.
 
-Оборудование следует из плана, а не ограничивает его: это лист выдачи, а не
-склад с остатками.
+Ведомость показывает выданное утром, а не расчёт по текущему плану: бригада
+уехала с этой сумкой, и днём заявку она возьмёт только под то, что с собой.
+Передача закрывает тупик - устройство можно отдать соседу, если оно не
+расписано под собственные заявки.
 */
 export function PickupDialog({ plan, open, onClose }: Props) {
   const total = plan.pickup.reduce((sum, row) => sum + row.total, 0);
+  const move = useEquipmentTransfer();
+  const [source, setSource] = useState('');
+  const [target, setTarget] = useState('');
+  const [item, setItem] = useState('');
+
+  const items = Array.from(
+    new Set(plan.pickup.flatMap((row) => Object.keys(row.items))),
+  );
+  const ready = source && target && item && source !== target;
 
   return (
     <Modal open={open} title="Что взять в офисе" onClose={onClose}>
@@ -24,8 +40,8 @@ export function PickupDialog({ plan, open, onClose }: Props) {
       ) : (
         <>
           <p className="mb-3 text-[13px] text-ink-2">
-            Всего к выдаче <span className="font-semibold tnum">{total}</span> устройств
-            на <span className="tnum">{plan.pickup.length}</span> бригад.
+            Выдано <span className="font-semibold tnum">{total}</span> устройств
+            на <span className="tnum">{plan.pickup.length}</span> бригад, включая запас.
           </p>
           <ul className="flex flex-col divide-y divide-line border-y border-line">
             {plan.pickup.map((row) => (
@@ -38,6 +54,75 @@ export function PickupDialog({ plan, open, onClose }: Props) {
               </li>
             ))}
           </ul>
+
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="text-[12px] font-medium text-ink-3">Передать между бригадами</p>
+            <p className="mt-0.5 text-[12px] text-ink-3">
+              Отдать можно только свободное: под свои заявки устройство остаётся у бригады.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <select
+                aria-label="От бригады"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[13px]"
+              >
+                <option value="">От кого</option>
+                {plan.pickup.map((row) => (
+                  <option key={row.engineer_id} value={row.engineer_id}>
+                    {row.engineer_id}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Кому"
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+                className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[13px]"
+              >
+                <option value="">Кому</option>
+                {plan.engineers
+                  .filter((engineer) => engineer.id !== source)
+                  .map((engineer) => (
+                    <option key={engineer.id} value={engineer.id}>
+                      {engineer.name}
+                    </option>
+                  ))}
+              </select>
+              <select
+                aria-label="Что передать"
+                value={item}
+                onChange={(event) => setItem(event.target.value)}
+                className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[13px]"
+              >
+                <option value="">Что</option>
+                {items.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant="primary"
+                disabled={!ready}
+                busy={move.isPending}
+                busyLabel="Передаём"
+                onClick={() =>
+                  move.mutate({ region: plan.region, source, target, item, count: 1 })
+                }
+              >
+                Передать
+              </Button>
+            </div>
+            {move.error ? (
+              <p role="alert" className="mt-1.5 text-[12px] text-danger">
+                {(move.error as ApiError).message}
+              </p>
+            ) : null}
+            {move.isSuccess && !move.error ? (
+              <p className="mt-1.5 text-[12px] text-ok">Передано. Ведомость обновлена.</p>
+            ) : null}
+          </div>
         </>
       )}
     </Modal>

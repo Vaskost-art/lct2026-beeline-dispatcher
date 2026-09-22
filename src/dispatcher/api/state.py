@@ -74,7 +74,7 @@ class DayStore:
                 label=snapshot.label, plan=plan, metrics=metrics,
                 orders=snapshot.orders, engineers=snapshot.engineers,
                 locked=snapshot.locked, issued=snapshot.issued,
-                manual=snapshot.manual))
+                statuses=snapshot.statuses, manual=snapshot.manual))
         return len(day.versions)
 
     def regions(self) -> list[str]:
@@ -118,7 +118,7 @@ class DayStore:
                 snapshot_of(day.scenario.region_key, day.scenario.region_name,
                             version.label, version.plan, version.orders,
                             version.engineers, version.locked, version.manual,
-                            issued=version.issued)))
+                            issued=version.issued, statuses=version.statuses)))
         return version
 
     def step_back(self, region: str) -> DayVersion | None:
@@ -144,4 +144,5 @@ class DayStore:
             engineers=deepcopy(current.engineers),
             locked=dict(current.locked),
             issued={key: dict(value) for key, value in current.issued.items()},
+            statuses=dict(current.statuses),
         )

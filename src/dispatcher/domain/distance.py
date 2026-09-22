@@ -12,7 +12,8 @@ from __future__ import annotations
 import math
 import re
 
-from dispatcher.domain.norms import DETOUR_FACTOR, SPEED_KMH
+from dispatcher.domain.norms import DETOUR_FACTOR
+from dispatcher.domain.travel import plan_trip
 
 #: Километров в одном градусе широты. Нужна и для расстояний, и для
 #: смещения приблизительной точки внутри района.
@@ -49,6 +50,10 @@ def road_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def travel_minutes(km: float, vehicle: str) -> int:
-    """Время в пути, минуты (округление вверх до целой минуты)."""
-    speed = SPEED_KMH.get(vehicle, SPEED_KMH["Автомобиль"])
-    return int(math.ceil(km / speed * 60)) if km > 0 else 0
+    """Время в пути, минуты.
+
+    Способ перемещения подбирает `travel.plan_trip`: бригада без машины
+    может дойти пешком, а может доехать с пересадкой - считается тот
+    вариант, который быстрее.
+    """
+    return plan_trip(km, vehicle).minutes

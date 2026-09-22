@@ -4,9 +4,20 @@ interface Props {
   index: number;
   stop: Stop;
   order: Order | undefined;
+  /** Что отмечено по заявке: «Отправлено» не показываем, это обычное дело. */
+  status: string;
   selected: boolean;
   onSelect: (orderId: string) => void;
 }
+
+/** Как показывать отметку хода работ. Цвет означает исход, а не событие:
+зелёный - сделано, серый - отменено, синий - идёт сейчас. */
+const STATUS_TONE: Record<string, string> = {
+  'В пути': 'bg-accent-soft text-accent',
+  Выполняется: 'bg-accent-soft text-accent',
+  Завершено: 'bg-ok-soft text-ok',
+  Отменена: 'bg-raised text-ink-3 line-through',
+};
 
 /** Одна остановка маршрута: время, адрес, оборудование.
 
@@ -17,7 +28,8 @@ interface Props {
 меткой. Выбор показывается полосой слева, а не рамкой: рамка сдвигает
 содержимое и строка дёргается.
 */
-export function StopRow({ index, stop, order, selected, onSelect }: Props) {
+export function StopRow({ index, stop, order, status, selected, onSelect }: Props) {
+  const tone = STATUS_TONE[status];
   // Три ступени, заданные постановщиком: авария, подключение, остальное.
   // Нижнюю не отмечаем вовсе - метка на каждой строке перестаёт значить что-либо.
   const priority = order?.priority ?? '';
@@ -54,6 +66,11 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
               {stop.start}
               <span className="text-ink-3">–{stop.end}</span>
             </span>
+            {tone ? (
+              <span className={'rounded-sm px-1 text-[10px] font-medium ' + tone}>
+                {status.toLowerCase()}
+              </span>
+            ) : null}
             {mark ? (
               <span
                 className={
@@ -89,6 +106,9 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
 
         <span className="shrink-0 pt-0.5 text-right text-[11px] text-ink-3 tnum">
           <span className="block">{stop.travel_min} мин в пути</span>
+          {stop.travel_mode ? (
+            <span className="block text-ink-3">{stop.travel_mode}</span>
+          ) : null}
           {stop.wait_min > 0 ? (
             <span className="block text-warn">ждём {stop.wait_min} мин</span>
           ) : null}

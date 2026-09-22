@@ -1,19 +1,25 @@
 """Сводка допущений для интерфейса и документации, единственный источник."""
 from __future__ import annotations
 
-from dispatcher.domain.catalog import VEHICLE_CAR, VEHICLE_FOOT
 from dispatcher.domain.equipment import (
     BY_TYPE_HD,
     SPARE_PER_ITEM,
     SYNTHETIC_SHARES,
 )
-from dispatcher.domain.norms import BASE_NORM_BY_TYPE_BK, DETOUR_FACTOR, ROAD_IN_NORM_MIN, SPEED_KMH
+from dispatcher.domain.norms import BASE_NORM_BY_TYPE_BK, DETOUR_FACTOR, ROAD_IN_NORM_MIN
 from dispatcher.domain.shifts import (
-                                     BREAK_MIN,
-                                     BREAK_MIN_SHIFT_MIN,
-                                     SHIFT_TAIL_MIN,
-                                     SPREAD_BIKE_KM,
-                                     SPREAD_CAR_KM,
+    BREAK_MIN,
+    BREAK_MIN_SHIFT_MIN,
+    SHIFT_TAIL_MIN,
+    SPREAD_BIKE_KM,
+    SPREAD_CAR_KM,
+)
+from dispatcher.domain.travel import (
+    CAR_KMH,
+    TRANSIT_RIDE_KMH,
+    TRANSIT_WAIT_MIN,
+    WALK_KMH,
+    WALK_TO_STOP_KM,
 )
 
 # Сводка допущений для интерфейса и README — единственный источник правды.
@@ -53,7 +59,13 @@ ASSUMPTIONS = [
     ("Расстояние и время в пути",
      f"Расстояние — по прямой (haversine) с коэффициентом извилистости {DETOUR_FACTOR} "
      "для перехода к улично-дорожной сети. Скорость зависит от типа транспорта "
-     f"({SPEED_KMH[VEHICLE_CAR]:g} км/ч на авто, {SPEED_KMH[VEHICLE_FOOT]:g} км/ч пешком)."),
+     f"({CAR_KMH:g} км/ч на авто, {WALK_KMH:g} км/ч пешком)."),
+    ("Бригада без автомобиля",
+     "Путь собирается из плеч: дойти до остановки "
+     f"({WALK_TO_STOP_KM:g} км), подождать {TRANSIT_WAIT_MIN} мин, проехать "
+     f"{TRANSIT_RIDE_KMH:g} км/ч и дойти от остановки. Пешком или на транспорте - "
+     "считается тот способ, который быстрее: ради трёхсот метров автобус "
+     "не ждут, а пять километров пешком не идут."),
     ("Приоритет",
      "«Срочная» — глобальная проблема (авария) либо наряд со статусом «Просрочена». "
      "Остальные — обычные."),

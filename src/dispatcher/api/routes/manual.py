@@ -12,7 +12,7 @@ from dispatcher.api.routes.planning import build_plan
 from dispatcher.api.schemas import AdjustOrderRequest, ReassignRequest, RegionRequest
 from dispatcher.api.state import DayVersion
 from dispatcher.domain import Plan
-from dispatcher.services.equipment import missing_for
+from dispatcher.services.equipment import missing_for, name_listing
 from dispatcher.services.metrics import plan_metrics
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.reasons import diagnose
@@ -20,14 +20,6 @@ from dispatcher.services.planning.strategies import STRATEGIES
 from dispatcher.services.routing import evaluate_sequence
 
 router = APIRouter()
-
-
-def _listing(names: list[str]) -> str:
-    """«роутера» или «роутера и приставки» - для текста отказа."""
-    lowered = [name.lower() for name in dict.fromkeys(names)]
-    if len(lowered) == 1:
-        return lowered[0]
-    return ", ".join(lowered[:-1]) + " и " + lowered[-1]
 
 
 # --- ручное переназначение (дополнительная возможность из ТЗ) ----------------
@@ -79,7 +71,7 @@ def reassign(request: ReassignRequest) -> dict:
         if short:
             raise HTTPException(
                 400, f"«{target.name}» не может взять эту заявку: с собой нет "
-                     f"{_listing(short)}. Оборудование выдаётся утром на весь "
+                     f"{name_listing(short)}. Оборудование выдаётся утром на весь "
                      f"день, пополнить сумку в поле нечем")
 
         # ставим в позицию, которая даёт наименьший прирост пробега

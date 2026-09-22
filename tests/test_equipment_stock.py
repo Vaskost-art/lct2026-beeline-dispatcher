@@ -154,3 +154,27 @@ def _at(order_id: str, lat: float, lon: float, equipment: list[str],
     return Order(id=order_id, lat=lat, lon=lon, address="", district="",
                  duration_min=30, window_start=window[0], window_end=window[1],
                  priority=priority, required_skill=SKILL, equipment=equipment)
+
+
+def test_refusal_names_the_device_in_a_readable_form():
+    """«нет роутера», а не «нет роутер»: отказ читает человек."""
+    from dispatcher.domain.equipment import SPEAKER
+    from dispatcher.services.equipment import name_listing
+
+    assert name_listing([ROUTER]) == "роутера"
+    assert name_listing([ROUTER, TV_BOX]) == "роутера и приставки"
+    assert name_listing([ROUTER, ROUTER, SPEAKER]) == "роутера и колонки"
+
+
+def test_issued_sheet_shows_what_was_given_out():
+    """Ведомость показывает выданное с запасом, а не расчёт по плану."""
+    from dispatcher.services.equipment import issued_rows
+
+    plan, orders = _day()
+    rows = issued_rows(issued_items(plan, orders))
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["engineer_id"] == "Бригада 1"
+    assert row["items"][ROUTER] == 2 + SPARE_PER_ITEM
+    assert row["total"] == sum(row["items"].values())

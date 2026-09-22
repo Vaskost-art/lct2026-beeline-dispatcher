@@ -73,6 +73,36 @@ def issued_items(plan: Plan, orders: list[Order]) -> dict[str, dict[str, int]]:
     return issued
 
 
+def name_listing(names: list[str]) -> str:
+    """«роутера» или «роутера и приставки»: перечень для текста отказа.
+
+    Берётся форма родительного падежа из того же справочника, что и счёт в
+    ведомости: «нет роутер» диспетчер читает как машинный вывод.
+    """
+    unique = list(dict.fromkeys(names))
+    words = [FORMS[name][1] if name in FORMS else name.lower() for name in unique]
+    if len(words) == 1:
+        return words[0]
+    return ", ".join(words[:-1]) + " и " + words[-1]
+
+
+def issued_rows(issued: dict[str, dict[str, int]]) -> list[PickupRow]:
+    """Ведомость по выданному: то же, что видит кладовщик и что в сумке.
+
+    Показывать расчёт по текущему плану нельзя: бригада уехала с запасом,
+    и экран расходился бы с тем, по чему система принимает решения.
+    """
+    rows: list[PickupRow] = []
+    for engineer_id, items in issued.items():
+        counted = {name: count for name, count in items.items() if count}
+        total = sum(counted.values())
+        if not total:
+            continue
+        rows.append({"engineer_id": engineer_id, "items": counted,
+                     "total": total, "text": _describe(counted)})
+    return rows
+
+
 def planned_items(plan: Plan, orders: list[Order],
                   engineer_id: str) -> dict[str, int]:
     """Что уже расписано бригаде по текущему плану."""

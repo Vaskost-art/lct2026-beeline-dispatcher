@@ -5,7 +5,7 @@ from dispatcher.api.deps import STORE, manual_labels, undo_labels
 from dispatcher.domain import Order, Plan
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import geo
-from dispatcher.services.equipment import pickup_list
+from dispatcher.services.equipment import issued_rows, pickup_list
 from dispatcher.services.explain import explain_plan, explain_route
 from dispatcher.services.impact import plan_risk
 from dispatcher.services.planning.baseline import solve_greedy
@@ -15,6 +15,8 @@ from dispatcher.services.planning.strategies import STRATEGY_TITLES, status_text
 
 def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                   extra: dict | None = None) -> dict:
+    current = STORE.current(scenario.region_key)
+    issued = current.issued if current else {}
     by_id: dict[str, Order | None] = dict(scenario.order_by_id)
     # заявки, появившиеся после события, тоже должны попасть в ответ
     for route in plan.routes:
@@ -62,7 +64,11 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
         # прогноз опозданий считается вместе с планом: он дешёвый, а в
         # интерфейсе риск нужен сразу рядом с каждым визитом
         "risk": plan_risk(plan, all_orders(scenario, plan), all_engineers(scenario)),
-        "pickup": pickup_list(plan, all_orders(scenario, plan)),
+        # Ведомость показывает выданное, а не расчёт по текущему плану:
+        # оборудование бригада получила утром с запасом, и экран обязан
+        # совпадать с тем, по чему система решает, кому отдать заявку.
+        "pickup": (issued_rows(issued) if issued
+                   else pickup_list(plan, all_orders(scenario, plan))),
         "shortfall": crews_shortfall(
             all_orders(scenario, plan), all_engineers(scenario), solve_greedy,
             scenario.office_lat, scenario.office_lon, scenario.office_address),

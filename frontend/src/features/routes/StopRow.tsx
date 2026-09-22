@@ -18,7 +18,14 @@ interface Props {
 содержимое и строка дёргается.
 */
 export function StopRow({ index, stop, order, selected, onSelect }: Props) {
-  const urgent = order?.priority.toLowerCase().startsWith('срочн') ?? false;
+  // Три ступени, заданные постановщиком: авария, подключение, остальное.
+  // Нижнюю не отмечаем вовсе - метка на каждой строке перестаёт значить что-либо.
+  const priority = order?.priority ?? '';
+  const mark = priority.toLowerCase().startsWith('срочн')
+    ? { text: 'авария', tone: 'bg-danger-soft text-danger' }
+    : priority.toLowerCase().startsWith('повыш')
+      ? { text: 'подключение', tone: 'bg-warn-soft text-warn' }
+      : null;
 
   return (
     <li>
@@ -47,9 +54,14 @@ export function StopRow({ index, stop, order, selected, onSelect }: Props) {
               {stop.start}
               <span className="text-ink-3">–{stop.end}</span>
             </span>
-            {urgent ? (
-              <span className="rounded-sm bg-danger-soft px-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-danger">
-                срочная
+            {mark ? (
+              <span
+                className={
+                  'rounded-sm px-1 text-[10px] font-semibold uppercase ' +
+                  'tracking-[0.04em] ' + mark.tone
+                }
+              >
+                {mark.text}
               </span>
             ) : null}
             <span className="truncate text-[12px] text-ink-3">

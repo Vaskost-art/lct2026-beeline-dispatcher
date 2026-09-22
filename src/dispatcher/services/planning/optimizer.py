@@ -11,14 +11,24 @@ from collections.abc import Callable
 
 from ortools.constraint_solver import pywrapcp
 
-from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route
+from dispatcher.domain import (
+    PRIORITY_HIGH,
+    PRIORITY_NORMAL,
+    PRIORITY_URGENT,
+    Engineer,
+    Order,
+    Plan,
+    Route,
+)
 from dispatcher.domain.distance import road_km, travel_minutes
 from dispatcher.services.planning.baseline import _finalize
 from dispatcher.services.planning.costs import (
     DEFAULT_TIME_LIMIT_SEC,
+    DROP_PENALTY_HIGH,
     DROP_PENALTY_NORMAL,
     DROP_PENALTY_URGENT,
     ENGINEER_FIXED_COST,
+    URGENT_DELAY_COST_PER_MIN,
 )
 from dispatcher.services.planning.extract import routes_from_solution
 from dispatcher.services.planning.search import (
@@ -122,6 +132,24 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
         # CumulVar в узле = момент НАЧАЛА работ; по ТЗ он обязан попасть в окно
         time_dim.CumulVar(index).SetRange(order.window_start, order.window_end)
 
+    #: Цена пропуска по приоритету: авария, подключение, остальное.
+    PENALTY_BY_PRIORITY = {
+        PRIORITY_URGENT: DROP_PENALTY_URGENT,
+        PRIORITY_HIGH: DROP_PENALTY_HIGH,
+        PRIORITY_NORMAL: DROP_PENALTY_NORMAL,
+    }
+
+    # Срочные тянутся к началу своего окна. Мягкая граница, а не жёсткая:
+    # жёсткая выкинула бы заявку из плана, если бригада не успевает, а нам
+    # нужно «как можно раньше», а не «либо рано, либо никак».
+    earliest = min((e.shift_start for e in engineers), default=0)
+    for node, order in enumerate(orders):
+        if order.priority != PRIORITY_URGENT:
+            continue
+        index = manager.NodeToIndex(node)
+        bound = max(order.window_start, earliest)
+        time_dim.SetCumulVarSoftUpperBound(index, bound, URGENT_DELAY_COST_PER_MIN)
+
     for vehicle_id, engineer in enumerate(engineers):
         start_index = routing.Start(vehicle_id)
         end_index = routing.End(vehicle_id)
@@ -158,8 +186,7 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
         # -1 в домене означает «заявка не назначена»: без него солвер не смог бы
         # снять заявку, для которой не хватает ресурсов.
         routing.VehicleVar(index).SetValues([-1] + allowed)
-        penalty = (DROP_PENALTY_URGENT if order.priority == PRIORITY_URGENT
-                   else DROP_PENALTY_NORMAL)
+        penalty = PENALTY_BY_PRIORITY.get(order.priority, DROP_PENALTY_NORMAL)
         routing.AddDisjunction([index], penalty)
 
     # --- замороженные префиксы маршрутов при перепланировании ---

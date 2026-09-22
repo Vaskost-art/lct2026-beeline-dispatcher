@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dispatcher.domain.catalog import (
+    PRIORITY_HIGH,
     PRIORITY_NORMAL,
     PRIORITY_URGENT,
     SKILL_CONNECT,
@@ -56,9 +57,14 @@ BASE_NORM_BY_TYPE_BK = {
 DEFAULT_BASE_NORM = 50
 
 # --- 3. Приоритет -------------------------------------------------------------
+# Порядок задан постановщиком: авария, затем подключение, затем ремонт и
+# дозаказ по остаточному принципу (чат 19.09, ответ 15; повторён 21.09).
 # «Срочная» = авария (влияет на многих абонентов) либо уже просроченный наряд.
 URGENT_TYPES_BK = {"Глобальная проблема"}
 URGENT_STATUSES_BK = {"Просрочена"}
+#: Второй приоритет: новое подключение. Дозаказ сюда не входит - постановщик
+#: поставил его в один ряд с ремонтом.
+HIGH_TYPES_BK = {"Подключение"}
 
 # --- 4. Требуемый тип транспорта (ограничение «Ресурс» из ТЗ) ------------------
 # Ограничение ставится только там, где работа физически требует машины:
@@ -100,6 +106,8 @@ def priority_for(type_bk: str, status_bk: str) -> str:
         return PRIORITY_URGENT
     if status_bk.strip() in URGENT_STATUSES_BK:
         return PRIORITY_URGENT
+    if type_bk.strip() in HIGH_TYPES_BK:
+        return PRIORITY_HIGH
     return PRIORITY_NORMAL
 
 

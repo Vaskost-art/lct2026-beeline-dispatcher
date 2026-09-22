@@ -5,6 +5,7 @@
 """
 from dispatcher.domain.catalog import (
                                        PRIORITIES,
+                                       PRIORITY_HIGH,
                                        PRIORITY_NORMAL,
                                        PRIORITY_URGENT,
                                        SKILL_CONNECT,
@@ -22,7 +23,7 @@ from dispatcher.domain.models import Engineer, Order
 from dispatcher.domain.plan import Plan, Route, Stop, Unassigned
 
 __all__ = [
-    "PRIORITIES", "PRIORITY_NORMAL", "PRIORITY_URGENT",
+    "PRIORITIES", "PRIORITY_HIGH", "PRIORITY_NORMAL", "PRIORITY_URGENT",
     "SKILLS", "SKILL_CONNECT", "SKILL_EMERGENCY", "SKILL_LOCAL",
     "VEHICLES", "VEHICLE_BIKE", "VEHICLE_CAR", "VEHICLE_FOOT",
     "VEHICLE_TRANSIT",

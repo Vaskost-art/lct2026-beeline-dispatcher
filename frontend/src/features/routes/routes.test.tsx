@@ -33,14 +33,25 @@ describe('список маршрутов', () => {
     render(<RouteRow route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.queryByText('—')).not.toBeInTheDocument();
-    expect(screen.queryByText('срочная')).not.toBeInTheDocument();
+    expect(screen.queryByText('авария')).not.toBeInTheDocument();
+    expect(screen.queryByText('подключение')).not.toBeInTheDocument();
   });
 
-  it('помечает срочную заявку', () => {
+  // Порядок задан постановщиком: авария, подключение, остальное по
+  // остаточному принципу. Метка называет вид работ, а не уровень приоритета:
+  // диспетчеру важно «это авария», а не «это приоритет номер один».
+  it('помечает аварию', () => {
     const urgent = { ...order, priority: 'Срочная' };
     render(<RouteRow route={route} orders={[urgent]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
-    expect(screen.getByText('срочная')).toBeInTheDocument();
+    expect(screen.getByText('авария')).toBeInTheDocument();
+  });
+
+  it('помечает подключение', () => {
+    const high = { ...order, priority: 'Повышенная' };
+    render(<RouteRow route={route} orders={[high]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+
+    expect(screen.getByText('подключение')).toBeInTheDocument();
   });
 });
 

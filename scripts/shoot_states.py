@@ -9,9 +9,11 @@ from collections.abc import Awaitable, Callable
 from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 
-#: Сколько ждать построение плана. Расчёт ограничен временем на стороне
-#: сервиса, но геокодирование и отрисовка карты добавляют сверху.
-PLAN_TIMEOUT_MS = 120_000
+#: Сколько ждать построение плана. Поиск останавливается по числу улучшений,
+#: и на самом большом участке это до двух минут; под браузером и съёмкой
+#: дольше. Запас втрое: упор в таймаут выглядит как несобравшееся состояние,
+#: хотя сервис просто ещё считает.
+PLAN_TIMEOUT_MS = 300_000
 
 #: Сколько ждать первую отрисовку: список участков приходит от сервиса.
 READY_TIMEOUT_MS = 60_000
@@ -33,9 +35,25 @@ async def _ready(page: Page) -> None:
 
 
 async def _plan(page: Page) -> None:
-    """Выбрать участок, построить план и дождаться конца расчёта."""
+    """Довести экран до готового плана.
+
+    Сервис держит посчитанный день в памяти, и открытая заново страница
+    показывает его сразу. Пересчитывать ради каждого состояния незачем:
+    расчёт занимает до двух минут, а диспетчер утром тоже строит план один
+    раз и дальше работает с ним.
+    """
     await _ready(page)
     await page.select_option('select[aria-label="Участок"]', REGION)
+
+    ready = page.locator('[data-testid="metric-assigned"]')
+    try:
+        await ready.wait_for(state="visible", timeout=5_000)
+    except PlaywrightTimeout:
+        pass
+    else:
+        await page.wait_for_selector('[data-testid="work-list"]', timeout=30_000)
+        return
+
     await page.click('[data-testid="plan"]')
     # Сначала дожидаемся, что расчёт действительно начался: иначе условие
     # «кнопка снова доступна» совпадает мгновенно, и снимок застаёт экран

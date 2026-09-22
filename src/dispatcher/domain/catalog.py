@@ -16,6 +16,10 @@ VEHICLES = (VEHICLE_CAR, VEHICLE_FOOT, VEHICLE_BIKE, VEHICLE_TRANSIT)
 
 PRIORITY_NORMAL = "Обычная"
 PRIORITY_URGENT = "Срочная"
-PRIORITIES = (PRIORITY_NORMAL, PRIORITY_URGENT)
+#: Подключение: второй приоритет после аварии. Постановщик задал порядок
+#: «Авария - Подключение - Ремонт / Дозаказ» и просил рассматривать остальное
+#: по остаточному принципу (чат 19.09, ответ 15).
+PRIORITY_HIGH = "Повышенная"
+PRIORITIES = (PRIORITY_NORMAL, PRIORITY_HIGH, PRIORITY_URGENT)
 
 

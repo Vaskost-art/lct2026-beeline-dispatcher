@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from dispatcher.domain import (
+    PRIORITIES,
     PRIORITY_NORMAL,
-    PRIORITY_URGENT,
     SKILL_LOCAL,
     VEHICLE_CAR,
     Engineer,
@@ -37,11 +37,13 @@ def order_from_json(data: dict) -> Order:
             f"{where}: транспорт «{vehicle}» отсутствует в справочнике. "
             f"Допустимы: {', '.join(norms.SPEED_KMH)}")
 
+    # Справочник берётся целиком: перечисление значений по месту разошлось
+    # с доменом, как только приоритетов стало три.
     priority = str(data.get("priority") or PRIORITY_NORMAL)
-    if priority not in (PRIORITY_NORMAL, PRIORITY_URGENT):
+    if priority not in PRIORITIES:
         raise DatasetError(
             f"{where}: приоритет «{priority}» отсутствует в справочнике. "
-            f"Допустимы: {PRIORITY_NORMAL}, {PRIORITY_URGENT}")
+            f"Допустимы: {', '.join(PRIORITIES)}")
 
     try:
         duration = int(str(_require(data, "duration_min", where)))

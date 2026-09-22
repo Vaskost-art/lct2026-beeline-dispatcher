@@ -178,6 +178,10 @@ a{color:var(--ink)}
 .callout strong{color:var(--ink)}
 
 /* ---------- таблицы ---------- */
+.shots{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.shot{margin:0; display:flex; flex-direction:column; gap:8px}
+.shot img{width:100%; border:1px solid var(--edge); border-radius:4px; display:block}
+.shot figcaption{font-size:13px; line-height:1.45; color:var(--muted-text,#555)}
 .table-wrap{overflow-x:auto; border:1px solid var(--edge); border-radius:4px}
 table{width:100%; border-collapse:collapse; background:var(--panel); font-size:14.5px}
 th,td{padding:9px 14px; text-align:left; border-bottom:1px solid var(--edge)}
@@ -408,17 +412,17 @@ tr.fact td{color:var(--muted); font-style:italic}
         <tr class="region-head"><td colspan="5">Восток · 66 заявок · 8 бригад</td></tr>
         <tr><td>Базовый по ТЗ</td><td class="n">25</td><td class="n">8</td><td class="n">141.9</td><td class="n">5.68</td></tr>
         <tr><td>Жадная эвристика</td><td class="n">61</td><td class="n">8</td><td class="n">204.7</td><td class="n">3.36</td></tr>
-        <tr class="best"><td>Оптимизатор</td><td class="n">63</td><td class="n">7</td><td class="n">183.5</td><td class="n">2.91</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">63</td><td class="n">7</td><td class="n">158.3</td><td class="n">2.51</td></tr>
 
         <tr class="region-head"><td colspan="5">Юго-восток · 83 заявки · 9 бригад</td></tr>
         <tr><td>Базовый по ТЗ</td><td class="n">41</td><td class="n">9</td><td class="n">497.8</td><td class="n">12.14</td></tr>
         <tr><td>Жадная эвристика</td><td class="n">64</td><td class="n">8</td><td class="n">461.9</td><td class="n">7.22</td></tr>
-        <tr class="best"><td>Оптимизатор</td><td class="n">68</td><td class="n">9</td><td class="n">424.0</td><td class="n">6.24</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">68</td><td class="n">9</td><td class="n">425.0</td><td class="n">6.25</td></tr>
 
         <tr class="region-head"><td colspan="5">Югоцентр · 56 заявок · 5 бригад</td></tr>
         <tr><td>Базовый по ТЗ</td><td class="n">12</td><td class="n">5</td><td class="n">69.3</td><td class="n">5.77</td></tr>
         <tr><td>Жадная эвристика</td><td class="n">44</td><td class="n">5</td><td class="n">256.6</td><td class="n">5.83</td></tr>
-        <tr class="best"><td>Оптимизатор</td><td class="n">49</td><td class="n">5</td><td class="n">169.8</td><td class="n">3.46</td></tr>
+        <tr class="best"><td>Оптимизатор</td><td class="n">50</td><td class="n">5</td><td class="n">170.6</td><td class="n">3.41</td></tr>
       </tbody>
     </table>
   </div>
@@ -427,9 +431,7 @@ tr.fact td{color:var(--muted); font-style:italic}
     всех восьмерых и берёт вчетверо меньше заявок.</p>
   <p class="note">Суммарный пробег между вариантами напрямую несопоставим: план,
     раздавший вдвое меньше заявок, «экономит» километры просто потому, что многого
-    не делает. Сопоставима удельная величина - последний столбец. Лишние километры
-    на Востоке - цена освобождённой бригады: в целевой функции человек стоит как
-    120 километров.</p>
+    не делает. Сопоставима удельная величина - последний столбец.</p>
 </section>
 
 <!-- 8 -->
@@ -478,7 +480,7 @@ tr.fact td{color:var(--muted); font-style:italic}
   <p class="callout"><strong>Базовый вариант задан в ТЗ дословно:</strong> заявки по порядку
     поступления первому подходящему исполнителю, порядок объезда совпадает с порядком
     назначения. Так он и реализован. За день он закрывает 78 заявок из 205, оптимизатор -
-    180. Это и есть ответ на вопрос, зачем здесь планировщик: задача нетривиальна, честное
+    181. Это и есть ответ на вопрос, зачем здесь планировщик: задача нетривиальна, честное
     последовательное распределение берёт чуть больше трети работы.</p>
 </section>
 
@@ -579,6 +581,34 @@ tr.fact td{color:var(--muted); font-style:italic}
 </section>
 
 <!-- 13 -->
+<!-- экраны -->
+<section class="slide" id="s-ui">
+  <span class="page-no">MVP</span>
+  <div class="eyebrow">Как это выглядит</div>
+  <h2>Рабочий день диспетчера на четырёх экранах</h2>
+  <div class="shots">
+    <figure class="shot">
+      <img src="shots/planned-1440.png" alt="План на день: Слева маршруты бригад, справа карта, сверху очередь того, что требует решения человека." loading="lazy">
+      <figcaption><strong>План на день.</strong> Слева маршруты бригад, справа карта, сверху очередь того, что требует решения человека.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="shots/event-preview-1440.png" alt="Событие в середине дня: Предсказание до применения: что станет с заявками и пробегом и какие визиты поедут." loading="lazy">
+      <figcaption><strong>Событие в середине дня.</strong> Предсказание до применения: что станет с заявками и пробегом и какие визиты поедут.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="shots/detail-1440.png" alt="Почему эта бригада: По каждой заявке видно, кто ещё мог её взять и почему не взял." loading="lazy">
+      <figcaption><strong>Почему эта бригада.</strong> По каждой заявке видно, кто ещё мог её взять и почему не взял.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="shots/shortfall-1440.png" alt="Сколько людей не хватает: Не только «сколько», но и каких: транспорт, навыки, часы смены." loading="lazy">
+      <figcaption><strong>Сколько людей не хватает.</strong> Не только «сколько», но и каких: транспорт, навыки, часы смены.</figcaption>
+    </figure>
+  </div>
+  <p class="note">Снимки сделаны автоматически: сценарий проходит экран как человек и
+    замеряет вёрстку на четырёх ширинах. Прогон валится, если состояние не собралось,
+    поэтому картинка не может показывать не то, что подписано.</p>
+</section>
+
 <section class="slide" id="s13">
   <span class="page-no">13 / 13</span>
   <div class="eyebrow">Границы</div>

@@ -12,6 +12,7 @@ from dispatcher.api.routes.planning import build_plan
 from dispatcher.api.schemas import AdjustOrderRequest, ReassignRequest, RegionRequest
 from dispatcher.api.state import DayVersion
 from dispatcher.domain import Plan
+from dispatcher.services.equipment import missing_for
 from dispatcher.services.metrics import plan_metrics
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.reasons import diagnose
@@ -19,6 +20,14 @@ from dispatcher.services.planning.strategies import STRATEGIES
 from dispatcher.services.routing import evaluate_sequence
 
 router = APIRouter()
+
+
+def _listing(names: list[str]) -> str:
+    """«роутера» или «роутера и приставки» - для текста отказа."""
+    lowered = [name.lower() for name in dict.fromkeys(names)]
+    if len(lowered) == 1:
+        return lowered[0]
+    return ", ".join(lowered[:-1]) + " и " + lowered[-1]
 
 
 # --- ручное переназначение (дополнительная возможность из ТЗ) ----------------
@@ -64,6 +73,15 @@ def reassign(request: ReassignRequest) -> dict:
             raise HTTPException(
                 400, f"«{target.name}» не может взять эту заявку: нет {missing}")
 
+        # Оборудование бригада получила утром на весь день: заявку под то,
+        # чего у неё с собой нет, она физически не выполнит.
+        short = missing_for(order, target.id, state.issued, plan, orders)
+        if short:
+            raise HTTPException(
+                400, f"«{target.name}» не может взять эту заявку: с собой нет "
+                     f"{_listing(short)}. Оборудование выдаётся утром на весь "
+                     f"день, пополнить сумку в поле нечем")
+
         # ставим в позицию, которая даёт наименьший прирост пробега
         base = sequences.get(target.id, [])
         best = None
@@ -72,8 +90,8 @@ def reassign(request: ReassignRequest) -> dict:
             built, reason = evaluate_sequence(target, candidate)
             if built is None:
                 continue
-            if best is None or route.total_km < best[0]:
-                best = (route.total_km, candidate)
+            if best is None or built.total_km < best[0]:
+                best = (built.total_km, candidate)
         if best is None:
             raise HTTPException(400,
                                 f"«{target.name}» не успевает взять эту заявку: "
@@ -98,7 +116,8 @@ def reassign(request: ReassignRequest) -> dict:
     STORE.push(request.region, DayVersion(
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
-        engineers=list(engineers), locked=locked, manual=True))
+        engineers=list(engineers), locked=locked, issued=state.issued,
+        manual=True))
     return ok(plan_payload(scenario, new_plan, metrics))
 
 
@@ -165,7 +184,8 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
     STORE.push(request.region, DayVersion(
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
-        engineers=list(engineers), locked=locked, manual=True))
+        engineers=list(engineers), locked=locked, issued=state.issued,
+        manual=True))
     return ok(plan_payload(scenario, plan, metrics))
 
 

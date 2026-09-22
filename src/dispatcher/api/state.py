@@ -73,7 +73,8 @@ class DayStore:
             day.versions.append(DayVersion(
                 label=snapshot.label, plan=plan, metrics=metrics,
                 orders=snapshot.orders, engineers=snapshot.engineers,
-                locked=snapshot.locked, manual=snapshot.manual))
+                locked=snapshot.locked, issued=snapshot.issued,
+                manual=snapshot.manual))
         return len(day.versions)
 
     def regions(self) -> list[str]:
@@ -116,7 +117,8 @@ class DayStore:
             self._journal.record(region, version.label, snapshot_to_json(
                 snapshot_of(day.scenario.region_key, day.scenario.region_name,
                             version.label, version.plan, version.orders,
-                            version.engineers, version.locked, version.manual)))
+                            version.engineers, version.locked, version.manual,
+                            issued=version.issued)))
         return version
 
     def step_back(self, region: str) -> DayVersion | None:
@@ -141,4 +143,5 @@ class DayStore:
             orders=list(current.orders),
             engineers=deepcopy(current.engineers),
             locked=dict(current.locked),
+            issued={key: dict(value) for key, value in current.issued.items()},
         )

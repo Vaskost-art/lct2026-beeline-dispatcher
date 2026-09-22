@@ -10,6 +10,7 @@ from dispatcher.api.schemas import ExplainRequest, PlanRequest
 from dispatcher.api.state import DayVersion
 from dispatcher.domain import Engineer, Order, Plan
 from dispatcher.services.control import control_plan
+from dispatcher.services.equipment import issued_items
 from dispatcher.services.explain import explain_assignment
 from dispatcher.services.metrics import compare, plan_metrics
 from dispatcher.services.planning.baseline import solve_baseline, solve_greedy
@@ -57,14 +58,20 @@ def make_plan(request: PlanRequest) -> dict:
                        orders, engineers, locked)
 
     metrics = plan_metrics(plan, orders, engineers)
+    # Оборудование выдаётся в офисе один раз, по первому плану дня: бригада
+    # уехала с этой сумкой, и пересчёт её не пополняет. Сброс дня начинает
+    # утро заново, поэтому выдача считается снова.
+    issued = {} if (previous is None or request.reset) else dict(previous.issued)
+    if not issued:
+        issued = issued_items(plan, orders)
     label = ("Сброс ручных правок" if request.reset else
              "Пересчёт: "
              f"{STRATEGY_TITLES.get(request.strategy, request.strategy).lower()}")
     # Пересчёт это тоже изменение: прежняя версия остаётся в истории, и к ней
     # диспетчер возвращается шагом назад, не пересчитывая заново.
     STORE.push(request.region, DayVersion(
-        label=label, plan=plan, metrics=metrics,
-        orders=orders, engineers=engineers, locked=locked))
+        label=label, plan=plan, metrics=metrics, orders=orders,
+        engineers=engineers, locked=locked, issued=issued))
     return ok(plan_payload(scenario, plan, metrics))
 
 

@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 from dispatcher.domain.catalog import VEHICLE_CAR, VEHICLE_FOOT
-from dispatcher.domain.equipment import BY_TYPE_HD, SYNTHETIC_SHARES
+from dispatcher.domain.equipment import (
+    BY_TYPE_HD,
+    SPARE_PER_ITEM,
+    SYNTHETIC_SHARES,
+)
 from dispatcher.domain.norms import BASE_NORM_BY_TYPE_BK, DETOUR_FACTOR, ROAD_IN_NORM_MIN, SPEED_KMH
 from dispatcher.domain.shifts import (
                                      BREAK_MIN,
@@ -62,6 +66,9 @@ ASSUMPTIONS = [
      "подключений набор достроен долями: "
      + ", ".join(f"{name.lower()} {round(share * 100)}%"
                  for name, share in SYNTHETIC_SHARES)
-     + ". Оборудование не ограничивает план: по готовым маршрутам считается "
-       "ведомость на выдачу в офисе."),
+     + ". Оборудование выдаётся в офисе утром сразу на весь день: ведомость "
+       "считается по первому плану, плюс "
+       f"{SPARE_PER_ITEM} запасное устройство каждого вида той бригаде, "
+       "которая вообще что-то везёт. Днём заявку получает только бригада, у "
+       "которой нужное устройство с собой: пополнить сумку в поле нечем."),
 ]

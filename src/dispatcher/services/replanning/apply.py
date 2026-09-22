@@ -21,11 +21,15 @@ from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL, MODE_
 
 def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
            event: ReplanEvent, mode: str = "minimal",
-           time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC) -> ReplanResult:
+           time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
+           issued: dict[str, dict[str, int]] | None = None) -> ReplanResult:
     """Строит новый план на остаток дня и объясняет, что изменилось.
 
     mode='minimal' — точечно встроить изменение, не трогая остальные назначения;
     mode='full'    — перепланировать весь остаток дня заново.
+
+    `issued` — что бригады получили в офисе утром: днём заявку берёт только
+    та, у кого нужное оборудование с собой.
     """
     now = event.at
     new_orders, new_engineers = apply_event(orders, engineers, event)
@@ -152,7 +156,8 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         adjusted.append(e)
 
     if mode == MODE_MINIMAL:
-        new_plan = _repair(plannable, adjusted, current, event, now, frozen)
+        new_plan = _repair(plannable, adjusted, current, event, now, frozen,
+                           issued)
     else:
         new_plan = solve_optimized(plannable, adjusted,
                                    time_limit_sec=time_limit_sec, frozen=frozen)

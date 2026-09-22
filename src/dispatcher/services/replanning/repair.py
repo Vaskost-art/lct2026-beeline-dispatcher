@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route, Unassigned
+from dispatcher.services.equipment import Stock
 from dispatcher.services.planning.costs import ENGINEER_FIXED_COST
 from dispatcher.services.planning.reasons import diagnose
 from dispatcher.services.replanning.displacement import (
@@ -29,14 +30,17 @@ MODE_HINTS = {
 
 
 def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
-            event: ReplanEvent, now: int,
-            frozen: dict[str, list[str]]) -> Plan:
+            event: ReplanEvent, now: int, frozen: dict[str, list[str]],
+            issued: dict[str, dict[str, int]] | None = None) -> Plan:
     """Встраивает изменение, не трогая остальные назначения.
 
     Диспетчеру важнее предсказуемость, чем последние проценты пробега: если
     событие можно отработать точечно, бригады не должны получать новый план
     целиком. Поэтому сначала пробуем починить план вставкой, и только если
     это не удаётся — вызывающая сторона перепланирует остаток дня полностью.
+
+    Оборудование выдано утром, поэтому заявку получает только та бригада, у
+    которой нужное устройство с собой: `issued` — что кому выдали.
     """
     by_id = {o.id: o for o in orders}
     engineer_by_id = {e.id: e for e in engineers}
@@ -72,6 +76,9 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
         if order.id not in assigned_ids and not any(o.id == order.id for o in orphans):
             orphans.append(order)
 
+    stock = Stock(issued or {})
+    stock.fill(sequences)
+
     # маршруты, оставшиеся после изъятия
     routes: dict[str, Route] = {}
     for engineer in engineers:
@@ -99,6 +106,8 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                 prefix = [o for o in sequence if o.id in prefix_ids]
                 dropped = [o for o in sequence if o.id not in prefix_ids]
                 rebuilt, _ = evaluate_sequence(engineer, prefix)
+            for order in dropped:
+                stock.release(engineer.id, order)
             orphans.extend(dropped)
         routes[engineer.id] = (rebuilt if rebuilt is not None
                                else Route(engineer_id=engineer.id))
@@ -111,7 +120,7 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
             continue
         best: tuple[float, str, Route] | None = None
         for engineer in engineers:
-            if not engineer.can_do(order):
+            if not engineer.can_do(order) or not stock.can_take(engineer.id, order):
                 continue
             route = routes[engineer.id]
             first_free = len(frozen.get(engineer.id, []))
@@ -126,11 +135,12 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                     best = (score, engineer.id, new_route)
         if best is not None:
             routes[best[1]] = best[2]
+            stock.take(best[1], order)
             continue
 
         # Вставка «как есть» не удалась — пробуем пересобрать хвост маршрута.
         for engineer in engineers:
-            if not engineer.can_do(order):
+            if not engineer.can_do(order) or not stock.can_take(engineer.id, order):
                 continue
             route = routes[engineer.id]
             first_free = len(frozen.get(engineer.id, []))
@@ -144,12 +154,13 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                 best = (score, engineer.id, new_route)
         if best is not None:
             routes[best[1]] = best[2]
+            stock.take(best[1], order)
             continue
 
         # Срочная заявка не встала и после пересборки — освобождаем ей место.
         if order.priority == PRIORITY_URGENT:
             outcome = _place_urgent_with_displacement(
-                order, routes, engineers, by_id, frozen, now)
+                order, routes, engineers, by_id, frozen, now, stock)
             if outcome is not None:
                 _, homeless = outcome
                 for victim in homeless:

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Route
+from dispatcher.services.equipment import Stock
 from dispatcher.services.planning.costs import ENGINEER_FIXED_COST
 from dispatcher.services.routing import evaluate_sequence, insertion_cost
 
@@ -29,7 +30,7 @@ MAX_DISPLACED = 3          # сколько обычных заявок гото
 def _place_urgent_with_displacement(
         order: Order, routes: dict[str, Route], engineers: list[Engineer],
         by_id: dict[str, Order], frozen: dict[str, list[str]],
-        now: int) -> tuple[str, list[Order]] | None:
+        now: int, stock: Stock | None = None) -> tuple[str, list[Order]] | None:
     """Освобождает место под срочную заявку, сдвигая обычные.
 
     ТЗ: «Срочная заявка имеет более высокий приоритет при перепланировании».
@@ -40,12 +41,16 @@ def _place_urgent_with_displacement(
     возвращаются диспетчеру с явной причиной.
 
     Возвращает (engineer_id, список так и не пристроенных заявок) либо None,
-    если места не нашлось даже с вытеснением.
+    если места не нашлось даже с вытеснением. `stock` — остаток оборудования
+    в сумках: брать заявку может только бригада, у которой нужное устройство
+    с собой, и вытеснение этот учёт ведёт само.
     """
     best: tuple[float, str, Route, list[Order]] | None = None
 
     for engineer in engineers:
         if not engineer.can_do(order):
+            continue
+        if stock is not None and not stock.can_take(engineer.id, order):
             continue
         route = routes[engineer.id]
         first_free = len(frozen.get(engineer.id, []))
@@ -82,6 +87,10 @@ def _place_urgent_with_displacement(
 
     _, engineer_id, new_route, victims = best
     routes[engineer_id] = new_route
+    if stock is not None:
+        for victim in victims:
+            stock.release(engineer_id, victim)
+        stock.take(engineer_id, order)
 
     # вытесненные заявки пробуем передать другим исполнителям
     homeless: list[Order] = []
@@ -92,6 +101,8 @@ def _place_urgent_with_displacement(
         placed: tuple[float, str, Route] | None = None
         for engineer in engineers:
             if not engineer.can_do(victim):
+                continue
+            if stock is not None and not stock.can_take(engineer.id, victim):
                 continue
             route = routes[engineer.id]
             first_free = len(frozen.get(engineer.id, []))
@@ -105,6 +116,8 @@ def _place_urgent_with_displacement(
                 placed = (score, engineer.id, candidate_route)
         if placed is not None:
             routes[placed[1]] = placed[2]
+            if stock is not None:
+                stock.take(placed[1], victim)
         else:
             homeless.append(victim)
 

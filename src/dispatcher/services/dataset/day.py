@@ -36,6 +36,8 @@ class DaySnapshot:
     #: Кто какую заявку везёт: идентификатор бригады -> список заявок по порядку.
     sequences: dict[str, list[str]]
     locked: dict[str, str] = field(default_factory=dict)
+    #: Выданное утром оборудование: бригада -> устройство -> сколько.
+    issued: dict[str, dict[str, int]] = field(default_factory=dict)
     strategy: str = ""
     solver_status: str = ""
     manual: bool = False
@@ -47,8 +49,8 @@ class DaySnapshot:
 
 def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
                 orders: list[Order], engineers: list[Engineer],
-                locked: dict[str, str], manual: bool,
-                name: str = "") -> DaySnapshot:
+                locked: dict[str, str], manual: bool, name: str = "",
+                issued: dict[str, dict[str, int]] | None = None) -> DaySnapshot:
     """Собирает снимок из текущей версии дня."""
     return DaySnapshot(
         region_key=region_key,
@@ -59,6 +61,7 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
         sequences={route.engineer_id: [stop.order_id for stop in route.stops]
                    for route in plan.routes if route.is_used},
         locked=dict(locked or {}),
+        issued={key: dict(value) for key, value in (issued or {}).items()},
         strategy=plan.strategy,
         solver_status=plan.solver_status,
         manual=manual,
@@ -80,6 +83,7 @@ def snapshot_to_json(snapshot: DaySnapshot) -> dict[str, object]:
         "solver_status": snapshot.solver_status,
         "manual": snapshot.manual,
         "locked": dict(snapshot.locked),
+        "issued": {key: dict(value) for key, value in snapshot.issued.items()},
         "orders": [order_to_json(order) for order in snapshot.orders],
         "engineers": [engineer_to_json(engineer) for engineer in snapshot.engineers],
         "routes": [{"engineer": engineer_id, "orders": list(sequence)}
@@ -117,6 +121,7 @@ def snapshot_from_json(data: dict[str, object]) -> DaySnapshot:
         engineers=engineers,
         sequences=sequences,
         locked=locked,
+        issued=_issued(data),
         strategy=str(data.get("strategy") or "restored"),
         solver_status=str(data.get("solver_status") or "RESTORED"),
         manual=bool(data.get("manual", True)),
@@ -157,6 +162,20 @@ def rebuild(snapshot: DaySnapshot) -> tuple[Plan, dict[str, object], list[str]]:
     plan.unassigned = [diagnose(order, snapshot.engineers)
                        for order in snapshot.orders if order.id not in assigned]
     return plan, plan_metrics(plan, snapshot.orders, snapshot.engineers), lost
+
+
+def _issued(data: dict[str, object]) -> dict[str, dict[str, int]]:
+    """Выданное оборудование из записи. Битая запись читается как «не выдано»."""
+    value = data.get("issued")
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, dict[str, int]] = {}
+    for engineer_id, items in value.items():
+        if isinstance(items, dict):
+            result[str(engineer_id)] = {str(name): int(count)
+                                        for name, count in items.items()
+                                        if isinstance(count, int)}
+    return result
 
 
 def _items(data: dict[str, object], key: str) -> list[dict[str, object]]:

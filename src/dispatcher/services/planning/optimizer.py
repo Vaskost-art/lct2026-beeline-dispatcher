@@ -12,21 +12,19 @@ from collections.abc import Callable
 from ortools.constraint_solver import pywrapcp
 
 from dispatcher.domain import (
-    PRIORITY_URGENT,
     Engineer,
     Order,
     Plan,
     Route,
 )
-from dispatcher.domain.distance import road_km, travel_minutes
+from dispatcher.domain.distance import road_km
 from dispatcher.services.planning.baseline import _finalize
 from dispatcher.services.planning.costs import (
     DEFAULT_TIME_LIMIT_SEC,
     ENGINEER_FIXED_COST,
-    LATE_EMERGENCY_COST_PER_MIN,
-    URGENT_DELAY_COST_PER_MIN,
 )
 from dispatcher.services.planning.eligibility import restrict_crews
+from dispatcher.services.planning.equipment_limit import limit_bags
 from dispatcher.services.planning.extract import routes_from_solution
 from dispatcher.services.planning.frozen import pin_prefixes
 from dispatcher.services.planning.search import (
@@ -35,20 +33,24 @@ from dispatcher.services.planning.search import (
     SOLUTION_LIMIT,
     _status_name,
 )
+from dispatcher.services.planning.transit import transit_matrix
+from dispatcher.services.planning.urgency import rush_emergencies
 
 
 def solve_optimized(orders: list[Order], engineers: list[Engineer],
                     time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
                     locked: dict[str, str] | None = None,
                     frozen: dict[str, list[str]] | None = None,
-                    deadlines: dict[str, int] | None = None) -> Plan:
+                    deadlines: dict[str, int] | None = None,
+                    issued: dict[str, dict[str, int]] | None = None) -> Plan:
     """Оптимизация маршрутов через OR-Tools Routing.
 
-    locked — жёсткая привязка order_id -> engineer_id (ручное переназначение
+    locked - жёсткая привязка order_id -> engineer_id (ручное переназначение
     диспетчером и уже выполненные заявки при перепланировании).
-    frozen — префиксы маршрутов, которые нельзя менять (заявки, к которым
+    frozen - префиксы маршрутов, которые нельзя менять (заявки, к которым
     исполнитель уже выехал или которые уже выполнены на момент события).
-    deadlines — не позже какого момента начать аварию, поступившую днём.
+    deadlines - не позже какого момента начать аварию, поступившую днём.
+    issued - выданное утром оборудование: больше него бригада не повезёт.
     """
     started = time.perf_counter()
     if not orders or not engineers:
@@ -62,8 +64,8 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     n_orders = len(orders)
     n_vehicles = len(engineers)
 
-    # Узлы: 0..n_orders-1 — заявки; далее по одному стартовому узлу на каждого
-    # исполнителя; последний узел — фиктивный финиш с нулевой стоимостью,
+    # Узлы: 0..n_orders-1 - заявки; далее по одному стартовому узлу на каждого
+    # исполнителя; последний узел - фиктивный финиш с нулевой стоимостью,
     # потому что по ТЗ возврат на базу не требуется.
     start_nodes = [n_orders + i for i in range(n_vehicles)]
     end_node = n_orders + n_vehicles
@@ -98,21 +100,22 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
 
     dist_cb_idx = routing.RegisterTransitCallback(distance_cb)
 
-    # --- время в пути зависит от транспорта, поэтому колбэк свой на каждого ---
-    time_cb_indices = []
-    for vehicle_id, engineer in enumerate(engineers):
-        def make_cb(eng: Engineer) -> Callable[[int, int], int]:
+    # --- время в пути зависит от транспорта: матрица на каждый вид ---
+    # Считается заранее: решатель зовёт колбэк на каждом шаге поиска, и
+    # модель поездки по плечам прямо в колбэке замедляла расчёт вчетверо.
+    time_cb_by_vehicle: dict[str, int] = {}
+    for kind in {engineer.vehicle for engineer in engineers}:
+        transit = transit_matrix(km_exact, orders, n_orders, end_node, kind)
+
+        def make_cb(matrix: list[list[int]]) -> Callable[[int, int], int]:
             def time_cb(from_index: int, to_index: int) -> int:
-                i = manager.IndexToNode(from_index)
-                j = manager.IndexToNode(to_index)
-                service = orders[i].duration_min if i < n_orders else 0
-                if i == end_node or j == end_node:
-                    return service
-                travel = travel_minutes(km_exact[i][j], eng.vehicle)
-                return service + travel
+                i: int = manager.IndexToNode(from_index)
+                j: int = manager.IndexToNode(to_index)
+                return matrix[i][j]
             return time_cb
-        cb_idx = routing.RegisterTransitCallback(make_cb(engineer))
-        time_cb_indices.append(cb_idx)
+        time_cb_by_vehicle[kind] = routing.RegisterTransitCallback(make_cb(transit))
+    time_cb_indices = [time_cb_by_vehicle[engineer.vehicle] for engineer in engineers]
+    for vehicle_id in range(len(engineers)):
         routing.SetArcCostEvaluatorOfVehicle(dist_cb_idx, vehicle_id)
         routing.SetFixedCostOfVehicle(ENGINEER_FIXED_COST, vehicle_id)
 
@@ -132,28 +135,12 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
         # CumulVar в узле = момент НАЧАЛА работ; по ТЗ он обязан попасть в окно
         time_dim.CumulVar(index).SetRange(order.window_start, order.window_end)
 
-    # Срочные тянутся к началу своего окна. Мягкая граница, а не жёсткая:
-    # жёсткая выкинула бы заявку из плана, если бригада не успевает, а нам
-    # нужно «как можно раньше», а не «либо рано, либо никак».
-    earliest = min((e.shift_start for e in engineers), default=0)
-    deadlines = deadlines or {}
-    for node, order in enumerate(orders):
-        if order.priority != PRIORITY_URGENT:
-            continue
-        index = manager.NodeToIndex(node)
-        if order.id in deadlines:
-            # Авария, поступившая днём: до срока реакции ожидание бесплатно,
-            # после - дороже снятого ремонта за каждые полчаса.
-            time_dim.SetCumulVarSoftUpperBound(index, deadlines[order.id],
-                                               LATE_EMERGENCY_COST_PER_MIN)
-            continue
-        bound = max(order.window_start, earliest)
-        time_dim.SetCumulVarSoftUpperBound(index, bound, URGENT_DELAY_COST_PER_MIN)
+    rush_emergencies(manager, time_dim, orders, engineers, deadlines or {})
 
     for vehicle_id, engineer in enumerate(engineers):
         start_index = routing.Start(vehicle_id)
         end_index = routing.End(vehicle_id)
-        # Смена могла схлопнуться или вывернуться — например, исполнитель
+        # Смена могла схлопнуться или вывернуться - например, исполнитель
         # выбыл раньше её начала. Пустой интервал решатель не принимает
         # и падает исключением, поэтому сводим такую смену к нулевой.
         shift_start = engineer.shift_start
@@ -166,6 +153,7 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
 
     restrict_crews(routing, manager, orders, engineers, locked)
     pin_prefixes(routing, manager, time_dim, orders, engineers, frozen)
+    limit_bags(routing, manager, orders, engineers, issued or {})
 
     # --- параметры поиска ---
     params = pywrapcp.DefaultRoutingSearchParameters()

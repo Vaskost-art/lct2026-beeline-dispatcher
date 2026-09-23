@@ -26,7 +26,7 @@ def _finalize(plan: Plan, orders: list[Order], engineers: list[Engineer]) -> Pla
 
 def solve_baseline(orders: list[Order], engineers: list[Engineer],
                    locked: dict[str, str] | None = None) -> Plan:
-    """Последовательное распределение «как есть» — точка отсчёта из ТЗ."""
+    """Последовательное распределение «как есть» - точка отсчёта из ТЗ."""
     started = time.perf_counter()
     locked = locked or {}
     routes = {e.id: Route(engineer_id=e.id) for e in engineers}
@@ -61,7 +61,7 @@ def solve_greedy(orders: list[Order], engineers: list[Engineer],
     и сравнивать оптимизатор только с ним было бы некорректно. Здесь заявки
     идут от срочных и ранних окон к поздним, каждая ставится в ту позицию
     маршрута, которая даёт минимальный прирост пробега, и предпочтение
-    отдаётся уже задействованным исполнителям — чтобы не раздувать персонал.
+    отдаётся уже задействованным исполнителям - чтобы не раздувать персонал.
     """
     started = time.perf_counter()
     locked = locked or {}
@@ -88,7 +88,7 @@ def solve_greedy(orders: list[Order], engineers: list[Engineer],
                     engineer, route, by_id, order, position)
                 if not ok:
                     continue
-                # штраф за вывод нового исполнителя — метрика «персонал» важнее пробега
+                # штраф за вывод нового исполнителя - метрика «персонал» важнее пробега
                 score = delta + (ENGINEER_FIXED_COST / 1000.0 if not route.is_used else 0.0)
                 if new_route is not None and (best is None or score < best[0]):
                     best = (score, engineer.id, new_route)

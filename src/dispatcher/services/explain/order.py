@@ -1,13 +1,14 @@
 """Объяснение плана языком диспетчера (ТЗ п. 2.1 п.7 и п. 7.2).
 
 Главное правило: объяснение не пересказывает код, а перечисляет проверяемые
-факты — какие ограничения отсекли других исполнителей и на сколько километров
+факты - какие ограничения отсекли других исполнителей и на сколько километров
 любой другой вариант был бы хуже. Альтернативы считаются по-настоящему:
 заявка пробуется на вставку в маршрут каждого другого исполнителя.
 """
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
+from dispatcher.domain.text import decimal
 from dispatcher.domain.text import plural as _plural
 from dispatcher.services.explain.alternatives import _alternatives
 from dispatcher.services.explain.summary import _summary
@@ -48,11 +49,11 @@ def explain_assignment(order: Order, plan: Plan, orders: list[Order],
     if position == 0:
         prev_text = (f"Первая заявка в маршруте: выезд с базы в "
                      f"{hhmm(stop.arrival - stop.travel_min)}, "
-                     f"{stop.travel_km:.1f} км в пути.")
+                     f"{decimal(stop.travel_km)} км в пути.")
     else:
         prev_order = by_id[route.stops[position - 1].order_id]
         prev_text = (f"Едет от предыдущей заявки {prev_order.id} "
-                     f"({prev_order.district}): {stop.travel_km:.1f} км, "
+                     f"({prev_order.district}): {decimal(stop.travel_km)} км, "
                      f"{stop.travel_min} мин.")
 
     timing = (f"Приезжает в {hhmm(stop.arrival)}, работает "
@@ -66,7 +67,7 @@ def explain_assignment(order: Order, plan: Plan, orders: list[Order],
                and a["extra_km"] < 0]
     shown = alternatives[:MAX_ALTERNATIVES + 4]
 
-    headline = (f"Заявку {order.id} выполняет «{engineer.name}» — "
+    headline = (f"Заявку {order.id} выполняет «{engineer.name}» - "
                 f"{position + 1}-й визит в маршруте")
 
     return {
@@ -90,7 +91,7 @@ def _order_facts(order: Order) -> list[tuple[str, str]]:
         ("Требуемый навык", order.required_skill),
         ("Временное окно", order.window_text),
         ("Длительность", f"{order.duration_min} мин"),
-        ("Адрес", f"{order.address} — {order.district}"),
+        ("Адрес", f"{order.address} - {order.district}"),
         ("Приоритет", order.priority),
     ]
     if order.required_vehicle:

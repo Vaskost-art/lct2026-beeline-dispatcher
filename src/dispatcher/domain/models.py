@@ -91,6 +91,19 @@ class Engineer:
         base = f"{hhmm(self.shift_start)}–{hhmm(self.shift_end)}"
         return f"{base}, перерыв {self.break_min} мин" if self.break_min else base
 
+    def ready_for(self, position: int, order_id: str, clock: int) -> int:
+        """Когда бригада может выехать к визиту номер `position` маршрута.
+
+        После события начатое она доделывает, а к новому заданию выезжает не
+        раньше, чем о нём узнала. К заявке, к которой уже едет по прежнему
+        плану, - как ехала. Одно правило для построителя маршрута и
+        независимой проверки; решатель выражает его в своей модели
+        (`services/planning/frozen.py`).
+        """
+        if position == self.resume_after and order_id != self.en_route_to:
+            return max(clock, self.resume_at)
+        return clock
+
     def can_do(self, order: Order) -> bool:
         """Проверка «жёстких» ограничений навыка и ресурса (без времени)."""
         if order.required_skill not in self.skills:

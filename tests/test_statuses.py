@@ -124,3 +124,72 @@ def test_replan_keeps_the_finished_work_and_drops_the_cancelled(scenarios):
     # Отменённая заявка ушла из дня совсем: ни в маршрутах, ни в отказах.
     assert cancelled_id not in placed
     assert cancelled_id not in {u.order_id for u in result.plan.unassigned}
+
+
+def test_full_recount_keeps_the_shift_marks():
+    """«Собрать заново» посреди смены не отдаёт сделанное и не воскрешает отменённое.
+
+    Раньше пересчёт всего дня не знал об отметках: завершённая заявка уезжала
+    к другой бригаде, отменённая снова стояла в маршруте. Организаторы:
+    закрытые заявки в дальнейшее планирование не включаются.
+    """
+    from fastapi.testclient import TestClient
+
+    from dispatcher.api import deps
+    from dispatcher.api.app import app
+
+    deps.JOURNAL.available = False
+    region = "yugocentr"
+
+    def placed(plan: dict) -> dict:
+        return {stop["order_id"]: route["engineer_id"]
+                for route in plan["routes"] for stop in route["stops"]}
+
+    with TestClient(app) as client:
+        first = client.post("/api/plan", json={"region": region, "strategy": "greedy"})
+        routes = [r for r in first.json()["data"]["routes"] if len(r["stops"]) >= 2]
+        done_id, holder = routes[0]["stops"][0]["order_id"], routes[0]["engineer_id"]
+        cancelled_id = routes[1]["stops"][-1]["order_id"]
+        for order_id, mark in ((done_id, STATUS_DONE), (cancelled_id, STATUS_CANCELLED)):
+            client.post("/api/order/status",
+                        json={"region": region, "order_id": order_id, "status": mark})
+
+        recount = client.post("/api/plan", json={"region": region, "strategy": "greedy"})
+        after = placed(recount.json()["data"])
+        assert after.get(done_id) == holder
+        assert cancelled_id not in after
+
+        other = routes[0]["stops"][-1]["order_id"]
+        adjusted = client.post("/api/order/adjust", json={
+            "region": region, "order_id": other, "priority": "Срочная"})
+        after = placed(adjusted.json()["data"])
+        assert after.get(done_id) == holder
+        assert cancelled_id not in after
+
+
+def test_cancel_mark_takes_the_order_off_the_route():
+    """«Отменена» убирает заявку из маршрута сразу, а план остаётся верным."""
+    from fastapi.testclient import TestClient
+
+    from dispatcher.api import deps
+    from dispatcher.api.app import app
+    from dispatcher.services.validate import validate
+
+    deps.JOURNAL.available = False
+    region = "yugocentr"
+    with TestClient(app) as client:
+        plan = client.post("/api/plan", json={"region": region, "strategy": "greedy"})
+        route = next(r for r in plan.json()["data"]["routes"] if len(r["stops"]) >= 3)
+        middle = route["stops"][1]["order_id"]
+        before = plan.json()["data"]["metrics"]["orders_assigned"]
+
+        after = client.post("/api/order/status", json={
+            "region": region, "order_id": middle, "status": STATUS_CANCELLED})
+
+        data = after.json()["data"]
+        placed = {s["order_id"] for r in data["routes"] for s in r["stops"]}
+        assert middle not in placed
+        assert data["metrics"]["orders_assigned"] == before - 1
+        current = deps.STORE.current(region)
+        assert validate(current.plan, plannable(current.orders, current.statuses),
+                        current.engineers).ok

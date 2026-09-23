@@ -17,10 +17,7 @@ from dataclasses import dataclass, field
 from dispatcher.domain import Order
 from dispatcher.infrastructure.csvfile import CSV_DELIMITER, decode_csv
 from dispatcher.infrastructure.geo import Geocoder
-from dispatcher.infrastructure.orders_csv import parse_orders, read_rows
-
-#: Как подписана строка с адресом офиса в хвосте выгрузки.
-OFFICE_MARKER = "адрес офиса"
+from dispatcher.infrastructure.orders_csv import OFFICE_MARKER, parse_orders, read_rows
 
 
 @dataclass
@@ -56,10 +53,14 @@ def parse_synthetic(raw: bytes, region_key: str, cache_path: str) -> SyntheticIn
     # заявки доходят до Каширы. Сверять его координату с районом нельзя,
     # иначе верная точка будет отвергнута как неправдоподобная.
     district = parsed.orders[0].district if parsed.orders else ""
+    lat, lon = 0.0, 0.0
     if address:
         lat, lon, _ = geocoder.locate(address, district, check_district=False)
-    else:
-        lat, lon = 0.0, 0.0
+    if (lat, lon) == (0.0, 0.0) and parsed.orders:
+        # Без офиса в файле бригады стартовали бы с нулевой точки у экватора.
+        # Центр заявок участка - честное приближение, и в допущениях оно названо.
+        lat = sum(o.lat for o in parsed.orders) / len(parsed.orders)
+        lon = sum(o.lon for o in parsed.orders) / len(parsed.orders)
 
     return SyntheticInput(
         region_key=region_key,

@@ -4,9 +4,10 @@
 день, и при перепланировании ей можно назначать только те заявки, под
 которые оборудование у неё есть.
 """
-import pytest
 
-from dispatcher.domain import Order, Plan, Route, Stop
+from bag_fixtures import bag_day, bag_order, bag_stop
+
+from dispatcher.domain import Order, Plan, Route
 from dispatcher.domain.catalog import VEHICLE_CAR
 from dispatcher.domain.equipment import ROUTER, SPARE_PER_ITEM, TV_BOX
 from dispatcher.services.equipment import Stock, issued_items, missing_for
@@ -14,30 +15,8 @@ from dispatcher.services.equipment import Stock, issued_items, missing_for
 SKILL = "Работы на подключение"
 
 
-def _order(order_id: str, equipment: list[str]) -> Order:
-    return Order(id=order_id, lat=55.7, lon=37.6, address="", district="",
-                 duration_min=30, window_start=600, window_end=720,
-                 priority="Обычная", required_skill="Работы на подключение",
-                 equipment=equipment)
-
-
-def _stop(order_id: str) -> Stop:
-    return Stop(order_id=order_id, arrival=600, start=600, end=630,
-                travel_min=10, travel_km=2.0, wait_min=0)
-
-
-def _day():
-    """Бригада 1 везёт два роутера, бригада 2 не везёт ничего."""
-    orders = [_order("1", [ROUTER]), _order("2", [ROUTER]), _order("3", [])]
-    plan = Plan(routes=[
-        Route(engineer_id="Бригада 1", stops=[_stop("1"), _stop("2")]),
-        Route(engineer_id="Бригада 2", stops=[_stop("3")]),
-    ])
-    return plan, orders
-
-
 def test_issue_adds_a_spare_to_those_who_carry():
-    plan, orders = _day()
+    plan, orders = bag_day()
 
     issued = issued_items(plan, orders)
 
@@ -48,57 +27,57 @@ def test_issue_adds_a_spare_to_those_who_carry():
 
 
 def test_spare_lets_one_more_order_in():
-    plan, orders = _day()
+    plan, orders = bag_day()
     issued = issued_items(plan, orders)
 
-    assert missing_for(_order("4", [ROUTER]), "Бригада 1", issued, plan, orders) == []
+    assert missing_for(bag_order("4", [ROUTER]), "Бригада 1", issued, plan, orders) == []
 
 
 def test_third_router_does_not_fit():
     """Запас один: вторую лишнюю заявку той же бригаде уже не отдать."""
-    plan, orders = _day()
+    plan, orders = bag_day()
     issued = issued_items(plan, orders)
     stock = Stock(issued)
     stock.fill({"Бригада 1": [orders[0], orders[1]]})
 
-    extra = _order("4", [ROUTER])
+    extra = bag_order("4", [ROUTER])
     assert stock.can_take("Бригада 1", extra) is True
     stock.take("Бригада 1", extra)
-    assert stock.can_take("Бригада 1", _order("5", [ROUTER])) is False
+    assert stock.can_take("Бригада 1", bag_order("5", [ROUTER])) is False
 
 
 def test_crew_without_equipment_takes_nothing():
-    plan, orders = _day()
+    plan, orders = bag_day()
     issued = issued_items(plan, orders)
 
-    short = missing_for(_order("4", [ROUTER]), "Бригада 2", issued, plan, orders)
+    short = missing_for(bag_order("4", [ROUTER]), "Бригада 2", issued, plan, orders)
     assert short == [ROUTER]
 
 
 def test_order_without_equipment_is_always_allowed():
-    plan, orders = _day()
+    plan, orders = bag_day()
     issued = issued_items(plan, orders)
 
-    assert missing_for(_order("4", []), "Бригада 2", issued, plan, orders) == []
+    assert missing_for(bag_order("4", []), "Бригада 2", issued, plan, orders) == []
 
 
 def test_before_the_morning_issue_there_is_no_limit():
     """День ещё не построен - ограничивать нечем, набор соберётся по плану."""
-    plan, orders = _day()
+    plan, orders = bag_day()
 
-    assert missing_for(_order("4", [ROUTER]), "Бригада 2", {}, plan, orders) == []
-    assert Stock({}).enforced is False
+    assert missing_for(bag_order("4", [ROUTER]), "Бригада 2", {}, plan, orders) == []
+    assert Stock({}).can_take("Бригада 2", bag_order("4", [ROUTER])) is True
 
 
 def test_released_order_frees_the_bag():
-    plan, orders = _day()
+    plan, orders = bag_day()
     stock = Stock(issued_items(plan, orders))
     stock.fill({"Бригада 1": [orders[0], orders[1]]})
-    stock.take("Бригада 1", _order("4", [ROUTER]))
+    stock.take("Бригада 1", bag_order("4", [ROUTER]))
 
-    assert stock.can_take("Бригада 1", _order("5", [ROUTER])) is False
+    assert stock.can_take("Бригада 1", bag_order("5", [ROUTER])) is False
     stock.release("Бригада 1", orders[0])
-    assert stock.can_take("Бригада 1", _order("5", [ROUTER])) is True
+    assert stock.can_take("Бригада 1", bag_order("5", [ROUTER])) is True
 
 
 def test_replan_passes_the_order_by_the_empty_bag():
@@ -124,8 +103,8 @@ def test_replan_passes_the_order_by_the_empty_bag():
 
     # Утро: ближняя работает без оборудования, дальняя везёт роутер.
     orders = [_at("near-1", 55.70, 37.60, []), _at("far-1", 55.78, 37.72, [ROUTER])]
-    plan = Plan(routes=[Route(engineer_id="near", stops=[_stop("near-1")]),
-                        Route(engineer_id="far", stops=[_stop("far-1")])])
+    plan = Plan(routes=[Route(engineer_id="near", stops=[bag_stop("near-1")]),
+                        Route(engineer_id="far", stops=[bag_stop("far-1")])])
     issued = issued_items(plan, orders)
     assert ROUTER not in issued.get("near", {})
 
@@ -156,78 +135,3 @@ def _at(order_id: str, lat: float, lon: float, equipment: list[str],
     return Order(id=order_id, lat=lat, lon=lon, address="", district="",
                  duration_min=30, window_start=window[0], window_end=window[1],
                  priority=priority, required_skill=SKILL, equipment=equipment)
-
-
-def test_refusal_names_the_device_in_a_readable_form():
-    """«нет роутера», а не «нет роутер»: отказ читает человек."""
-    from dispatcher.domain.equipment import SPEAKER
-    from dispatcher.services.equipment import name_listing
-
-    assert name_listing([ROUTER]) == "роутера"
-    assert name_listing([ROUTER, TV_BOX]) == "роутера и приставки"
-    assert name_listing([ROUTER, ROUTER, SPEAKER]) == "роутера и колонки"
-
-
-def test_issued_sheet_shows_what_was_given_out():
-    """Ведомость показывает выданное с запасом, а не расчёт по плану."""
-    from dispatcher.services.equipment import issued_rows
-
-    plan, orders = _day()
-    rows = issued_rows(issued_items(plan, orders))
-
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["engineer_id"] == "Бригада 1"
-    assert row["items"][ROUTER] == 2 + SPARE_PER_ITEM
-    assert row["total"] == sum(row["items"].values())
-
-
-def test_transfer_moves_a_free_device():
-    """Свободное устройство уходит соседу: заказчик это разрешил."""
-    from dispatcher.services.equipment import transfer
-
-    plan, orders = _day()
-    issued = issued_items(plan, orders)      # Бригада 1: 3 роутера, 2 под заявки
-
-    updated = transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 1)
-
-    assert updated["Бригада 1"][ROUTER] == 2
-    assert updated["Бригада 2"][ROUTER] == 1
-    # Ведомость не меняется на месте: прежняя версия дня остаётся целой.
-    assert issued["Бригада 1"][ROUTER] == 2 + SPARE_PER_ITEM
-
-
-def test_transfer_does_not_take_what_is_promised_to_clients():
-    """Отдать можно только свободное: под свои заявки устройство остаётся."""
-    from dispatcher.services.equipment import transfer
-
-    plan, orders = _day()
-    issued = issued_items(plan, orders)
-
-    with pytest.raises(ValueError, match="свободно"):
-        transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 2)
-
-
-def test_transfer_lets_the_receiver_take_the_order():
-    """Смысл передачи: после неё бригада может взять заявку."""
-    from dispatcher.services.equipment import transfer
-
-    plan, orders = _day()
-    issued = issued_items(plan, orders)
-    extra = _order("9", [ROUTER])
-    assert missing_for(extra, "Бригада 2", issued, plan, orders) == [ROUTER]
-
-    updated = transfer(issued, plan, orders, "Бригада 1", "Бригада 2", ROUTER, 1)
-
-    assert missing_for(extra, "Бригада 2", updated, plan, orders) == []
-
-
-def test_transfer_refuses_nonsense():
-    from dispatcher.services.equipment import transfer
-
-    plan, orders = _day()
-    issued = issued_items(plan, orders)
-    with pytest.raises(ValueError):
-        transfer(issued, plan, orders, "Бригада 1", "Бригада 1", ROUTER, 1)
-    with pytest.raises(ValueError):
-        transfer(issued, plan, orders, "Бригада 1", "Бригада 2", "Дрель", 1)

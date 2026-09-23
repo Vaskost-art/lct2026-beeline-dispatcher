@@ -37,11 +37,20 @@ class ParsedOrders:
     rows: list[Mapping[str, str | None]] = field(default_factory=list)
 
 
+#: Как подписана строка с адресом офиса в хвосте выгрузки.
+OFFICE_MARKER = "адрес офиса"
+
+
 def read_rows(text: str) -> list[Mapping[str, str | None]]:
-    """Строки выгрузки с непустым номером заявки."""
+    """Строки заявок: с непустым номером и без строки офиса.
+
+    Строка офиса стоит в колонке «Заявка», и без этого фильтра она попадала в
+    список пропущенных нарядов у каждого участка.
+    """
     return [
         row for row in csv.DictReader(io.StringIO(text), delimiter=CSV_DELIMITER)
-        if (row.get("Заявка") or "").strip()
+        if (number := (row.get("Заявка") or "").strip())
+        and OFFICE_MARKER not in number.lower()
     ]
 
 

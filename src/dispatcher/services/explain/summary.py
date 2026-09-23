@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Stop, hhmm
+from dispatcher.domain.text import decimal
 from dispatcher.domain.text import plural as _plural
 
 
@@ -40,6 +41,6 @@ def _summary(order: Order, engineer: Engineer, stop: Stop, position: int,
 
     best_alt = next((a for a in alternatives if a["possible"]), None)
     if best_alt:
-        tail += (f" Ближайшая альтернатива — {best_alt['engineer_id']}: "
-                 f"его маршрут вырос бы на {best_alt['extra_km']:.1f} км.")
+        tail += (f" Ближайшая альтернатива - {best_alt['engineer_id']}: "
+                 f"его маршрут вырос бы на {decimal(best_alt['extra_km'])} км.")
     return head + tail

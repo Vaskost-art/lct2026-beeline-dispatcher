@@ -5,14 +5,18 @@
 подгружаем его при старте: и сервис, и скрипты берут ключи оттуда.
 
 Формат самый простой: `КЛЮЧ=значение`, по строке на ключ, комментарии с `#`.
-Внешнее окружение всегда сильнее файла — переменная, заданная в оболочке или
+Внешнее окружение всегда сильнее файла - переменная, заданная в оболочке или
 в docker-compose, не перетирается.
 """
 from __future__ import annotations
 
 import os
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#: Корень проекта: infrastructure -> dispatcher -> src -> корень. Раньше
+#: подъём был на уровень короче, и при запуске по README ключ Яндекс Карт из
+#: .env не подхватывался - работало только через run.sh, читающий файл сам.
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 DEFAULT_PATH = os.path.join(ROOT, ".env")
 
 
@@ -36,7 +40,7 @@ def load(path: str = DEFAULT_PATH) -> dict[str, str]:
             continue
         name, _, value = line.partition("=")
         name = name.strip()
-        # `export КЛЮЧ=значение` — привычная форма, принимаем и её
+        # `export КЛЮЧ=значение` - привычная форма, принимаем и её
         if name.startswith("export "):
             name = name[len("export "):].strip()
         value = value.strip().strip('"').strip("'")

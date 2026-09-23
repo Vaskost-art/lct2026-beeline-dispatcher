@@ -9,3 +9,9 @@ def plural(n: int, one: str, few: str, many: str) -> str:
     if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
         return few
     return many
+
+
+def decimal(value: float, digits: int = 1, sign: bool = False) -> str:
+    """Дробь по-русски, с запятой: «0,5», а не «0.5»; `sign` добавляет плюс."""
+    text = f"{value:+.{digits}f}" if sign else f"{value:.{digits}f}"
+    return text.replace(".", ",")

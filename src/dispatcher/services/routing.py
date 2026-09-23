@@ -61,10 +61,7 @@ def evaluate_sequence(engineer: Engineer, orders: list[Order]) -> tuple[Route | 
     clock = engineer.shift_start
 
     for position, order in enumerate(orders):
-        if position == engineer.resume_after and order.id != engineer.en_route_to:
-            # Начатое бригада доделывает, а к новому заданию выезжает не
-            # раньше, чем о нём узнала.
-            clock = max(clock, engineer.resume_at)
+        clock = engineer.ready_for(position, order.id, clock)
         leg = build_leg(engineer, lat, lon, clock, order)
         if not leg.feasible or leg.stop is None:
             return None, leg.reason
@@ -72,16 +69,6 @@ def evaluate_sequence(engineer: Engineer, orders: list[Order]) -> tuple[Route | 
         lat, lon, clock = order.lat, order.lon, leg.stop.end
 
     return route, ""
-
-
-def route_end_state(engineer: Engineer, route: Route,
-                    orders_by_id: dict[str, Order]) -> tuple[float, float, int]:
-    """Где и когда исполнитель освободится после последней заявки маршрута."""
-    if not route.stops:
-        return engineer.lat, engineer.lon, engineer.shift_start
-    last = route.stops[-1]
-    order = orders_by_id[last.order_id]
-    return order.lat, order.lon, last.end
 
 
 def insertion_cost(engineer: Engineer, route: Route, orders_by_id: dict[str, Order],

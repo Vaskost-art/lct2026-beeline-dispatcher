@@ -1,8 +1,8 @@
 """Запись сценария в JSON."""
 from __future__ import annotations
 
-from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, Engineer, Order, hhmm, norms
-from dispatcher.domain.catalog import VEHICLES
+from dispatcher.domain import Engineer, Order, hhmm, norms
+from dispatcher.domain.catalog import PRIORITIES, VEHICLES
 from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset.errors import FORMAT_VERSION
 
@@ -22,7 +22,7 @@ def order_to_json(order: Order) -> dict:
         "required_vehicle": order.required_vehicle,
         "equipment": list(order.equipment),
     }
-    # справочные поля — не обязательны для планирования, но полезны в интерфейсе
+    # справочные поля - не обязательны для планирования, но полезны в интерфейсе
     if order.type_bk:
         data["type_bk"] = order.type_bk
     if order.type_hd:
@@ -48,6 +48,11 @@ def engineer_to_json(engineer: Engineer) -> dict:
         "skills": list(engineer.skills),
         "vehicle": engineer.vehicle,
         "break_min": engineer.break_min,
+        # Правило выезда после события: без него поднятый день пересчитывает
+        # маршруты так, будто бригада знала о новом задании заранее.
+        "resume_after": engineer.resume_after,
+        "resume_at": engineer.resume_at,
+        "en_route_to": engineer.en_route_to,
     }
 
 
@@ -68,7 +73,7 @@ def scenario_to_json(scenario: Scenario, events: list[dict] | None = None) -> di
             "reference_books": {
                 "skills": list(dict.fromkeys(norms.SKILL_BY_TYPE_BK.values())),
                 "vehicles": list(VEHICLES),
-                "priorities": [PRIORITY_NORMAL, PRIORITY_URGENT],
+                "priorities": list(PRIORITIES),
             },
         },
         "orders": [order_to_json(o) for o in scenario.orders],

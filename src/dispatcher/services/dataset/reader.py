@@ -67,7 +67,7 @@ def order_from_json(data: dict) -> Order:
         duration_min=duration,
         window_start=window_start, window_end=window_end,
         priority=priority, required_skill=skill, required_vehicle=vehicle,
-        equipment=[str(item) for item in (data.get("equipment") or [])],
+        equipment=_names(data.get("equipment")),
         type_bk=str(data.get("type_bk") or ""),
         type_hd=str(data.get("type_hd") or ""),
         control_engineer=data.get("control_engineer") or None,
@@ -105,13 +105,13 @@ def engineer_from_json(data: dict, allow_empty_shift: bool = False) -> Engineer:
         raise DatasetError(
             f"{where}: конец смены ({hhmm(shift_end)}) раньше "
             f"её начала ({hhmm(shift_start)})")
-    # Смена нулевой длины — не опечатка, а состояние: так выглядит бригада,
+    # Смена нулевой длины - не опечатка, а состояние: так выглядит бригада,
     # выбывшая в течение дня. В присланном наборе данных это почти наверняка
-    # ошибка, поэтому там она запрещена, а при чтении сохранённого дня —
+    # ошибка, поэтому там она запрещена, а при чтении сохранённого дня -
     # разрешена явным флагом.
     if shift_end == shift_start and not allow_empty_shift:
         raise DatasetError(
-            f"{where}: смена нулевой длины ({hhmm(shift_start)}) — "
+            f"{where}: смена нулевой длины ({hhmm(shift_start)}) - "
             f"исполнитель не сможет взять ни одной заявки")
 
     try:
@@ -132,7 +132,20 @@ def engineer_from_json(data: dict, allow_empty_shift: bool = False) -> Engineer:
         start_address=str(data.get("start_address") or ""),
         shift_start=shift_start, shift_end=shift_end,
         skills=skills, vehicle=vehicle, break_min=break_min,
+        resume_after=_whole(data.get("resume_after")),
+        resume_at=_whole(data.get("resume_at")),
+        en_route_to=str(data.get("en_route_to") or ""),
     )
+
+
+def _names(value: object) -> list[str]:
+    """Список устройств из записи. Не список - значит устройств нет, а не 500."""
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _whole(value: object) -> int:
+    """Неотрицательное целое из записи; всё прочее - ноль, а не ошибка."""
+    return value if isinstance(value, int) and value > 0 else 0
 
 
 def scenario_from_json(data: dict, region_key: str,
@@ -165,7 +178,8 @@ def scenario_from_json(data: dict, region_key: str,
         seen_engineers.add(engineer.id)
         engineers.append(engineer)
 
-    meta = data.get("meta") or {}
+    raw_meta = data.get("meta")
+    meta: dict[str, object] = raw_meta if isinstance(raw_meta, dict) else {}
     scenario = Scenario(
         region_key=region_key,
         region_name=region_name or str(meta.get("name") or region_key),

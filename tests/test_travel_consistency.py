@@ -38,18 +38,25 @@ def test_only_one_module_defines_the_distance():
     Проверка идёт по исходникам: числа, которыми считают километры и минуты,
     не имеют права появиться во втором месте, даже совпадающие.
     """
-    formulas = re.compile(r"6371|111\.19|DETOUR_FACTOR\s*=|SPEED_KMH\s*=")
+    formulas = re.compile(r"6371|111\.19|DETOUR_FACTOR\s*=|\w+_KMH\s*=")
     guilty = [
         path.relative_to(SRC).as_posix()
         for path in SRC.rglob("*.py")
         if formulas.search(path.read_text(encoding="utf-8"))
     ]
-    assert guilty == ["domain/distance.py", "domain/norms.py"], guilty
+    assert sorted(guilty) == ["domain/distance.py", "domain/norms.py",
+                              "domain/travel.py"], guilty
 
 
 def test_solver_asks_the_domain_for_every_kilometre():
-    """В оптимизаторе нет своей арифметики расстояния."""
-    source = (SRC / "services" / "planning" / "optimizer.py").read_text(encoding="utf-8")
+    """В оптимизаторе нет своей арифметики расстояния.
+
+    Время в пути для решателя считается заранее матрицей в `transit.py`,
+    поэтому решатель проверяется вместе с ней.
+    """
+    planning = SRC / "services" / "planning"
+    source = "".join((planning / name).read_text(encoding="utf-8")
+                     for name in ("optimizer.py", "transit.py"))
     assert "road_km(" in source
     assert "travel_minutes(" in source
     assert not re.search(r"\*\s*1\.35|/\s*60\s*\*|math\.(sin|cos|asin)", source)

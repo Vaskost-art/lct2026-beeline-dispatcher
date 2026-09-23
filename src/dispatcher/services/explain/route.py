@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
+from dispatcher.domain.text import decimal
 from dispatcher.domain.text import plural as _plural
 
 
@@ -14,7 +15,7 @@ def explain_route(engineer: Engineer, plan: Plan,
         return {
             "engineer_id": engineer.id,
             "used": False,
-            "summary": f"«{engineer.name}» — без заявок: план закрывается "
+            "summary": f"«{engineer.name}» - без заявок: план закрывается "
                        f"меньшим числом людей.",
             "steps": [],
         }
@@ -37,7 +38,7 @@ def explain_route(engineer: Engineer, plan: Plan,
             "priority": order.priority,
             "text": (f"{hhmm(stop.start)}–{hhmm(stop.end)} · {order.district}, "
                      f"{order.address} · {order.type_hd} "
-                     f"({order.duration_min} мин, {stop.travel_km:.1f} км в пути)"),
+                     f"({order.duration_min} мин, {decimal(stop.travel_km)} км в пути)"),
         })
 
     districts = sorted({by_id[s.order_id].district for s in route.stops})
@@ -69,8 +70,8 @@ def explain_plan(plan: Plan, orders: list[Order], engineers: list[Engineer],
         f"{_plural(total, 'заявки', 'заявок', 'заявок')} силами {used} "
         f"{_plural(used, 'исполнителя', 'исполнителей', 'исполнителей')} "
         f"из {available} доступных.",
-        f"Суммарный пробег — {metrics['total_km']:.1f} км, "
-        f"в среднем {metrics['avg_km_per_order']:.1f} км на заявку. "
+        f"Суммарный пробег - {decimal(metrics['total_km'])} км, "
+        f"в среднем {decimal(metrics['avg_km_per_order'])} км на заявку. "
         f"Время в пути составляет {metrics['travel_share'] * 100:.0f}% "
         f"от общего времени работы бригад.",
     ]

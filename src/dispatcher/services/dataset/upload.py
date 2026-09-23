@@ -6,8 +6,10 @@ import json
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure.csvfile import decode_csv
 from dispatcher.infrastructure.ingest import parse_control_csv
+from dispatcher.infrastructure.synthetic import parse_synthetic
 from dispatcher.services.dataset.errors import DatasetError
 from dispatcher.services.dataset.reader import scenario_from_json
+from dispatcher.services.scenario import scenario_from_synthetic
 
 
 def load_upload(filename: str, raw: bytes, region_key: str,
@@ -40,8 +42,17 @@ def load_upload(filename: str, raw: bytes, region_key: str,
         if "Заявка" not in header:
             raise DatasetError(
                 "В CSV не найдена колонка «Заявка». Ожидается выгрузка в "
-                "формате организаторов: Заявка;Тип заявки BK;Статус BK;"
-                "Тип заявки HD;Начало;Окончание;Район;Адрес;Бригада…")
+                "формате организаторов: Заявка;Тип заявки BK;Тип заявки HD;"
+                "Начало;Окончание;Район;Адрес…")
+        if "Бригада" not in header:
+            # Синтетическая выгрузка организаторов, основной вход задачи:
+            # исполнителей в ней нет, состав бригад собирается тем же
+            # правилом, что и для встроенных участков.
+            scenario = scenario_from_synthetic(
+                parse_synthetic(raw, region_key, cache_path), region_name=region_key)
+            if not scenario.orders:
+                raise DatasetError("В CSV не нашлось ни одной заявки")
+            return scenario, [], "CSV, синтетическая выгрузка организаторов"
         scenario = parse_control_csv(raw, region_key, cache_path)
         if not scenario.orders:
             raise DatasetError("В CSV не нашлось ни одной заявки")
@@ -50,8 +61,8 @@ def load_upload(filename: str, raw: bytes, region_key: str,
                 "В CSV нет колонки «Бригада» или она пустая: из такой выгрузки "
                 "невозможно восстановить состав исполнителей. Загрузите набор "
                 "в JSON, где исполнители заданы явно.")
-        return scenario, [], "CSV, выгрузка в формате организаторов"
+        return scenario, [], "CSV, контрольная выгрузка с бригадами"
 
     raise DatasetError(
         "Неизвестный формат файла. Поддерживаются CSV в формате организаторов "
-        "и JSON в формате набора данных — образец лежит в data/sample/.")
+        "и JSON в формате набора данных - образец лежит в data/sample/.")

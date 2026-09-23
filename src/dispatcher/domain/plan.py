@@ -101,13 +101,6 @@ class Plan:
     def assigned_count(self) -> int:
         return sum(len(r.stops) for r in self.routes)
 
-    def engineer_of(self, order_id: str) -> str | None:
-        for route in self.routes:
-            for stop in route.stops:
-                if stop.order_id == order_id:
-                    return route.engineer_id
-        return None
-
     def stop_of(self, order_id: str) -> tuple[str, int, Stop] | None:
         """Возвращает (engineer_id, позиция в маршруте, Stop)."""
         for route in self.routes:

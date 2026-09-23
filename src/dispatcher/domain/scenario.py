@@ -10,7 +10,7 @@ from dispatcher.domain.models import Engineer, Order
 
 @dataclass
 class Scenario:
-    """Один район на один рабочий день — готовый вход для планировщика."""
+    """Один район на один рабочий день - готовый вход для планировщика."""
 
     region_key: str
     region_name: str

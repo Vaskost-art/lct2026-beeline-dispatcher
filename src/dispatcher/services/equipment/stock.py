@@ -53,11 +53,6 @@ class Stock:
         self._issued = issued
         self._load: dict[str, dict[str, int]] = {}
 
-    @property
-    def enforced(self) -> bool:
-        """Ограничение работает только после утренней выдачи."""
-        return bool(self._issued)
-
     def fill(self, sequences: dict[str, list[Order]]) -> None:
         """Занимает места под уже назначенные заявки."""
         self._load = {}

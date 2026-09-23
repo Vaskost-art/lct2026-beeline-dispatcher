@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TypedDict
 
 from dispatcher.domain import Order, Plan, hhmm
+from dispatcher.domain.text import decimal
 from dispatcher.services.replanning.events import ReplanEvent
 
 
@@ -153,7 +154,7 @@ STATUS_TEXT = {
     "retimed": "визит сдвинут по времени",
     "dropped": "выпала из плана",
     "rescued": "вернулась в план",
-    "frozen": "не тронута — работы уже начаты",
+    "frozen": "не тронута - работы уже начаты",
 }
 
 
@@ -171,7 +172,7 @@ def describe_diff(diff: dict, event: ReplanEvent) -> list[str]:
         if counts.get(key):
             parts.append(f"{STATUS_TEXT[key]}: {counts[key]}")
     if parts:
-        lines.append("Изменения в назначениях — " + "; ".join(parts) + ".")
+        lines.append("Изменения в назначениях - " + "; ".join(parts) + ".")
     else:
         lines.append("Назначения не изменились: событие удалось обработать "
                      "без перестановок.")
@@ -187,7 +188,7 @@ def describe_diff(diff: dict, event: ReplanEvent) -> list[str]:
         f"(было {totals['assigned_before']}), "
         f"исполнителей {totals['used_engineers_after']} "
         f"(было {totals['used_engineers_before']}, "
-        f"{eng_delta:+d}), пробег {totals['total_km_after']:.1f} км "
-        f"(было {totals['total_km_before']:.1f}, {km_delta:+.1f})."
+        f"{eng_delta:+d}), пробег {decimal(totals['total_km_after'])} км "
+        f"(было {decimal(totals['total_km_before'])}, {decimal(km_delta, sign=True)})."
     )
     return lines

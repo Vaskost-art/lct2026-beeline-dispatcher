@@ -65,7 +65,7 @@ class ReplanEvent:
             return f"В {hhmm(self.at)} отменена заявка {self.order_id}."
         if self.kind == KIND_UNAVAILABLE:
             return (f"В {hhmm(self.at)} исполнитель «{self.engineer_id}» "
-                    f"выбыл — оставшиеся заявки нужно передать другим.")
+                    f"выбыл - оставшиеся заявки нужно передать другим.")
         if self.kind == KIND_DELAYED:
             return (f"В {hhmm(self.at)} бригада «{self.engineer_id}» "
                     f"сообщила о задержке на {self.delay_min} мин: весь "
@@ -113,7 +113,7 @@ def make_new_order(order_id: str, lat: float, lon: float, address: str,
                    type_hd: str | None = None) -> Order:
     """Собирает заявку, поступившую днём, с полным набором полей (ТЗ п. 2.4.1).
 
-    Тип работ и приоритет выводятся из требуемого навыка тем же правилом,
+    Тип работ, приоритет и транспорт выводятся из требуемого навыка тем же правилом,
     что и для утренней выгрузки: авария срочная, подключение повышенное,
     ремонт обычный. Днём приходят не только аварии (организаторы, 22.09), и
     обычная заявка не получает права двигать чужие визиты.
@@ -125,11 +125,16 @@ def make_new_order(order_id: str, lat: float, lon: float, address: str,
         SKILL_LOCAL: "Нет линка",
         SKILL_CONNECT: "Заявка на подключение",
     }
+    kind = type_hd or defaults.get(required_skill, "Авария")
     return Order(
         id=order_id, lat=lat, lon=lon, address=address, district=district,
         duration_min=duration_min, window_start=window_start,
         window_end=window_end, priority=norms.priority_for(type_bk, ""),
-        required_skill=required_skill, required_vehicle=required_vehicle,
-        type_bk=type_bk, type_hd=type_hd or defaults.get(required_skill, "Авария"),
+        required_skill=required_skill,
+        # Транспорт по тому же правилу, что и у утренней выгрузки: авария едет
+        # на машине. Иначе днём аварию брала бригада на автобусе, а утром ту же
+        # работу ей не давали.
+        required_vehicle=required_vehicle or norms.required_vehicle_for(kind, False),
+        type_bk=type_bk, type_hd=kind,
         geocode_precision="manual",
     )

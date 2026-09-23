@@ -4,11 +4,11 @@
 проверяются алгоритмом?». Этот модуль отвечает на вопрос машинно. Он ничего
 не знает о том, как план построен, и перепроверяет результат с нуля:
 
-  Навык   — требуемый навык заявки входит в список навыков исполнителя;
-  Ресурс  — если в заявке указан тип транспорта, у исполнителя он такой же;
-  Время   — начало работ внутри окна заявки, а весь маршрут внутри смены
+  Навык   - требуемый навык заявки входит в список навыков исполнителя;
+  Ресурс  - если в заявке указан тип транспорта, у исполнителя он такой же;
+  Время   - начало работ внутри окна заявки, а весь маршрут внутри смены
             за вычетом перерыва на обед;
-  Логика  — времена и пробег в маршруте пересчитываются заново и сверяются
+  Логика  - времена и пробег в маршруте пересчитываются заново и сверяются
             с тем, что показывает план; каждая заявка встречается ровно один
             раз и ни одна не теряется между маршрутами и отказами.
 
@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 from dispatcher.domain import Engineer, Order, Plan, hhmm
 from dispatcher.domain.distance import road_km, travel_minutes
+from dispatcher.domain.text import decimal
 
 TOLERANCE_KM = 0.01
 TOLERANCE_MIN = 0
@@ -43,7 +44,7 @@ RULE_TITLES = {
     "Навык": "Навык исполнителя под вид работ",
     "Ресурс": "Транспорт, которого требует заявка",
     "Время": "Окно клиента и конец смены",
-    "Логика": "Целостность: одна заявка одному, пробег сходится",
+    "Логика": "Каждая заявка у одной бригады, километры сходятся",
 }
 
 
@@ -107,11 +108,7 @@ def validate(plan: Plan, orders: list[Order], engineers: list[Engineer]) -> Vali
 
         for position, stop in enumerate(route.stops):
             report.checked_stops += 1
-            if (position == engineer.resume_after
-                    and stop.order_id != engineer.en_route_to):
-                # После события: начатое бригада доделывает, а к новому
-                # заданию выезжает не раньше, чем о нём узнала.
-                clock = max(clock, engineer.resume_at)
+            clock = engineer.ready_for(position, stop.order_id, clock)
             order = by_id.get(stop.order_id)
             if order is None:
                 report.violations.append(Violation(
@@ -163,8 +160,8 @@ def validate(plan: Plan, orders: list[Order], engineers: list[Engineer]) -> Vali
             if abs(stop.travel_km - km) > TOLERANCE_KM:
                 report.violations.append(Violation(
                     "Логика", engineer.id, order.id,
-                    f"Пробег до точки в плане {stop.travel_km:.2f} км, "
-                    f"пересчёт даёт {km:.2f} км."))
+                    f"Пробег до точки в плане {decimal(stop.travel_km, 2)} км, "
+                    f"пересчёт даёт {decimal(km, 2)} км."))
             if abs(stop.start - start) > TOLERANCE_MIN:
                 report.violations.append(Violation(
                     "Логика", engineer.id, order.id,

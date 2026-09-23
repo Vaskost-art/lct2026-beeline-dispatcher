@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan
 from dispatcher.domain.distance import road_km, travel_minutes
+from dispatcher.domain.text import decimal
 from dispatcher.services.routing import insertion_cost
 
 MAX_ALTERNATIVES = 4
@@ -17,7 +18,7 @@ def _alternatives(order: Order, plan: Plan, by_id: dict[str, Order],
     """Проверяет каждого другого исполнителя и объясняет, почему не он.
 
     Для тех, кто проходит по навыку и транспорту, заявка реально пробуется
-    на вставку в текущий маршрут — так получается честная цифра «был бы
+    на вставку в текущий маршрут - так получается честная цифра «был бы
     длиннее на N км», а не общие слова.
     """
     route_by_id = {r.engineer_id: r for r in plan.routes}
@@ -77,7 +78,7 @@ def _alternatives(order: Order, plan: Plan, by_id: dict[str, Order],
                        f"окно {order.window_text} не сходится со сменой "
                        f"({engineer.shift_text})")
             else:
-                why = (f"маршрут уже занят — заявка не встаёт ни в одну позицию "
+                why = (f"маршрут уже занят - заявка не встаёт ни в одну позицию "
                        f"без нарушения окон или конца смены "
                        f"({engineer.shift_text})")
             result.append({
@@ -90,7 +91,7 @@ def _alternatives(order: Order, plan: Plan, by_id: dict[str, Order],
             "engineer_id": engineer.id, "possible": True,
             "extra_km": round(best_delta, 2),
             "blocked_by": None,
-            "reason": f"мог бы взять, но маршрут вырос бы на {best_delta:.1f} км",
+            "reason": f"мог бы взять, но маршрут вырос бы на {decimal(best_delta)} км",
         }
         if current_km is not None:
             entry["vs_current_km"] = round(best_delta - current_km, 2)

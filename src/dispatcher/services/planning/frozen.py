@@ -56,11 +56,15 @@ def hold_until_event(routing: pywrapcp.RoutingModel,
                       else routing.Start(vehicle_id))
         service = orders[chain[-1]].duration_min if chain else 0
         departure = time_dim.CumulVar(prev_index) + service + time_dim.SlackVar(prev_index)
+        following = routing.NextVar(prev_index)
+        # Правило касается только выезда к следующему визиту. Если дальше
+        # ничего нет, выезжать некуда: иначе бригада, чья смена кончилась
+        # до события, делала всю модель неразрешимой, и пересборка дня
+        # отдавала пустой план.
+        free = solver.IsEqualCstVar(following, routing.End(vehicle_id))
         heading = order_index.get(engineer.en_route_to)
-        if heading is None:
-            solver.Add(departure >= engineer.resume_at)
-            continue
-        # Если следующей осталась та же заявка, бригада просто едет дальше.
-        same = solver.IsEqualCstVar(routing.NextVar(prev_index),
-                                    manager.NodeToIndex(heading))
-        solver.Add(departure >= engineer.resume_at * (1 - same))
+        if heading is not None:
+            # Если следующей осталась та же заявка, бригада просто едет дальше.
+            same = solver.IsEqualCstVar(following, manager.NodeToIndex(heading))
+            free = solver.Max(free, same).Var()
+        solver.Add(departure >= engineer.resume_at * (1 - free))

@@ -98,7 +98,7 @@ def plan_risk(plan: Plan, orders: list[Order], engineers: list[Engineer],
     summary_parts = []
     if weakest:
         summary_parts.append(
-            f"Самый хрупкий маршрут — «{weakest['engineer_id']}»: "
+            f"Самый хрупкий маршрут - «{weakest['engineer_id']}»: "
             f"выдержит задержку до {weakest['tolerance_min']} мин.")
     if by_risk[RISK_HIGH]:
         summary_parts.append(

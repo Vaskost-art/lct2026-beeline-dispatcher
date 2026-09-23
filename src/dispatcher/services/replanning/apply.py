@@ -5,11 +5,8 @@ from dataclasses import replace
 
 from dispatcher.domain import Engineer, Order, Plan, Unassigned, hhmm
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
-from dispatcher.services.planning.optimizer import solve_optimized
 from dispatcher.services.replanning.diff import build_diff, describe_diff
 from dispatcher.services.replanning.emergency import (
-    credit_gave_way,
-    deadline_for,
     describe_reaction,
     reaction,
     stuck_emergencies,
@@ -27,6 +24,7 @@ from dispatcher.services.replanning.freeze import (
     shifts_after_event,
 )
 from dispatcher.services.replanning.newcomer import newcomer_outcome, ordinary_newcomer
+from dispatcher.services.replanning.rebuild import rebuild_rest
 from dispatcher.services.replanning.repair import MODE_MINIMAL, MODE_TITLES, _repair
 from dispatcher.services.statuses import frozen_by_status
 from dispatcher.services.statuses import plannable as plannable_by_status
@@ -36,16 +34,18 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
            event: ReplanEvent, mode: str = "minimal",
            time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
            issued: dict[str, dict[str, int]] | None = None,
-           statuses: dict[str, str] | None = None) -> ReplanResult:
+           statuses: dict[str, str] | None = None,
+           locked: dict[str, str] | None = None) -> ReplanResult:
     """Строит новый план на остаток дня и объясняет, что изменилось.
 
-    mode='minimal' — точечно встроить изменение, не трогая остальные назначения;
-    mode='full'    — перепланировать весь остаток дня заново.
+    mode='minimal' - точечно встроить изменение, не трогая остальные назначения;
+    mode='full'    - перепланировать весь остаток дня заново.
 
-    `issued` — что бригады получили в офисе утром: днём заявку берёт только
-    та, у кого нужное оборудование с собой.
+    `issued` - что бригады получили в офисе утром: днём заявку берёт только
+    та, у кого нужное оборудование с собой. `locked` - заявки, которые
+    диспетчер закрепил за бригадой: они остаются у неё в обоих режимах.
 
-    `statuses` — что диспетчер отметил со слов бригад: отменённая заявка
+    `statuses` - что диспетчер отметил со слов бригад: отменённая заявка
     уходит из дня, а начатая и завершённая остаются на своих местах, даже
     если по расписанию бригада к ним ещё не подъезжала. Факт важнее
     расписания: расписание - это прогноз, а отметка - то, что уже случилось.
@@ -96,11 +96,11 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
             frozen.setdefault(event.engineer_id, [])
 
     elif event.kind == KIND_DELAYED:
-        # Бригада не выбывает — она сдвигается во времени.
+        # Бригада не выбывает - она сдвигается во времени.
         #
         # Если работы уже начаты, двигать начало смены нельзя: начатый визит
         # стоит раньше и модель станет противоречивой. Поэтому задержку
-        # записываем в последний начатый визит — он длится на delay_min
+        # записываем в последний начатый визит - он длится на delay_min
         # дольше, и весь хвост маршрута уезжает ровно на это время.
         # Для бригады, которая ещё не приступала, достаточно сдвинуть
         # начало смены: результат тот же, а модель проще.
@@ -113,7 +113,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
             last_stop = next((s for s in (route.stops if route else [])
                               if s.order_id == last_id), None)
             # Бригада освободится через delay минут после того, как закончит
-            # текущую работу, а если она уже закончена — через delay минут от
+            # текущую работу, а если она уже закончена - через delay минут от
             # момента звонка. Держать её можно только длительностью последнего
             # начатого визита: это единственный рычаг, поэтому у такого визита
             # в плане показано время окончания, когда бригада снова свободна.
@@ -137,7 +137,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     frozen_ids = {oid for ids in frozen.values() for oid in ids}
 
     # Заявки, чьё окно закрылось к моменту события и которые ещё не начаты,
-    # спланировать уже нельзя — показываем это явной причиной.
+    # спланировать уже нельзя - показываем это явной причиной.
     expired: list[Unassigned] = []
     plannable: list[Order] = []
     for order in new_orders:
@@ -154,21 +154,13 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     if mode == MODE_MINIMAL:
         new_plan = _repair(plannable, adjusted, current, event, now, frozen,
-                           issued)
+                           issued, locked)
     else:
-        deadlines = {o.id: due for o in plannable
-                     if o.id not in frozen_ids and (due := deadline_for(o, now))}
-        new_plan = solve_optimized(plannable, adjusted, time_limit_sec=time_limit_sec,
-                                   frozen=frozen, deadlines=deadlines)
-        credit_gave_way(current, new_plan, deadlines)
-
-        # Если модель с замороженными префиксами оказалась неразрешимой,
-        # повторяем без заморозки: лучше перестроенный день, чем пустой план.
-        if new_plan.assigned_count == 0 and current.assigned_count > 0:
-            new_plan = solve_optimized(plannable, adjusted,
-                                       time_limit_sec=time_limit_sec)
-            new_plan.solver_status += "_NO_FREEZE_FALLBACK"
-            frozen = {}
+        new_plan, frozen = rebuild_rest(current, plannable, adjusted, event, now,
+                                        frozen, time_limit_sec, issued, locked)
+    # Запасной расчёт без заморозки переставляет и начатое: список
+    # изменений не должен называть такие заявки нетронутыми.
+    frozen_ids = {oid for ids in frozen.values() for oid in ids}
 
     new_plan.unassigned = [u for u in new_plan.unassigned
                            if u.order_id not in {e.order_id for e in expired}]

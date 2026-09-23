@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route, Unassigned
+from dispatcher.domain.norms import REACTION_TARGET_MIN
 from dispatcher.services.equipment import Stock
 from dispatcher.services.planning.costs import URGENT_DELAY_COST_PER_MIN
 from dispatcher.services.replanning.displacement import (
@@ -21,9 +22,6 @@ from dispatcher.services.replanning.events import KIND_URGENT, ReplanEvent
 KM_COST = 1000
 
 
-#: Ориентир организаторов (22.09): для сетевой аварии допустимо закладывать
-#: время реакции 1-2 часа. Верхнюю границу и проверяем.
-REACTION_TARGET_MIN = 120
 
 
 def reaction(plan: Plan, event: ReplanEvent) -> dict[str, object] | None:

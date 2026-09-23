@@ -3,19 +3,13 @@ from __future__ import annotations
 
 from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Plan, Route
 from dispatcher.services.equipment import Stock
-from dispatcher.services.planning.costs import ENGINEER_FIXED_COST
-from dispatcher.services.replanning.displacement import (
-    _place_urgent_with_displacement,
-    _resequence_with,
-)
-from dispatcher.services.replanning.emergency import deadline_for, delay_cost, settle
 from dispatcher.services.replanning.events import KIND_UNAVAILABLE, ReplanEvent
 from dispatcher.services.replanning.newcomer import (
-    keeps_schedule,
     ordinary_newcomer,
     repair_reason,
 )
-from dispatcher.services.routing import evaluate_sequence, insertion_cost
+from dispatcher.services.replanning.placement import place_orphan
+from dispatcher.services.routing import evaluate_sequence
 
 MODE_MINIMAL = "minimal"
 MODE_FULL = "full"
@@ -35,16 +29,17 @@ MODE_HINTS = {
 
 def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
             event: ReplanEvent, now: int, frozen: dict[str, list[str]],
-            issued: dict[str, dict[str, int]] | None = None) -> Plan:
+            issued: dict[str, dict[str, int]] | None = None,
+            locked: dict[str, str] | None = None) -> Plan:
     """Встраивает изменение, не трогая остальные назначения.
 
     Диспетчеру важнее предсказуемость, чем последние проценты пробега: если
     событие можно отработать точечно, бригады не должны получать новый план
     целиком. Поэтому сначала пробуем починить план вставкой, и только если
-    это не удаётся — вызывающая сторона перепланирует остаток дня полностью.
+    это не удаётся - вызывающая сторона перепланирует остаток дня полностью.
 
     Оборудование выдано утром, поэтому заявку получает только та бригада, у
-    которой нужное устройство с собой: `issued` — что кому выдали.
+    которой нужное устройство с собой: `issued` - что кому выдали.
     """
     by_id = {o.id: o for o in orders}
     engineer_by_id = {e.id: e for e in engineers}
@@ -74,9 +69,14 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
             kept.append(order)
         sequences[route.engineer_id] = kept
 
-    # заявка, появившаяся по событию, и всё, что не было назначено раньше
+    # заявка, появившаяся по событию, и всё, что не было назначено раньше.
+    # Обычная новая заявка не повод заново расставлять утренние отказы: их
+    # вставка двигает чужие визиты, а обычной заявке это запрещено.
+    newcomer = ordinary_newcomer(event)
     assigned_ids = {s.order_id for r in current.routes for s in r.stops}
     for order in orders:
+        if newcomer is not None and order.id != newcomer.id:
+            continue
         if order.id not in assigned_ids and not any(o.id == order.id for o in orphans):
             orphans.append(order)
 
@@ -84,7 +84,6 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
     stock.fill(sequences)
     # Обычная новая заявка встаёт только в свободный интервал: соседей не
     # двигает, хвосты не пересобирает, никого не вытесняет.
-    newcomer = ordinary_newcomer(event)
 
     # маршруты, оставшиеся после изъятия
     routes: dict[str, Route] = {}
@@ -93,7 +92,7 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
         built, _ = evaluate_sequence(engineer, sequence)
         rebuilt: Route | None = built
         if rebuilt is None:
-            # Последовательность перестала быть выполнимой — например, бригада
+            # Последовательность перестала быть выполнимой - например, бригада
             # задержалась и хвост маршрута больше не помещается в смену.
             # Снимаем заявки с конца по одной, пока остаток не станет
             # выполнимым: так у бригады остаётся максимум работы, а в общий
@@ -125,65 +124,11 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
     for order in orphans:
         if order.window_end < now:
             continue
-        best: tuple[float, str, Route] | None = None
-        for engineer in engineers:
-            if not engineer.can_do(order) or not stock.can_take(engineer.id, order):
-                continue
-            route = routes[engineer.id]
-            first_free = len(frozen.get(engineer.id, []))
-            for position in range(first_free, len(route.stops) + 1):
-                ok, delta, new_route = insertion_cost(
-                    engineer, route, by_id, order, position)
-                if not ok:
-                    continue
-                if (newcomer is not None and order.id == newcomer.id
-                        and new_route is not None
-                        and not keeps_schedule(route, new_route)):
-                    continue
-                score = delta + (ENGINEER_FIXED_COST / 1000.0
-                                 if not route.is_used else 0.0)
-                if new_route is not None:
-                    score += delay_cost(order, new_route, now)
-                if new_route is not None and (best is None or score < best[0]):
-                    best = (score, engineer.id, new_route)
-        if best is not None:
-            settle(order, best, routes, engineers, by_id, frozen, now, stock, displaced)
-            continue
-
-        if newcomer is not None and order.id == newcomer.id:
-            continue
-
-        # Вставка «как есть» не удалась — пробуем пересобрать хвост маршрута.
-        for engineer in engineers:
-            if not engineer.can_do(order) or not stock.can_take(engineer.id, order):
-                continue
-            route = routes[engineer.id]
-            first_free = len(frozen.get(engineer.id, []))
-            attempt = _resequence_with(engineer, route, by_id, order, first_free)
-            if attempt is None:
-                continue
-            delta, new_route = attempt
-            score = delta + (ENGINEER_FIXED_COST / 1000.0
-                             if not route.is_used else 0.0)
-            score += delay_cost(order, new_route, now)
-            if best is None or score < best[0]:
-                best = (score, engineer.id, new_route)
-        if best is not None:
-            settle(order, best, routes, engineers, by_id, frozen, now, stock, displaced)
-            continue
-
-        # Срочная заявка не встала и после пересборки — освобождаем ей место:
-        # сначала так, чтобы бригада успела в срок, и только потом где угодно.
-        if order.priority == PRIORITY_URGENT:
-            outcome = (_place_urgent_with_displacement(
-                           order, routes, engineers, by_id, frozen, now, stock,
-                           deadline=deadline_for(order, now))
-                       or _place_urgent_with_displacement(
-                           order, routes, engineers, by_id, frozen, now, stock))
-            if outcome is not None:
-                _, homeless = outcome
-                for victim in homeless:
-                    displaced[victim.id] = order.id
+        # Закреплённую заявку диспетчер отдал конкретной бригаде: только к ней.
+        pinned = (locked or {}).get(order.id)
+        crews = [e for e in engineers if pinned is None or e.id == pinned]
+        place_orphan(order, crews, routes, by_id, frozen, now, stock,
+                     newcomer, displaced)
 
     plan = Plan(routes=list(routes.values()), strategy="replanned",
                 solver_status="MINIMAL_REPAIR")

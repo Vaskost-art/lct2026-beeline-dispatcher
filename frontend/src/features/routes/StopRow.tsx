@@ -85,7 +85,8 @@ export function StopRow({ index, stop, order, status, selected, onSelect }: Prop
             </span>
           </span>
 
-          <span className="block truncate text-[12px] text-ink-2">
+          {/* Адрес переносится на вторую строку: по нему звонят, обрезать нельзя. */}
+          <span className="line-clamp-2 block text-[12px] text-ink-2">
             {order ? order.address : 'адрес неизвестен'}
           </span>
 

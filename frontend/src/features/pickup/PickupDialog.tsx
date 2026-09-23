@@ -41,7 +41,7 @@ export function PickupDialog({ plan, open, onClose }: Props) {
       ) : (
         <>
           <p className="mb-3 text-[13px] text-ink-2">
-            Выдано <span className="font-semibold tnum">{total}</span>{' '}
+            Выдать <span className="font-semibold tnum">{total}</span>{' '}
             {plural(total, 'устройство', 'устройства', 'устройств')} на{' '}
             <span className="tnum">{plan.pickup.length}</span>{' '}
             {plural(plan.pickup.length, 'бригаду', 'бригады', 'бригад')}, включая запас.

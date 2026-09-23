@@ -17,6 +17,9 @@ interface Props {
   region: string;
   orderId: string;
   status: string;
+  /** Заявка у бригады. У заявки без исполнителя ехать и работать некому:
+      из хода работ остаётся только отмена. */
+  assigned?: boolean;
 }
 
 /** Ход работ по заявке со слов бригады.
@@ -24,7 +27,7 @@ interface Props {
 Закрывающая отметка стоит вплотную к рабочим, и случайное касание снимало
 заявку с маршрута. Поэтому «Завершено» и «Отменена» подтверждаются.
 */
-export function StatusMarks({ region, orderId, status }: Props) {
+export function StatusMarks({ region, orderId, status, assigned = true }: Props) {
   const mark = useOrderStatus();
   const [asking, setAsking] = useState<string | null>(null);
 
@@ -37,7 +40,7 @@ export function StatusMarks({ region, orderId, status }: Props) {
     <div className="mb-3 border-b border-line pb-3">
       <span className="text-[12px] font-medium text-ink-3">Ход работ</span>
       <div role="group" aria-label="Ход работ" className="mt-1 flex flex-wrap gap-1">
-        {MARKS.map((name) => (
+        {(assigned ? MARKS : ['Отменена']).map((name) => (
           <button
             key={name}
             type="button"

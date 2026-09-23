@@ -37,12 +37,13 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
       </span>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
-        <div className="relative min-w-0">
+        {/* Длинное имя загруженного участка раздвигало список на всю шапку. */}
+        <div className="relative min-w-0 max-w-[16rem]">
           <select
             aria-label="Участок"
             value={region ?? ''}
             onChange={(event) => onRegion(event.target.value)}
-            className="h-8 w-full min-w-0 appearance-none rounded-md border border-white/12 bg-transparent
+            className="h-8 w-full min-w-0 appearance-none truncate rounded-md border border-white/12 bg-transparent
                        py-0 pl-3 pr-8 text-[13px] font-medium text-shell-ink hover:bg-white/8"
           >
             <option value="" disabled>

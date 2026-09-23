@@ -103,7 +103,7 @@ export function Decisions({ plan, onUnassigned, onRisk, onShortfall }: Props) {
           icon={UserMinus}
           tone="warn"
           title={`Нужно ещё ${missing} ${plural(missing, 'бригада', 'бригады', 'бригад')}`}
-          hint="сколько людей закроют день полностью"
+          hint="каких людей искать и что людьми не спасти"
           onClick={onShortfall}
         />
       ) : null}

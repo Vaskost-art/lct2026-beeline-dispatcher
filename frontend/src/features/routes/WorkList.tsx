@@ -41,6 +41,7 @@ export function WorkList({
 }: Props) {
   const [query, setQuery] = useState('');
   const used = plan.routes.filter((route) => route.stops.length > 0);
+  const dayEnd = plan.engineers.reduce((last, e) => (e.shift_end > last ? e.shift_end : last), '');
   const needle = query.trim().toLowerCase();
 
   // Поиск идёт по номеру, адресу и району: заявку помнят по-разному, и
@@ -141,9 +142,8 @@ export function WorkList({
                     plan.pickup.find((row) => row.engineer_id === route.engineer_id)?.total ?? 0
                   }
                   statuses={plan.statuses}
-                  vehicle={
-                    plan.engineers.find((engineer) => engineer.id === route.engineer_id)?.vehicle
-                  }
+                  crew={plan.engineers.find((engineer) => engineer.id === route.engineer_id)}
+                  dayEnd={dayEnd}
                   open={focusCrew === route.engineer_id}
                   focused={focusCrew === route.engineer_id}
                   selected={selected}

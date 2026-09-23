@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { Order, Route } from '../../api/types';
+import type { Engineer, Order, Route } from '../../api/types';
 import { UnassignedList } from '../unassigned/UnassignedList';
 import { RouteRow } from './RouteRow';
 
@@ -13,6 +13,8 @@ const order: Order = {
   geocode_precision: 'exact', assigned_to: 'Бригада 1',
 };
 
+const CREW = { id: 'Бригада 1', vehicle: 'Автомобиль', shift_end: '22:30' } as Engineer;
+
 const route: Route = {
   engineer_id: 'Бригада 1',
   stops: [{ order_id: '74198', arrival: '10:05', start: '10:05', end: '11:15', travel_min: 12, travel_km: 3.4, wait_min: 0 }],
@@ -21,7 +23,7 @@ const route: Route = {
 
 describe('список маршрутов', () => {
   it('показывает остановки с оборудованием', () => {
-    render(<RouteRow load={0} route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[order]} crew={CREW} dayEnd="22:30" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText(/Роутер/)).toBeInTheDocument();
     expect(screen.getByText(/Улица, дом/)).toBeInTheDocument();
@@ -30,7 +32,7 @@ describe('список маршрутов', () => {
   it('не ставит прочерк там, где значения нет', () => {
     // Прочерк читается как ноль. Обычная заявка просто не помечается,
     // а срочная получает явную метку.
-    render(<RouteRow load={0} route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[order]} crew={CREW} dayEnd="22:30" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.queryByText('авария')).not.toBeInTheDocument();
@@ -42,14 +44,14 @@ describe('список маршрутов', () => {
   // диспетчеру важно «это авария», а не «это приоритет номер один».
   it('помечает аварию', () => {
     const urgent = { ...order, priority: 'Срочная' };
-    render(<RouteRow load={0} route={route} orders={[urgent]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[urgent]} crew={CREW} dayEnd="22:30" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('авария')).toBeInTheDocument();
   });
 
   it('помечает подключение', () => {
     const high = { ...order, priority: 'Повышенная' };
-    render(<RouteRow load={0} route={route} orders={[high]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[high]} crew={CREW} dayEnd="22:30" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('подключение')).toBeInTheDocument();
   });
@@ -69,5 +71,13 @@ describe('нераспределённые', () => {
 
     expect(screen.getByText(/Требуется автомобиль/)).toBeInTheDocument();
     expect(screen.queryByText('vehicle_required')).not.toBeInTheDocument();
+  });
+});
+
+describe('бригада, выбывшая днём', () => {
+  it('подписана временем, до которого работала', () => {
+    const cut = { ...CREW, shift_end: '13:00' } as Engineer;
+    render(<RouteRow load={0} route={route} orders={[order]} crew={cut} dayEnd="22:30" index={0} open={false} focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    expect(screen.getByText('до 13:00')).toBeInTheDocument();
   });
 });

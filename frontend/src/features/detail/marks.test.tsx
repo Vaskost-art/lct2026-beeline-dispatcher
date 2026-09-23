@@ -70,3 +70,19 @@ describe('передача заявки', () => {
     expect(names).toEqual(['Выберите бригаду', 'Бригада 3, +2,5 км', 'Бригада 2, не подходит']);
   });
 });
+
+describe('назначение без подходящих бригад', () => {
+  it('не показывает активную кнопку, а говорит, что поможет', () => {
+    wrap(
+      <ReassignBox
+        region="vostok"
+        orderId="7"
+        holder={undefined}
+        crews={[{ id: 'E1', name: 'Бригада 1' }]}
+        alternatives={[{ engineer_id: 'E1', possible: false, reason: 'не успевает' }]}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Назначить' })).not.toBeInTheDocument();
+    expect(screen.getByText(/некому/)).toBeInTheDocument();
+  });
+});

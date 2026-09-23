@@ -31,6 +31,17 @@ export function ReassignBox({ region, orderId, holder, crews, alternatives }: Pr
     .filter((crew) => crew.id !== holder)
     .sort((a, b) => rank(a.id) - rank(b.id));
   const title = holder ? 'Передать другой бригаде' : 'Назначить бригаде';
+  // Разбор уже сказал, что ни одна бригада не берёт заявку: активная кнопка
+  // вела бы в отказ, а причину диспетчер и так видит выше.
+  const nobody = options.length > 0 && options.every((crew) => known.get(crew.id)?.possible === false);
+  if (nobody) {
+    return (
+      <p className="text-[12px] text-ink-3">
+        {holder ? 'Передать' : 'Назначить'} сейчас некому: ни одна бригада не успевает взять
+        заявку, причины выше. Помогут другое окно клиента или ещё одна бригада.
+      </p>
+    );
+  }
 
   if (reassign.isSuccess) {
     return (

@@ -6,7 +6,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   /** Открыть маршрут бригады: из прогноза идут звонить её клиентам. */
-  onShowCrew: (crew: string) => void;
+  onShowCrew: (crew: string, order: string | null) => void;
 }
 
 /** Риск это состояние маршрута, а не оттенок текста: бейдж читается с
@@ -63,7 +63,7 @@ export function RiskDialog({ plan, open, onClose, onShowCrew }: Props) {
             <span className="max-w-[68ch] text-[12px] text-ink-2">{route.text}</span>
             <button
               type="button"
-              onClick={() => onShowCrew(route.engineer_id)}
+              onClick={() => onShowCrew(route.engineer_id, route.weakest_order_id)}
               className="min-h-6 w-fit py-1 text-[12px] font-medium text-ink underline underline-offset-2 hover:text-accent"
             >
               Показать маршрут

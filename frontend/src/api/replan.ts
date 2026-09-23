@@ -24,6 +24,8 @@ export interface ReplanDiff {
   };
   /** Через сколько бригада приедет на аварию. Ориентир организаторов - 1-2 часа. */
   reaction?: { engineer_id: string; minutes: number; target_min: number; within: boolean };
+  /** Заявки, которые были в плане, а полная пересборка их сняла. */
+  lost?: string[];
 }
 
 /** Ответ на событие: тот же план плюс что именно изменилось. */

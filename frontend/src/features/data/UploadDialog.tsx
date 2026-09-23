@@ -75,8 +75,9 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
     <Modal open={open} title="Загрузить свой набор данных" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <p className="text-[13px] text-ink-2">
-          Подойдёт выгрузка заявок в CSV или набор в JSON, который сервис отдаёт при
-          выгрузке. Один рабочий день: до сотни заявок и полутора десятков бригад.
+          Подойдёт выгрузка заявок организаторов в CSV (бригады подберутся сами) или
+          набор в JSON по образцу data/sample/dataset.json. Один рабочий день: до 400
+          заявок и 60 бригад.
         </p>
 
         <label className="flex min-w-0 flex-col gap-1">
@@ -85,6 +86,7 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="например, Северный участок"
+            maxLength={60}
             className="h-8 w-full rounded-md border border-line bg-panel px-2 text-[13px]"
           />
         </label>

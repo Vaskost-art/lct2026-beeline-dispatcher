@@ -60,6 +60,17 @@ export function UnassignedList({ items, orders, selected, onSelect, onShortfall 
 
   return (
     <div className="flex flex-col">
+      {/* Одна кнопка на весь список: в каждой группе она повторялась трижды. */}
+      <div className="border-b border-line px-3 py-2">
+        <button
+          type="button"
+          onClick={onShortfall}
+          className="w-fit rounded-md border border-line bg-panel px-2 py-1 text-[12px]
+                     font-medium text-ink transition-colors duration-[120ms] hover:border-accent"
+        >
+          Сколько бригад не хватает
+        </button>
+      </div>
       {[...groups.entries()].map(([reason, group]) => (
         <section key={reason} className="border-b border-line last:border-0">
           <header className="flex flex-col gap-1 bg-raised/50 px-3 py-2">
@@ -70,14 +81,6 @@ export function UnassignedList({ items, orders, selected, onSelect, onShortfall 
               <span className="min-w-0 text-[12px] text-ink-2">{reason}</span>
             </span>
             <span className="text-[12px] text-ink-3">Что можно сделать: {advice(reason)}.</span>
-            <button
-              type="button"
-              onClick={onShortfall}
-              className="w-fit rounded-md border border-line bg-panel px-2 py-1 text-[12px]
-                         font-medium text-ink transition-colors duration-[120ms] hover:border-accent"
-            >
-              Сколько бригад не хватает
-            </button>
           </header>
 
           <ul>

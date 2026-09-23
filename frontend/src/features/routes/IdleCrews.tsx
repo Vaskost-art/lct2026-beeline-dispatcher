@@ -8,14 +8,13 @@ interface Props {
 
 /** Бригады без единой заявки.
 
-Раньше они молча пропадали из списка, и рядом с «не хватает бригад» это
-читалось как ошибка планировщика: своя бригада свободна, а людей мало.
+Без этой строки свободная бригада пропадала бы из списка, и рядом с «не
+хватает бригад» это читалось бы как ошибка планировщика.
 */
 export function IdleCrews({ plan, onUnassigned }: Props) {
-  const idle = plan.routes
-    .filter((route) => route.stops.length === 0)
-    .map((route) => plan.engineers.find((engineer) => engineer.id === route.engineer_id))
-    .filter((engineer) => engineer !== undefined);
+  // Сервис отдаёт только маршруты с визитами, поэтому свободных ищем среди
+  // бригад: по маршрутам блок не показывался никогда.
+  const idle = plan.engineers.filter((engineer) => !engineer.used);
   if (idle.length === 0) return null;
 
   const left = plan.unassigned.length;

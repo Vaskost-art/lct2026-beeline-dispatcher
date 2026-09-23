@@ -1,6 +1,6 @@
 import { CaretRight } from '@phosphor-icons/react';
 
-import type { Order, Route } from '../../api/types';
+import type { Engineer, Order, Route } from '../../api/types';
 
 /** Короткое имя транспорта: полное не помещается в колонку и обрезается
     многоточием ровно там, где начинается смысл. Пешая бригада и бригада на
@@ -19,8 +19,10 @@ import { decimal } from '../../text';
 interface Props {
   route: Route;
   orders: Order[];
-  /** Чем бригада ездит: транспорт различает людей лучше номера. */
-  vehicle: string | undefined;
+  /** Бригада маршрута: транспорт различает людей лучше номера. */
+  crew: Engineer | undefined;
+  /** Конец смены участка: смена короче значит, что бригада выбыла днём. */
+  dayEnd: string;
   index: number;
   open: boolean;
   focused: boolean;
@@ -42,7 +44,8 @@ export function RouteRow({
   route,
   orders,
   load,
-  vehicle,
+  crew,
+  dayEnd,
   index,
   open,
   focused,
@@ -82,9 +85,14 @@ export function RouteRow({
         />
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="shrink-0 text-[13px] font-medium">{route.engineer_id}</span>
-          {vehicle ? (
+          {crew ? (
             <span className="hidden min-w-0 truncate text-[11px] text-ink-3 sm:inline">
-              {SHORT_VEHICLE[vehicle] ?? vehicle}
+              {SHORT_VEHICLE[crew.vehicle] ?? crew.vehicle}
+            </span>
+          ) : null}
+          {crew && crew.shift_end < dayEnd ? (
+            <span className="shrink-0 rounded-sm bg-warn-soft px-1 text-[10px] font-medium text-warn">
+              до {crew.shift_end}
             </span>
           ) : null}
         </span>

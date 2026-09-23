@@ -1,6 +1,7 @@
 import { CheckCircle, WarningOctagon } from '@phosphor-icons/react';
 
 import { useValidation } from '../../api/queries';
+import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 import { plural } from '../../text';
 
@@ -19,6 +20,12 @@ export function ValidateDialog({ region, open, onClose }: Props) {
   return (
     <Modal open={open} title="Проверка плана" onClose={onClose}>
       {check.isPending ? <p className="text-[13px] text-ink-3">Проверяем маршруты…</p> : null}
+      {check.error ? (
+        <div role="alert" className="flex flex-col items-start gap-2 text-[13px] text-danger">
+          Сервис не отвечает. Проверьте связь.
+          <Button onClick={() => void check.refetch()}>Повторить</Button>
+        </div>
+      ) : null}
 
       {report ? (
         <div className="flex flex-col gap-3">

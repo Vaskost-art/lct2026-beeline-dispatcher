@@ -25,8 +25,8 @@ import { Workspace } from './Workspace';
 /** Экран диспетчера целиком.
 
 Расчёт сам не стартует: приглашение выбрать участок это состояние экрана, а
-не мигание. Раньше расчёт начинался при открытии, и при недоступной карте
-человек до сорока секунд смотрел в пустоту.
+не мигание: расчёт при открытии заставил бы человека смотреть в пустоту
+до минуты.
 */
 export function Screen() {
   const day = useDay();
@@ -36,9 +36,8 @@ export function Screen() {
   const undo = useUndo();
 
   const payload = plan.data;
-  // Пересчёт отменяет решения человека, а не саму историю: сами пересчёты в
-  // ней тоже лежат, и подтверждение показывало десяток строк «Пересчёт:
-  // оптимальный план», которые терять не жалко.
+  // Подтверждение перечисляет решения человека, а не всю историю: пересчёты
+  // в ней тоже лежат, и строки «Пересчёт: оптимальный план» там шум.
   const applied = payload?.manual_changes ?? [];
   const history = payload?.undo ?? [];
   const [confirmReplan, setConfirmReplan] = useState(false);
@@ -54,7 +53,7 @@ export function Screen() {
         hour: '2-digit',
         minute: '2-digit',
       })
-    : '—';
+    : '';
   const notBuilt = plan.error instanceof ApiError && plan.error.code === 'plan_not_built';
   const failure = run.error ?? undo.error ?? (notBuilt ? null : plan.error);
 

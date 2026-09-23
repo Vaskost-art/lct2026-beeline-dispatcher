@@ -62,7 +62,7 @@ export function CompareDialog({ region, open, onClose }: Props) {
     <Modal open={open} title="Сравнение способов расчёта" onClose={onClose}>
       {compare.isPending ? (
         <p className="text-[13px] text-ink-3">
-          Считаем три плана подряд теми же настройками, что и план на экране: это занимает одну-две минуты. Быстрее нельзя - иначе оптимизатор остановят на полпути и сравнение выйдет нечестным.
+          Считаем три плана подряд теми же настройками, что и план на экране: это занимает одну-две минуты. Быстрее нельзя - иначе расчёт остановят на полпути и сравнение выйдет нечестным.
         </p>
       ) : null}
 
@@ -123,8 +123,8 @@ export function CompareDialog({ region, open, onClose }: Props) {
                 последовательное распределение берёт{' '}
                 <span className="tnum">{baseline.metrics.orders_assigned}</span> из{' '}
                 <span className="tnum">{baseline.metrics.orders_total}</span>{' '}
-                {plural(baseline.metrics.orders_total, 'заявки', 'заявок', 'заявок')}: остальные не
-                помещаются в окна клиентов и смены бригад.
+                {plural(baseline.metrics.orders_total, 'заявки', 'заявок', 'заявок')}: при таком
+                порядке остальные не помещаются в окна клиентов и смены бригад.
               </p>
               <p className="text-[13px] text-ink">
                 <span className="font-semibold">Перебор вариантов окупается.</span> Быстрый

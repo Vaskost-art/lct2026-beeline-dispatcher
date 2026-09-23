@@ -1,4 +1,3 @@
-import { CaretDown, Lightning } from '@phosphor-icons/react';
 import { useState } from 'react';
 
 import { useReplan } from '../../api/queries';
@@ -7,6 +6,7 @@ import type { PlanPayload } from '../../api/types';
 import { Button } from '../../components/Button';
 import { EMPTY_DRAFT, toRequest, whatIsMissing, type EventDraft } from './draft';
 import { EventFields } from './EventFields';
+import { EventToggle } from './EventToggle';
 import { KindPicker } from './KindPicker';
 import { EventPreview } from './EventPreview';
 
@@ -24,7 +24,12 @@ interface Props {
 */
 export function EventBar({ plan, onSelectOrder }: Props) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<EventDraft>(EMPTY_DRAFT);
+  // Время события начинается со времени смены: второе событие за день не
+  // должно по умолчанию уходить в прошлое, сервис такое не примет.
+  const [draft, setDraft] = useState<EventDraft>(() => ({
+    ...EMPTY_DRAFT,
+    at: plan.clock || EMPTY_DRAFT.at,
+  }));
   const replan = useReplan();
   const preview = replan.data && !replan.data.applied ? replan.data : null;
   const applied = replan.data?.applied ? replan.data : null;
@@ -57,24 +62,7 @@ export function EventBar({ plan, onSelectOrder }: Props) {
           : '')
       }
     >
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="flex h-10 w-full items-center gap-2 px-3 text-left"
-      >
-        <Lightning size={15} weight="fill" aria-hidden className="text-accent" />
-        <span className="shrink-0 text-[13px] font-medium">Событие в течение дня</span>
-        <span className="truncate text-[12px] text-ink-3">
-          новая заявка или авария, отмена, задержка, бригада выбыла
-        </span>
-        <CaretDown
-          size={12}
-          weight="bold"
-          aria-hidden
-          className={'ml-auto text-ink-3 transition-transform ' + (open ? 'rotate-180' : '')}
-        />
-      </button>
+      <EventToggle open={open} onToggle={() => setOpen(!open)} />
 
       {open ? (
         <div className="flex flex-col gap-3 border-t border-line px-3 py-3">
@@ -167,12 +155,21 @@ export function EventBar({ plan, onSelectOrder }: Props) {
                 onSelect={onSelectOrder}
                 minimal={draft.mode === 'minimal'}
               />
-              <div className="flex flex-wrap gap-2">
+              {/* Решение прижато к низу панели: на ноутбуке 1366×768 кнопка
+                  уезжала под край, а прокручивалась только сама панель. */}
+              <div className="sticky bottom-0 -mx-3 -mb-2.5 flex flex-wrap gap-2 border-t
+                              border-line bg-panel px-3 py-2">
                 <Button
                   variant="primary"
                   busy={replan.isPending && Boolean(replan.variables?.apply)}
                   busyLabel="Применяем"
-                  onClick={() => replan.mutate(toRequest(draft, plan, true))}
+                  onClick={() =>
+                    replan.mutate(toRequest(draft, plan, true), {
+                      // После применения форма пустеет: иначе второе нажатие
+                      // применило бы то же событие ещё раз. Время остаётся.
+                      onSuccess: () => setDraft({ ...EMPTY_DRAFT, at: draft.at }),
+                    })
+                  }
                 >
                   Применить к дню
                 </Button>

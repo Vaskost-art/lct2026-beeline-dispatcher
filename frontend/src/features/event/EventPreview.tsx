@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import type { PlanPayload, ReplanPayload } from '../../api/types';
 import { plural } from '../../text';
+import { STATUS_TITLES, STATUS_WEIGHT } from './changes';
 import { Tile } from './Tile';
 
 interface Props {
@@ -18,15 +19,6 @@ interface Props {
 /** Сколько изменений показывать сразу. */
 const SHORT_LIST = 4;
 
-const STATUS_TITLES: Record<string, string> = {
-  moved: 'передана другой бригаде',
-  resequenced: 'сменила место в маршруте',
-  retimed: 'визит сдвинут',
-  dropped: 'выпала из плана',
-  added: 'добавлена в план',
-  frozen: 'уже начата, не трогаем',
-};
-
 /** Что будет, если применить событие.
 
 Рабочий день при этом не меняется: пока не нажато «применить», это только
@@ -39,19 +31,10 @@ export function EventPreview({ before, preview, onSelect, minimal = false }: Pro
   // Нетронутые заявки перечислять незачем: их десятки, и они как раз то, что
   // НЕ изменилось. Остальное - поимённо.
   const frozen = preview.diff.changes.filter((change) => change.status === 'frozen').length;
-  // Выпавшая заявка идёт первой: именно по ней диспетчеру звонить клиенту,
-  // а в общем порядке она терялась среди «сменила место в маршруте».
-  const WEIGHT: Record<string, number> = {
-    dropped: 0,
-    added: 1,
-    moved: 2,
-    retimed: 3,
-    resequenced: 4,
-  };
   const touched = preview.diff.changes
     .filter((change) => change.status !== 'frozen')
     .slice()
-    .sort((a, b) => (WEIGHT[a.status] ?? 9) - (WEIGHT[b.status] ?? 9));
+    .sort((a, b) => (STATUS_WEIGHT[a.status] ?? 9) - (STATUS_WEIGHT[b.status] ?? 9));
   // Список открывается коротким: иначе он отодвигает решение «применить или
   // отказаться» за нижний край панели, а именно его и ждут от предпросмотра.
   const [all, setAll] = useState(false);
@@ -97,6 +80,14 @@ export function EventPreview({ before, preview, onSelect, minimal = false }: Pro
         </p>
       ) : null}
 
+      {preview.diff.lost && preview.diff.lost.length > 0 ? (
+        <p role="alert" className="rounded-md border-l-2 border-danger bg-danger-soft px-2 py-1.5 text-[13px]">
+          Пересборка сняла {preview.diff.lost.length}{' '}
+          {plural(preview.diff.lost.length, 'заявку', 'заявки', 'заявок')}, которые были в плане:{' '}
+          {preview.diff.lost.join(', ')}. Точечная правка может их сохранить.
+        </p>
+      ) : null}
+
       {/* Три плитки в ряд и на телефоне: столбиком они выталкивали кнопку
           «Применить к дню» за край экрана. */}
       <div className="grid grid-cols-3 gap-2">
@@ -107,16 +98,17 @@ export function EventPreview({ before, preview, onSelect, minimal = false }: Pro
         />
         <Tile
           label="Пробег"
-          was={Math.round(before.metrics.total_km)}
-          now={Math.round(preview.metrics.total_km)}
+          was={before.metrics.total_km}
+          now={preview.metrics.total_km}
           unit="км"
-          lessIsBetter
+          digits={1}
+          tone="less"
         />
         <Tile
           label="Бригад в работе"
           was={before.metrics.used_engineers}
           now={preview.metrics.used_engineers}
-          lessIsBetter
+          tone="neutral"
         />
       </div>
 
@@ -149,7 +141,7 @@ export function EventPreview({ before, preview, onSelect, minimal = false }: Pro
                         {change.shift_min < 0 ? ': впереди освободилось время' : ''}
                       </span>
                     ) : null}
-                    {change.status === 'dropped' ? ': откройте, чтобы назначить вручную' : null}
+                    {change.status === 'dropped' ? ': в карточке причина и что можно сделать' : null}
                   </span>
                   {change.from_engineer && change.to_engineer &&
                   change.from_engineer !== change.to_engineer ? (

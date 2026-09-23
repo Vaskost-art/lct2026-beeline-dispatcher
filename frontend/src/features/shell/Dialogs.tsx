@@ -56,10 +56,13 @@ export function Dialogs({
             plan={payload}
             open={day.panel === 'risk'}
             onClose={day.closePanel}
-            onShowCrew={(crew) => {
+            onShowCrew={(crew, order) => {
               day.closePanel();
               day.showTab('routes');
               day.focusOnCrew(crew);
+              // Слабое место открывается сразу: искать его глазами среди
+              // визитов маршрута некогда.
+              if (order) day.selectOrder(order);
             }}
           />
         <PickupDialog plan={payload} open={day.panel === 'pickup'} onClose={day.closePanel} />

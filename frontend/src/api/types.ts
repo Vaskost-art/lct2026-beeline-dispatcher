@@ -166,6 +166,8 @@ export interface PlanPayload {
   /** Что с заявкой прямо сейчас: заявка -> статус. Пусто значит «Отправлено». */
   statuses: Record<string, string>;
   progress: DayProgress;
+  /** Время смены: момент последнего применённого события, «ЧЧ:ММ» или пусто. */
+  clock?: string;
 }
 
 export type * from './reports';

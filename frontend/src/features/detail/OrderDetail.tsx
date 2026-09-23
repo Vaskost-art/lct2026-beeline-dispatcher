@@ -78,7 +78,12 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
       </header>
 
       <div className="scroll-fade min-h-0 flex-1 overflow-auto px-3 py-3">
-        <StatusMarks region={region} orderId={orderId} status={status} />
+        <StatusMarks
+          region={region}
+          orderId={orderId}
+          status={status}
+          assigned={data ? data.assigned : true}
+        />
 
         {explain.isPending ? <p className="text-[13px] text-ink-3">Собираем объяснение…</p> : null}
 
@@ -107,7 +112,7 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
               <p className="mt-1 text-[13px] text-ink-2">{data.timing_reason}</p>
             ) : null}
 
-            {order && order.equipment.length > 0 ? (
+            {data.assigned && order && order.equipment.length > 0 ? (
               <p className="mt-3 flex flex-wrap items-center gap-1 text-[12px] text-ink-3">
                 Везём:
                 {order.equipment.map((item) => (

@@ -2,7 +2,7 @@
 """Собирает эталонный тестовый набор данных (ТЗ п. 6).
 
 ТЗ требует набор на один рабочий день: 10–15 инженеров, не более 100 заявок,
-и чтобы по нему можно было проверить все обязательные ограничения — в данных
+и чтобы по нему можно было проверить все обязательные ограничения - в данных
 должны встречаться все три навыка, разные комбинации навыков у исполнителей,
 все типы транспорта, пересекающиеся временные окна и хотя бы один конфликт,
 при котором простое последовательное распределение даёт менее эффективный план.
@@ -24,14 +24,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-import norms  # noqa: E402
+from sample_result import result_json  # noqa: E402
 
-from dispatcher.domain import hhmm  # noqa: E402
+from dispatcher.domain import (  # noqa: E402
+    catalog,
+    norms,
+)
 from dispatcher.services.dataset import order_to_json, scenario_to_json  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
 from dispatcher.services.planning.baseline import solve_baseline  # noqa: E402
+from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC  # noqa: E402
 from dispatcher.services.planning.optimizer import solve_optimized  # noqa: E402
-from dispatcher.services.replanning.events import KIND_URGENT, make_urgent_order  # noqa: E402
+from dispatcher.services.replanning.events import KIND_URGENT, make_new_order  # noqa: E402
 from dispatcher.services.scenario import load_scenario  # noqa: E402
 from dispatcher.services.validate import validate  # noqa: E402
 
@@ -41,17 +45,24 @@ OUT_DIR = os.path.join(ROOT, "data", "sample")
 
 SOURCE_REGION = "vostok"
 SAMPLE_NAME = "Демонстрационный набор: один рабочий день, район Восток"
-TIME_LIMIT = 15
+#: Тот же предохранитель, что у сервиса: останавливает поиск счётный предел,
+#: и пример результата повторяется от запуска к запуску.
+TIME_LIMIT = DEFAULT_TIME_LIMIT_SEC
+
+#: ТЗ п. 6: в тестовом наборе 10-15 инженеров и все типы транспорта. Расчётный
+#: минимум для Востока меньше, поэтому набор берёт нижнюю границу ТЗ, а одна
+#: бригада без машины пересаживается на велосипед: в долях транспорта его нет.
+SAMPLE_CREWS = 10
 
 
 def build_event(scenario) -> dict:
     """Одно событие перепланирования: срочная авария в середине дня.
 
-    Точка взята рядом с уже существующими заявками района, окно — дневное,
+    Точка взята рядом с уже существующими заявками района, окно - дневное,
     чтобы событие имело смысл при любом плане.
     """
     anchor = next(o for o in scenario.orders if o.district == "Кузьминки")
-    urgent = make_urgent_order(
+    urgent = make_new_order(
         order_id="URGENT-001",
         lat=round(anchor.lat + 0.004, 6),
         lon=round(anchor.lon + 0.006, 6),
@@ -60,7 +71,7 @@ def build_event(scenario) -> dict:
         duration_min=60,
         window_start=15 * 60,
         window_end=17 * 60,
-        required_skill=norms.SKILL_EMERGENCY,
+        required_skill=catalog.SKILL_EMERGENCY,
     )
     return {
         "kind": KIND_URGENT,
@@ -79,7 +90,7 @@ def coverage_report(scenario) -> tuple[list[tuple[str, bool, str]], bool]:
     all_skills = set(dict.fromkeys(norms.SKILL_BY_TYPE_BK.values()))
     combos = {tuple(sorted(e.skills)) for e in engineers}
     vehicles = {e.vehicle for e in engineers}
-    all_vehicles = set(norms.SPEED_KMH)
+    all_vehicles = set(catalog.VEHICLES)
 
     # пересекающиеся окна: есть ли хотя бы одна пара заявок с общим интервалом
     overlapping = 0
@@ -108,8 +119,8 @@ def coverage_report(scenario) -> tuple[list[tuple[str, bool, str]], bool]:
          any(o.required_vehicle for o in orders),
          f"{sum(1 for o in orders if o.required_vehicle)} заявок"),
         ("Есть срочные заявки",
-         any(o.priority == norms.PRIORITY_URGENT for o in orders),
-         f"{sum(1 for o in orders if o.priority == norms.PRIORITY_URGENT)} заявок"),
+         any(o.priority == catalog.PRIORITY_URGENT for o in orders),
+         f"{sum(1 for o in orders if o.priority == catalog.PRIORITY_URGENT)} заявок"),
         ("Есть пересекающиеся временные окна",
          overlapping > 0,
          f"{overlapping} пересекающихся пар"),
@@ -125,7 +136,10 @@ def coverage_report(scenario) -> tuple[list[tuple[str, bool, str]], bool]:
 
 def main() -> int:
     os.makedirs(OUT_DIR, exist_ok=True)
-    scenario = load_scenario(SOURCE_REGION, RAW_DIR, CACHE)
+    scenario = load_scenario(SOURCE_REGION, RAW_DIR, CACHE, crew_count=SAMPLE_CREWS)
+    rider = next(crew for crew in reversed(scenario.engineers)
+                 if crew.vehicle != catalog.VEHICLE_CAR)
+    rider.vehicle = catalog.VEHICLE_BIKE
     scenario.region_name = SAMPLE_NAME
 
     event = build_event(scenario)
@@ -135,8 +149,9 @@ def main() -> int:
     dataset["meta"]["source"] = (
         "Собран из обезличенной выгрузки организаторов по району Восток "
         "за 17.08.2026. Поля, которых нет в выгрузке (длительность, навыки, "
-        "транспорт, смены, стартовые точки), достроены по правилам из "
-        "dispatcher/domain/norms.py — они описаны в README."
+        "транспорт, смены, стартовая точка), достроены по допущениям, "
+        "описанным в README и в окне «Как считаем». По п. 6 ТЗ в наборе "
+        f"{SAMPLE_CREWS} бригад и все типы транспорта, одна бригада на велосипеде."
     )
     with open(os.path.join(OUT_DIR, "dataset.json"), "w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=1)
@@ -149,52 +164,8 @@ def main() -> int:
     plan = solve_optimized(scenario.orders, scenario.engineers,
                            time_limit_sec=TIME_LIMIT)
     metrics = plan_metrics(plan, scenario.orders, scenario.engineers)
-    by_id = scenario.order_by_id
-    assignment = {s.order_id: r.engineer_id
-                  for r in plan.routes for s in r.stops}
 
-    result = {
-        "район": scenario.region_name,
-        "стратегия": plan.strategy,
-        "исполнители": [
-            {
-                "исполнитель": route.engineer_id,
-                "пробег_км": round(route.total_km, 2),
-                "время_в_пути_мин": route.total_travel_min,
-                "маршрут": [
-                    {
-                        "порядок": i + 1,
-                        "заявка": stop.order_id,
-                        "адрес": by_id[stop.order_id].address,
-                        "прибытие": hhmm(stop.arrival),
-                        "начало_работ": hhmm(stop.start),
-                        "окончание": hhmm(stop.end),
-                        "пробег_до_точки_км": round(stop.travel_km, 2),
-                    }
-                    for i, stop in enumerate(route.stops)
-                ],
-            }
-            for route in plan.routes if route.is_used
-        ],
-        "заявки": [
-            {"заявка": o.id, "исполнитель": assignment.get(o.id),
-             "статус": "назначена" if o.id in assignment else "не назначена"}
-            for o in scenario.orders
-        ],
-        "не_назначены": [
-            {"заявка": u.order_id, "причина": u.reason_text}
-            for u in plan.unassigned
-        ],
-        "метрики": {
-            "задействовано_исполнителей": metrics["used_engineers"],
-            "доступно_исполнителей": metrics["engineers_available"],
-            "пробег_по_исполнителям": {row["engineer_id"]: row["km"]
-                                       for row in metrics["km_per_engineer"]},
-            "суммарный_пробег_км": metrics["total_km"],
-            "назначено_заявок": metrics["orders_assigned"],
-            "всего_заявок": metrics["orders_total"],
-        },
-    }
+    result = result_json(scenario, plan, metrics)
     with open(os.path.join(OUT_DIR, "expected_result.json"), "w",
               encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=1)
@@ -225,7 +196,7 @@ def main() -> int:
     print(f"\nФайлы записаны в {OUT_DIR}:")
     for name in ("dataset.json", "event.json", "expected_result.json"):
         size = os.path.getsize(os.path.join(OUT_DIR, name))
-        print(f"  {name} — {size / 1024:.1f} КБ")
+        print(f"  {name} - {size / 1024:.1f} КБ")
 
     return 0 if (ok and conflict and report.ok) else 1
 

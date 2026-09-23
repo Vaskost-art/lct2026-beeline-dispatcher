@@ -2,7 +2,7 @@
 """Сквозная самопроверка: строит все планы по всем районам и аудирует каждый.
 
 Проверяется то, о чём эксперты спрашивают прямо:
-  * обязательные ограничения действительно соблюдаются — каждый план
+  * обязательные ограничения действительно соблюдаются - каждый план
     независимо перепроверяется модулем validate;
   * все три события перепланирования отрабатывают в обоих режимах, и
     результат снова проходит проверку;
@@ -10,7 +10,7 @@
     а у каждой неназначенной есть причина.
 
 Запуск:  python3 scripts/selftest.py
-Код возврата 0 — всё в порядке, 1 — найдены нарушения.
+Код возврата 0 - всё в порядке, 1 - найдены нарушения.
 """
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from dispatcher.services.control import control_plan  # noqa: E402
 from dispatcher.services.dataset import scenario_from_json, scenario_to_json  # noqa: E402
 from dispatcher.services.impact import plan_risk  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
@@ -34,7 +33,7 @@ from dispatcher.services.replanning.events import (  # noqa: E402
     KIND_UNAVAILABLE,
     KIND_URGENT,
     ReplanEvent,
-    make_urgent_order,
+    make_new_order,
 )
 from dispatcher.services.replanning.repair import MODE_FULL, MODE_MINIMAL  # noqa: E402
 from dispatcher.services.scenario import load_all  # noqa: E402
@@ -81,18 +80,6 @@ def main() -> int:
 
         orders, engineers = scenario.orders, scenario.engineers
 
-        fact, fact_report = control_plan(orders, engineers)
-        fact_metrics = plan_metrics(fact, orders, engineers)
-        print(f"\n  ФАКТ (живой диспетчер): исполнителей "
-              f"{fact_metrics['used_engineers']}, "
-              f"пробег {fact_metrics['total_km']:.1f} км, "
-              f"назначено {fact_metrics['orders_assigned']}")
-        print(f"      нарушений окна в факте: "
-              f"{len(fact_report['window_violations'])}, "
-              f"выходов за смену: {len(fact_report['shift_overflow'])}, "
-              f"максимум заявок в одно окно одной бригаде: "
-              f"{fact_report['max_orders_per_window_per_crew']}")
-
         plans = {}
         print()
         for key, title, fn in (
@@ -117,10 +104,6 @@ def main() -> int:
               f"заявок {best['orders_assigned'] - base['orders_assigned']:+d}, "
               f"исполнителей {best['used_engineers'] - base['used_engineers']:+d}, "
               f"пробег {best['total_km'] - base['total_km']:+.1f} км")
-        print(f"  оптимизатор против факта: "
-              f"исполнителей "
-              f"{best['used_engineers'] - fact_metrics['used_engineers']:+d}, "
-              f"пробег {best['total_km'] - fact_metrics['total_km']:+.1f} км")
 
         # --- обмен набором данных: запись и чтение без потерь ---
         blob = scenario_to_json(scenario)
@@ -137,7 +120,7 @@ def main() -> int:
                                e.shift_start, e.shift_end)
                               for e in restored.engineers])
         if same_orders and same_engineers:
-            print("\n  обмен набором данных: запись и чтение без потерь — ок")
+            print("\n  обмен набором данных: запись и чтение без потерь - ок")
         else:
             print("\n  обмен набором данных: РАСХОЖДЕНИЕ после круга запись-чтение")
             failures.append(f"{scenario.region_name}/dataset-roundtrip")
@@ -146,7 +129,7 @@ def main() -> int:
         report = plan_risk(plans["optimized"], orders, engineers)
         weakest = report["weakest_route"]
         print(f"  прогноз опозданий: {report['by_risk']}, "
-              f"самый хрупкий маршрут — «{weakest['engineer_id']}», "
+              f"самый хрупкий маршрут - «{weakest['engineer_id']}», "
               f"запас {weakest['tolerance_min']} мин")
         for scenario_row in report["scenarios"]:
             print(f"    при просадке {scenario_row['overrun_per_job']} мин: "
@@ -164,7 +147,7 @@ def main() -> int:
         busiest = max(current.routes, key=lambda r: len(r.stops)).engineer_id
         first_assigned = next(s.order_id for r in current.routes
                               if r.stops for s in r.stops)
-        urgent = make_urgent_order(
+        urgent = make_new_order(
             order_id="SELFTEST-URGENT",
             lat=orders[0].lat, lon=orders[0].lon,
             address="Проверочная точка", district=orders[0].district,

@@ -7,12 +7,12 @@
 from collections.abc import Awaitable, Callable
 
 from playwright.async_api import Page
-from shoot_states import PLAN_TIMEOUT_MS, _plan
+from shoot_steps import PLAN_TIMEOUT_MS, plan_day
 
 
 async def _new_order(page: Page, work: str) -> None:
     """Раскрыть полосу события и заполнить новую заявку нужного типа."""
-    await _plan(page)
+    await plan_day(page)
     await page.click('button:has-text("Событие в течение дня")')
     # По точному имени: подпись свёрнутой полосы тоже содержит «новая заявка».
     kind = page.get_by_role("button", name="Новая заявка", exact=True)

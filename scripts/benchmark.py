@@ -21,7 +21,6 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src"))
 
-from dispatcher.services.control import control_plan  # noqa: E402
 from dispatcher.services.metrics import plan_metrics  # noqa: E402
 from dispatcher.services.planning.baseline import solve_baseline, solve_greedy  # noqa: E402
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC  # noqa: E402
@@ -33,14 +32,6 @@ from dispatcher.services.validate import validate  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW_DIR = os.path.join(ROOT, "data", "raw")
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
-
-
-def _brigades(count: int) -> str:
-    """Склонение слова «бригада» по числу: 1 бригада, 2 бригады, 5 бригад."""
-    if count % 100 in range(11, 15):
-        return "бригад"
-    return {1: "бригада", 2: "бригады", 3: "бригады", 4: "бригады"}.get(
-        count % 10, "бригад")
 
 
 def _row(title: str, metrics: dict, ok: bool | None, key: str = "") -> dict:
@@ -66,7 +57,7 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
         rows.append(_row(STRATEGY_FULL_TITLES[key], plan_metrics(plan, orders, engineers),
                          validate(plan, orders, engineers).ok, key))
 
-    # оптимизатор — столько прогонов, сколько попросили, с разбросом
+    # оптимизатор - столько прогонов, сколько попросили, с разбросом
     trials = []
     for _ in range(runs):
         plan = solve_optimized(orders, engineers, time_limit_sec=time_limit)
@@ -84,20 +75,14 @@ def measure(scenario, time_limit: int, runs: int) -> list[dict]:
             "km_median": round(statistics.median(t[0]["total_km"] for t in trials), 1),
         }
     rows.append(row)
-
-    fact, fact_report = control_plan(orders, engineers)
-    fact_row = _row("Факт: живой диспетчер",
-                    plan_metrics(fact, orders, engineers), None, "fact")
-    fact_row["fact_report"] = fact_report
-    rows.append(fact_row)
     return rows
 
 
 def sweep_heuristics(scenarios, time_limit: int) -> None:
-    """Перебор эвристик первого решения — тем же замером, что и всё остальное.
+    """Перебор эвристик первого решения - тем же замером, что и всё остальное.
 
     Настройки поиска в `dispatcher/services/planning` выбраны не из примеров OR-Tools, и
-    эта таблица — то, чем выбор подтверждается. Метаэвристика локального поиска
+    эта таблица - то, чем выбор подтверждается. Метаэвристика локального поиска
     при этом не меняется: сравниваются именно стартовые решения.
     """
     from ortools.constraint_solver import routing_enums_pb2
@@ -143,7 +128,7 @@ def main() -> int:
     args = parser.parse_args()
 
     scenarios = load_all(RAW_DIR, CACHE_PATH)
-    print(f"Лимит времени оптимизатора — {args.time_limit} с на район, "
+    print(f"Лимит времени оптимизатора - {args.time_limit} с на район, "
           f"прогонов: {args.runs}\n")
     print("| Район | Вариант | Назначено | Исполнителей | Пробег, км | Км на заявку |")
     print("|---|---|---|---|---|---|")
@@ -154,9 +139,7 @@ def main() -> int:
         summary[scenario.region_name] = {r["title"]: r for r in rows}
         for i, r in enumerate(rows):
             region = scenario.region_name if i == 0 else ""
-            mark = "**" if r["key"] == "optimized" else ""
-            italic = "*" if r["key"] == "fact" else ""
-            wrap = mark or italic
+            wrap = "**" if r["key"] == "optimized" else ""
             km = f"{r['km']:.1f}"
             print(f"| {region} | {wrap}{r['title']}{wrap} "
                   f"| {wrap}{r['assigned']}/{r['total']}{wrap} "
@@ -169,36 +152,15 @@ def main() -> int:
                       f"| {r['spread']['km'][0]}–{r['spread']['km'][1]} "
                       f"(медиана {r['spread']['km_median']}) |  |")
 
-    print("\n\nОптимизатор против базового варианта и против факта "
-          "— по километрам на одну назначенную заявку:\n")
-    print("| Район | Против базового | Против факта |")
+    print("\n\nОптимизатор против базового варианта:\n")
+    print("| Район | Заявок больше | Км на заявку |")
     print("|---|---|---|")
     for region, rows in summary.items():
         opt = next(r for r in rows.values() if r["key"] == "optimized")
         base = next(r for r in rows.values() if r["key"] == "baseline")
-        fact = next(r for r in rows.values() if r["key"] == "fact")
-        def delta(other, optimized=opt):
-            if not other["km_per_order"]:
-                return "—"
-            change = round(100 * (optimized["km_per_order"] / other["km_per_order"] - 1))
-            return f"{change:+d}% км на заявку"
-        people = opt["used"] - fact["used"]
-        # Таблицу переносят в README дословно, поэтому склонение здесь, а не
-        # «−1 бригад» с последующей ручной правкой.
-        people_text = (f", {people:+d} {_brigades(abs(people))}"
-                       if people else ", столько же бригад")
-        print(f"| {region} | {delta(base)} | {delta(fact)}{people_text} |")
-
-    print("\n\nФактическое распределение против правил ТЗ:\n")
-    for region, rows in summary.items():
-        fact = next(r for r in rows.values() if r["key"] == "fact")
-        report = fact.get("fact_report") or {}
-        print(f"  {region}: нарушений окна "
-              f"{len(report.get('window_violations') or [])}, "
-              f"выходов за смену {len(report.get('shift_overflow') or [])}, "
-              f"максимум заявок в одно окно одной бригаде "
-              f"{report.get('max_orders_per_window_per_crew', '?')}, "
-              f"заявок без бригады {len(report.get('orders_without_crew') or [])}")
+        change = (f"{round(100 * (opt['km_per_order'] / base['km_per_order'] - 1)):+d}%"
+                  if base["km_per_order"] else "-")
+        print(f"| {region} | {opt['assigned'] - base['assigned']:+d} | {change} |")
 
     if args.heuristics:
         sweep_heuristics(scenarios, args.time_limit)

@@ -43,7 +43,7 @@ def main() -> None:
 
     print("НЕ ОБЪЯВЛЕНЫ (правило с такой переменной отбрасывается целиком):")
     for name, files in sorted(missing.items()):
-        print(f"  {name} — {', '.join(sorted(set(files)))}")
+        print(f"  {name} - {', '.join(sorted(set(files)))}")
     raise SystemExit(1)
 
 

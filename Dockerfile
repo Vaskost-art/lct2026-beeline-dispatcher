@@ -20,5 +20,11 @@ COPY --from=ui /ui/dist/ ./frontend/dist/
 COPY data/ ./data/
 COPY scripts/ ./scripts/
 
+# Сервис работает от обычного пользователя, а не от root: сохранённые дни
+# он пишет только в свой каталог data/saved.
+RUN useradd --create-home --uid 10001 dispatcher \
+    && mkdir -p /app/data/saved && chown -R dispatcher /app/data/saved
+USER dispatcher
+
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "dispatcher.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--app-dir", "src"]

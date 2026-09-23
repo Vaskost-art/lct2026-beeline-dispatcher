@@ -13,9 +13,10 @@ from dispatcher.api.deps import STORE, scenario_of, version_of
 from dispatcher.api.envelope import ok
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import EquipmentTransferRequest, OrderStatusRequest
-from dispatcher.domain import STATUS_SENT
+from dispatcher.domain import STATUS_CANCELLED, STATUS_SENT
 from dispatcher.services.equipment import transfer
-from dispatcher.services.statuses import day_progress, status_of
+from dispatcher.services.metrics import plan_metrics
+from dispatcher.services.statuses import day_progress, drop_cancelled, plannable, status_of
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ router = APIRouter()
 def set_status(request: OrderStatusRequest) -> dict:
     """Отмечает состояние заявки: в пути, выполняется, завершено, отменена."""
     scenario = scenario_of(request.region)
+    revision = STORE.revision(request.region)
     state = version_of(request.region)
 
     order = next((o for o in state.orders if o.id == request.order_id), None)
@@ -48,7 +50,12 @@ def set_status(request: OrderStatusRequest) -> dict:
         raise HTTPException(409, "План ещё не построен")
     version.statuses = statuses
     version.manual = True
-    STORE.push(request.region, version)
+    if request.status == STATUS_CANCELLED:
+        version.plan = drop_cancelled(version.plan, request.order_id,
+                                      version.orders, version.engineers)
+        version.metrics = plan_metrics(version.plan, plannable(version.orders, statuses),
+                                       version.engineers)
+    STORE.push_since(revision, request.region, version)
     return ok(plan_payload(scenario, version.plan, version.metrics))
 
 
@@ -68,6 +75,7 @@ def transfer_equipment(request: EquipmentTransferRequest) -> dict:
     расписано под собственные заявки отдающего.
     """
     scenario = scenario_of(request.region)
+    revision = STORE.revision(request.region)
     state = version_of(request.region)
     known = {engineer.id for engineer in state.engineers}
     for crew in (request.source, request.target):
@@ -88,5 +96,5 @@ def transfer_equipment(request: EquipmentTransferRequest) -> dict:
         raise HTTPException(409, "План ещё не построен")
     version.issued = updated
     version.manual = True
-    STORE.push(request.region, version)
+    STORE.push_since(revision, request.region, version)
     return ok(plan_payload(scenario, version.plan, version.metrics))

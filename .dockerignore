@@ -1,0 +1,17 @@
+# В образ едет только то, что нужно сервису. Сохранённые дни, ключи и
+# служебные каталоги остаются на машине, где собирают образ.
+.git
+.env
+.env.*
+!.env.example
+.venv
+**/__pycache__
+**/node_modules
+frontend/dist
+data/saved
+reports
+docs_dev
+.claude
+.pytest_cache
+.mypy_cache
+.ruff_cache

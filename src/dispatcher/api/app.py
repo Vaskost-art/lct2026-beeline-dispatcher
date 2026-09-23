@@ -12,9 +12,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from dispatcher.api import deps
+from dispatcher.api import deps, security
 from dispatcher.api.envelope import code_of, failed
 from dispatcher.api.routes import (
+    adjust,
     datasets,
     manual,
     meta,
@@ -22,6 +23,7 @@ from dispatcher.api.routes import (
     progress,
     replanning,
     saving,
+    upload,
 )
 from dispatcher.infrastructure import envfile
 from dispatcher.services.scenario import load_all
@@ -41,8 +43,11 @@ envfile.load()
 app = FastAPI(title="Планировщик маршрутов выездных инженеров",
               version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
-for module in (meta, planning, replanning, manual, progress, saving, datasets):
+for module in (meta, planning, replanning, manual, adjust, progress, saving,
+               datasets, upload):
     app.include_router(module.router)
+
+app.middleware("http")(security.guard)
 
 
 @app.exception_handler(HTTPException)

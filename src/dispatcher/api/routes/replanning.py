@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
 from dispatcher.api.envelope import ok
+from dispatcher.api.guard import solver_slot
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import ReplanRequest
 from dispatcher.api.state import DayVersion, PreviewCache
@@ -30,6 +31,7 @@ router = APIRouter()
 @router.post("/api/replan")
 def do_replan(request: ReplanRequest) -> dict:
     scenario = scenario_of(request.region)
+    revision = STORE.revision(request.region)
     state = version_of(request.region)
     orders, engineers = state.orders, state.engineers
 
@@ -84,28 +86,33 @@ def do_replan(request: ReplanRequest) -> dict:
     # Поиск ограничен временем и второй запуск даёт другой результат, поэтому
     # применяем сохранённый вариант, а не считаем заново. Привязка к объекту
     # плана делает устаревший предпросмотр недействительным сама собой.
+    # Подпись - всё, от чего зависит результат: у новой заявки не только
+    # номер, но и место, окно, длительность и вид, иначе «Авария» и «Ремонт»
+    # в одну минуту давали одну подпись.
     signature = (request.kind, at, request.order_id, request.engineer_id,
-                 request.delay_min, request.mode,
-                 new_order.id if new_order is not None else None)
+                 request.delay_min, request.mode, request.time_limit_sec,
+                 request.new_order.model_dump_json() if request.new_order else None)
     state_day = day(request.region)
-    version_number = len(state_day.versions)
+    version_number = revision
     preview = state_day.preview
     if (request.apply and preview is not None
             and preview.signature == signature
             and preview.version_number == version_number):
         result = preview.result
     else:
-        result = replan(orders, engineers, state.plan, event,
-                        mode=request.mode,
-                        time_limit_sec=request.time_limit_sec,
-                        issued=state.issued, statuses=state.statuses)
+        with solver_slot():
+            result = replan(orders, engineers, state.plan, event,
+                            mode=request.mode,
+                            time_limit_sec=request.time_limit_sec,
+                            issued=state.issued, statuses=state.statuses,
+                            locked=state.locked)
         if not request.apply:
             state_day.preview = PreviewCache(signature, version_number, result)
 
     # Списки после события берём у самого переплана, а не пересобираем здесь:
     # событие может менять не только состав заявок, но и их поля (задержка
     # бригады удлиняет начатый визит), и вторая независимая сборка
-    # разъезжается с планом — план перестаёт проходить проверку.
+    # разъезжается с планом - план перестаёт проходить проверку.
     new_orders = result.orders
     new_engineers = result.engineers
 
@@ -114,7 +121,7 @@ def do_replan(request: ReplanRequest) -> dict:
     if request.apply:
         # Смены сдвинулись: остаток дня начинается с момента события, у
         # выбывшей бригады смена закрыта.
-        STORE.push(request.region, DayVersion(
+        STORE.push_since(revision, request.region, DayVersion(
             label=f"{KIND_TITLES.get(request.kind, request.kind)} в {hhmm(at)}",
             plan=result.plan, metrics=metrics,
             orders=new_orders, engineers=new_engineers,
@@ -135,13 +142,9 @@ def do_replan(request: ReplanRequest) -> dict:
                                  engineers=new_engineers,
                                  locked=dict(state.locked), issued=state.issued,
                                  statuses=dict(state.statuses))
-    state_day.versions.append(preview_version)
-    try:
-        return ok(plan_payload(scenario, result.plan, metrics, extra={
-            "diff": result.diff,
-            "narrative": result.narrative,
-            "applied": False,
-            "frozen": result.frozen,
-        }))
-    finally:
-        state_day.versions.pop()
+    return ok(plan_payload(scenario, result.plan, metrics, extra={
+        "diff": result.diff,
+        "narrative": result.narrative,
+        "applied": False,
+        "frozen": result.frozen,
+    }, version=preview_version))

@@ -6,9 +6,9 @@ from fastapi import APIRouter
 from dispatcher.api.deps import JOURNAL, STORE, day, scenario_of
 from dispatcher.api.envelope import ok
 from dispatcher.api.paths import MAP_API_KEY
-from dispatcher.domain import PRIORITY_NORMAL, PRIORITY_URGENT, norms
+from dispatcher.domain import norms
 from dispatcher.domain.assumptions import ASSUMPTIONS
-from dispatcher.domain.catalog import VEHICLES
+from dispatcher.domain.catalog import PRIORITIES, VEHICLES
 from dispatcher.infrastructure.ingest import REGIONS
 from dispatcher.services.planning.strategies import (
     STRATEGY_FULL_TITLES,
@@ -34,8 +34,7 @@ def meta() -> dict:
         ],
         "skills": list(norms.SKILL_BY_TYPE_BK.values()),
         "vehicles": list(VEHICLES),
-        "priorities": list(norms.PRIORITIES) if hasattr(norms, "PRIORITIES")
-                      else [PRIORITY_NORMAL, PRIORITY_URGENT],
+        "priorities": list(PRIORITIES),
         "strategies": [{"key": k, "title": v,
                         "full_title": STRATEGY_FULL_TITLES.get(k, v),
                         "hint": STRATEGY_HINTS.get(k, "")}

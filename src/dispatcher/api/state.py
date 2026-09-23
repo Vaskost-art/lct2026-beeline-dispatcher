@@ -10,9 +10,12 @@
 """
 from __future__ import annotations
 
+import itertools
+import threading
 from copy import deepcopy
 
 from dispatcher.api.day import DayState, DayVersion, PreviewCache
+from dispatcher.api.envelope import ApiError
 from dispatcher.api.journal import DayJournal
 from dispatcher.domain.scenario import Scenario
 from dispatcher.services.dataset import (
@@ -29,6 +32,15 @@ HISTORY_LIMIT = 20
 
 __all__ = ["DayState", "DayStore", "DayVersion", "HISTORY_LIMIT", "PreviewCache"]
 
+#: Источник ревизий дня: общий на все участки, поэтому номер не повторяется
+#: даже после загрузки нового набора.
+_REVISIONS = itertools.count(1)
+
+#: Ответ, когда день изменился, пока шёл расчёт. Расчёт длится до минуты,
+#: и правка, пришедшая за это время, иначе молча терялась.
+DAY_CHANGED = ("day_changed", "День изменился, пока шёл расчёт: посмотрите "
+               "свежий план и повторите действие")
+
 
 class DayStore:
     """Хранилище рабочих дней по участкам."""
@@ -36,6 +48,7 @@ class DayStore:
     def __init__(self, scenarios: dict[str, Scenario],
                  journal: DayJournal | None = None) -> None:
         self._journal = journal
+        self._lock = threading.Lock()
         self._days = {key: DayState(scenario=value)
                       for key, value in scenarios.items()}
 
@@ -75,6 +88,7 @@ class DayStore:
                 orders=snapshot.orders, engineers=snapshot.engineers,
                 locked=snapshot.locked, issued=snapshot.issued,
                 statuses=snapshot.statuses, manual=snapshot.manual))
+        day.revision = next(_REVISIONS)
         return len(day.versions)
 
     def regions(self) -> list[str]:
@@ -91,7 +105,15 @@ class DayStore:
                          events: list[dict[str, object]] | None = None) -> None:
         """Загружен новый набор данных: день участка начинается заново."""
         self._days[region] = DayState(scenario=scenario,
-                                      dataset_events=list(events or []))
+                                      dataset_events=list(events or []),
+                                      revision=next(_REVISIONS))
+        if self._journal is not None:
+            self._journal.clear(region)
+
+    def forget(self, region: str) -> None:
+        """Убирает загруженный участок из памяти и сворачивает его день."""
+        with self._lock:
+            self._days.pop(region, None)
         if self._journal is not None:
             self._journal.clear(region)
 
@@ -102,14 +124,34 @@ class DayStore:
         day = self._days.get(region)
         return day.current if day else None
 
-    def push(self, region: str, version: DayVersion) -> DayVersion:
+    def revision(self, region: str) -> int:
+        """Ревизия дня участка: с ней сверяется правка перед записью."""
+        day = self._days.get(region)
+        return day.revision if day else 0
+
+    def push(self, region: str, version: DayVersion,
+             expected: int | None = None) -> DayVersion:
         """Кладёт новую версию дня.
 
         Прежняя версия остаётся нетронутой: её копия и есть шаг назад.
+        `expected` - ревизия, на которой считалась правка: если день успел
+        измениться, правка не кладётся поверх чужой, а возвращает 409.
         """
-        day = self._days.get(region)
-        if day is None:
-            raise KeyError(region)
+        with self._lock:
+            day = self._days.get(region)
+            if day is None:
+                raise KeyError(region)
+            if expected is not None and day.revision != expected:
+                raise ApiError(*DAY_CHANGED, status=409)
+            self._append(region, day, version)
+        return version
+
+    def push_since(self, expected: int, region: str, version: DayVersion) -> DayVersion:
+        """Кладёт версию, только если день не менялся с ревизии `expected`."""
+        return self.push(region, version, expected=expected)
+
+    def _append(self, region: str, day: DayState, version: DayVersion) -> None:
+        day.revision = next(_REVISIONS)
         day.versions.append(version)
         if len(day.versions) > HISTORY_LIMIT:
             del day.versions[0]
@@ -119,16 +161,17 @@ class DayStore:
                             version.label, version.plan, version.orders,
                             version.engineers, version.locked, version.manual,
                             issued=version.issued, statuses=version.statuses)))
-        return version
 
     def step_back(self, region: str) -> DayVersion | None:
         """Возвращает предыдущую версию дня, снимая последнюю."""
-        day = self._days.get(region)
-        if day is None or len(day.versions) < 2:
-            return None
-        day.versions.pop()
-        if self._journal is not None:
-            self._journal.forget_last(region)
+        with self._lock:
+            day = self._days.get(region)
+            if day is None or len(day.versions) < 2:
+                return None
+            day.revision = next(_REVISIONS)
+            day.versions.pop()
+            if self._journal is not None:
+                self._journal.forget_last(region)
         return day.current
 
     def snapshot(self, region: str, label: str) -> DayVersion | None:

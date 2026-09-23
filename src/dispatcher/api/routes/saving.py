@@ -27,6 +27,12 @@ router = APIRouter()
 
 # --- сохранение и восстановление рабочего дня (C10) --------------------------
 
+def _why(error: Exception) -> str:
+    """Причина для человека. Ошибка файловой системы печатает полный путь к
+    файлу, а он раскрывает устройство машины - его наружу не отдаём."""
+    return "файл не читается" if isinstance(error, OSError) else str(error)
+
+
 def _saved_path(region: str) -> str:
     # Имя файла собираем сами из ключа района: подставленный путь не должен
     # уводить запись за пределы каталога.
@@ -51,7 +57,7 @@ def save_plan(request: SavePlanRequest) -> dict:
     data = snapshot_to_json(snapshot_of(
         scenario.region_key, scenario.region_name, state.label, state.plan,
         state.orders, state.engineers, state.locked, state.manual,
-        name=request.name))
+        name=request.name, issued=state.issued, statuses=state.statuses))
     # Пишем рядом и переименовываем: прямая запись усекает файл до того,
     # как в него лягут данные, и обрыв на этом месте стирает сохранённый день.
     tmp = f"{path}.tmp"
@@ -95,15 +101,16 @@ def restore_plan(request: RegionRequest) -> dict:
                 region_name=saved.get("region_name") or request.region)
             STORE.replace_scenario(request.region, restored_scenario)
         except (OSError, ValueError, DatasetError) as exc:
-            raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
+            raise HTTPException(400, f"Файл сохранения повреждён: {_why(exc)}") from exc
     scenario = scenario_of(request.region)
+    revision = STORE.revision(request.region)
     if not os.path.exists(path):
         raise HTTPException(404, "Сохранённого плана для этого района нет")
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError) as exc:
-        raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
+        raise HTTPException(400, f"Файл сохранения повреждён: {_why(exc)}") from exc
 
     # Разбор и подъём маршрутов общие с журналом дня: день, поднятый из файла,
     # не должен отличаться от поднятого из базы.
@@ -113,10 +120,11 @@ def restore_plan(request: RegionRequest) -> dict:
     except DatasetError as exc:
         raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
 
-    STORE.push(request.region, DayVersion(
+    STORE.push_since(revision, request.region, DayVersion(
         label="Восстановлен сохранённый день",
         plan=plan, metrics=metrics, orders=snapshot.orders,
-        engineers=snapshot.engineers, locked=snapshot.locked, manual=True))
+        engineers=snapshot.engineers, locked=snapshot.locked,
+        issued=snapshot.issued, statuses=snapshot.statuses, manual=True))
     payload = plan_payload(scenario, plan, metrics)
     payload["restored"] = {"name": snapshot.name or request.region,
                            "saved_at": snapshot.saved_at, "lost": lost}

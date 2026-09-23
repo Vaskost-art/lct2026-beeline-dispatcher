@@ -1,16 +1,13 @@
 """Загрузка и выгрузка наборов данных."""
 from __future__ import annotations
 
-import os
-
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from dispatcher.api.deps import STORE, day, scenario_of, version_of
+from dispatcher.api.deps import day, scenario_of, version_of
 from dispatcher.api.envelope import ok
-from dispatcher.api.paths import CACHE_PATH
 from dispatcher.domain import Plan, hhmm
-from dispatcher.services.dataset import DatasetError, load_upload, scenario_to_json
+from dispatcher.services.dataset import scenario_to_json
 from dispatcher.services.impact import overrun_impact, plan_risk
 from dispatcher.services.validate import validate
 
@@ -19,57 +16,9 @@ router = APIRouter()
 
 # --- загрузка и выгрузка набора данных (ТЗ п. 2.1) --------------------------
 
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-
-
-def _free_region_key(base: str) -> str:
-    """Подбирает свободный ключ, чтобы загрузка не затирала встроенные районы."""
-    candidate = base or "upload"
-    suffix = 2
-    while STORE.has(candidate):
-        candidate = f"{base}-{suffix}"
-        suffix += 1
-    return candidate
-
-
-@router.post("/api/dataset/upload")
-async def upload_dataset(request: Request, filename: str = "dataset",
-                         name: str = "") -> dict:
-    """Принимает набор данных в CSV или JSON и добавляет его как новый район."""
-    raw = await request.body()
-    if not raw:
-        raise HTTPException(400, "Файл пустой — нечего загружать")
-    if len(raw) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            413, f"Файл больше {MAX_UPLOAD_BYTES // (1024 * 1024)} МБ. "
-                 f"Прототип рассчитан на один рабочий день: "
-                 f"10–15 инженеров и не более 100 заявок.")
-
-    stem = os.path.splitext(os.path.basename(filename))[0]
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in stem).strip("-")
-    region_key = _free_region_key(safe.lower() or "upload")
-
-    try:
-        scenario, events, detected = load_upload(filename, raw, region_key, CACHE_PATH)
-    except DatasetError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-    if name.strip():
-        scenario.region_name = name.strip()
-
-    STORE.replace_scenario(region_key, scenario, events)
-
-    return ok({
-        "region": region_key,
-        "format": detected,
-        "summary": scenario.summary(),
-        "events": events,
-    })
-
-
 @router.get("/api/dataset/{region}")
 def download_dataset(region: str) -> JSONResponse:
-    """Отдаёт текущий набор данных района в JSON — формат для обратной загрузки."""
+    """Отдаёт текущий набор данных района в JSON - формат для обратной загрузки."""
     scenario = scenario_of(region)
     data = scenario_to_json(scenario, day(region).dataset_events)
     return JSONResponse(content=data,
@@ -107,7 +56,7 @@ def validate_plan(region: str) -> dict:
 
 @router.get("/api/export/{region}")
 def export_plan(region: str) -> JSONResponse:
-    """Результат в формате ТЗ п. 2.4.2 — для проверки и передачи дальше."""
+    """Результат в формате ТЗ п. 2.4.2 - для проверки и передачи дальше."""
     scenario = scenario_of(region)
     state = version_of(region)
     plan: Plan = state.plan

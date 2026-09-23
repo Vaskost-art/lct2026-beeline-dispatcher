@@ -16,8 +16,8 @@ from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 class PlanRequest(BaseModel):
     region: str
     strategy: Literal["baseline", "greedy", "optimized"] = "optimized"
-    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
-    # True — начать день с чистого листа: снять закрепления, вернуть исходные
+    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=DEFAULT_TIME_LIMIT_SEC)
+    # True - начать день с чистого листа: снять закрепления, вернуть исходные
     # заявки и смены. По умолчанию пересчёт сохраняет решения диспетчера.
     reset: bool = False
 
@@ -51,7 +51,7 @@ class ReplanRequest(BaseModel):
     new_order: NewOrderModel | None = None
     mode: Literal["minimal", "full"] = "minimal"
     apply: bool = False
-    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
+    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=DEFAULT_TIME_LIMIT_SEC)
 
 
 class ReassignRequest(BaseModel):
@@ -65,11 +65,11 @@ class AdjustOrderRequest(BaseModel):
 
     region: str
     order_id: str
-    # "" или None — снять закрепление; иначе id исполнителя
+    # "" или None - снять закрепление; иначе id исполнителя
     lock_to: str | None = None
     set_lock: bool = False                  # трогать ли закрепление вообще
     priority: Literal["Обычная", "Срочная"] | None = None
-    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=120)
+    time_limit_sec: int = Field(DEFAULT_TIME_LIMIT_SEC, ge=1, le=DEFAULT_TIME_LIMIT_SEC)
 
 
 class OrderStatusRequest(BaseModel):

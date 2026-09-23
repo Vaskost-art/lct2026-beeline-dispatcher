@@ -157,3 +157,25 @@ def test_every_region_can_take_a_daytime_emergency(scenarios):
     for key, scenario in scenarios.items():
         rescuers = [crew for crew in scenario.engineers if SKILL_EMERGENCY in crew.skills]
         assert any(crew.vehicle == VEHICLE_CAR for crew in rescuers), key
+
+
+def test_only_the_rescue_crew_orders_gave_way():
+    """«Уступила место аварии» - только у заявки бригады, что поехала на аварию."""
+    from dispatcher.domain import Plan, Route, Stop, Unassigned
+    from dispatcher.services.replanning.emergency import credit_gave_way
+
+    def stop(order_id: str) -> Stop:
+        return Stop(order_id=order_id, arrival=600, start=600, end=630,
+                    travel_min=5, travel_km=1.0, wait_min=0)
+
+    before = Plan(routes=[Route(engineer_id="A", stops=[stop("mine")]),
+                          Route(engineer_id="B", stops=[stop("other")])])
+    after = Plan(routes=[Route(engineer_id="A", stops=[stop("crash")]),
+                         Route(engineer_id="B", stops=[])],
+                 unassigned=[Unassigned("mine", "no_capacity", "занято"),
+                             Unassigned("other", "no_capacity", "занято")])
+
+    credit_gave_way(before, after, {"crash": 700})
+
+    reasons = {item.order_id: item.reason for item in after.unassigned}
+    assert reasons == {"mine": "displaced_by_urgent", "other": "no_capacity"}

@@ -36,6 +36,9 @@ class DayVersion:
     #: ручных правок: пересчёты в этом списке - шум, и после десятка прогонов
     #: подтверждение показывало десять одинаковых строк «Пересчёт».
     manual: bool = False
+    #: Время смены: момент последнего применённого события, минуты от
+    #: полуночи. Событие раньше него переписало бы уже начатое.
+    clock: int = 0
 
 
 @dataclass
@@ -69,8 +72,12 @@ class DayState:
 
     @property
     def undo_labels(self) -> list[str]:
-        """Что откатит шаг назад, новое первым."""
-        return [version.label for version in reversed(self.versions[:-1])]
+        """Что откатит шаг назад, новое первым.
+
+        Шаг назад снимает текущую версию, поэтому первой идёт её подпись;
+        первая версия дня откату не подлежит.
+        """
+        return [version.label for version in reversed(self.versions[1:])]
 
     @property
     def manual_labels(self) -> list[str]:

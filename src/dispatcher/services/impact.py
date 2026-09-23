@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dispatcher.domain import Engineer, Order, Plan
+from dispatcher.domain.text import plural
 from dispatcher.services.risk import (
     DELAY_CAP_MIN,
     RISK_HIGH,
@@ -52,10 +53,13 @@ def overrun_impact(plan: Plan, orders: list[Order], engineers: list[Engineer],
                 f"всё равно выполним: ни одна заявка не выпадает из окна и "
                 f"ни один маршрут не выходит за смену.")
     else:
+        many = "назначенных заявок"
         text = (f"Если каждая работа затянется на {overrun_per_job} мин, "
-                f"под угрозой {len(broken)} из {total} назначенных заявок "
-                f"у {engineers_hit} исполнителей"
-                + (f", в том числе {urgent} срочных." if urgent else "."))
+                f"под угрозой {len(broken)} из {total} "
+                f"{plural(total, 'назначенной заявки', many, many)} "
+                f"у {engineers_hit} {plural(engineers_hit, 'бригады', 'бригад', 'бригад')}"
+                + (f", в том числе {urgent} "
+                   f"{plural(urgent, 'авария', 'аварии', 'аварий')}." if urgent else "."))
 
     return {
         "overrun_per_job": overrun_per_job,
@@ -99,7 +103,8 @@ def plan_risk(plan: Plan, orders: list[Order], engineers: list[Engineer],
     if weakest:
         summary_parts.append(
             f"Самый хрупкий маршрут - «{weakest['engineer_id']}»: "
-            f"выдержит задержку до {weakest['tolerance_min']} мин.")
+            + (f"выдержит задержку до {weakest['tolerance_min']} мин."
+               if weakest['tolerance_min'] else "не выдержит никакой задержки."))
     if by_risk[RISK_HIGH]:
         summary_parts.append(
             f"Визитов с высоким риском опоздания (запас меньше "

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
 
 from dispatcher.infrastructure.db.repositories import PlanRepository, RegionRepository
 from dispatcher.infrastructure.db.session import session
@@ -56,12 +56,14 @@ class DbJournal:
                 regions = RegionRepository(active)
                 stored = regions.by_key(region)
                 if stored is None:
+                    # Колонка имени ограничена длиной: длинное имя загруженного
+                    # файла не должно ронять запись.
                     stored = regions.save(region, str(payload.get("region_name")
-                                                      or region), {})
+                                                      or region)[:255], {})
                 previous = PlanRepository(active).current(stored.id)
                 locked = payload.get("locked")
                 PlanRepository(active).add_version(
-                    stored.id, payload, label,
+                    stored.id, payload, label[:255],
                     strategy=str(payload.get("strategy") or ""),
                     solver_status=str(payload.get("solver_status") or ""),
                     locked=locked if isinstance(locked, dict) else {},
@@ -112,5 +114,10 @@ class DbJournal:
             return []
 
     def _off(self, what: str, error: Exception) -> None:
-        self.available = False
-        log.warning("Не удалось %s: %s. Дальше работаем из памяти.", what, error)
+        # Выключаемся только без связи с базой: ошибка в данных одной записи
+        # (слишком длинное поле) не повод терять журнал всех участков.
+        if isinstance(error, (OperationalError, InterfaceError)):
+            self.available = False
+            log.warning("Не удалось %s: %s. Дальше работаем из памяти.", what, error)
+            return
+        log.error("Не удалось %s: %s. Журнал работает дальше.", what, error)

@@ -1,6 +1,9 @@
-ortools>=9.10
-fastapi>=0.110
-uvicorn[standard]>=0.29
-sqlalchemy>=2.0
-psycopg[binary]>=3.2
-alembic>=1.13
+# Нижние границы - версии, на которых сняты числа README и прогнаны тесты;
+# решатель ограничен сверху: другая мажорная версия может дать другой план.
+ortools>=9.15,<10
+fastapi>=0.141
+uvicorn[standard]>=0.53
+h11>=0.16
+sqlalchemy>=2.0.54,<2.1
+psycopg[binary]>=3.3
+alembic>=1.20

@@ -9,6 +9,7 @@ from dispatcher.api.envelope import ok
 from dispatcher.domain import Plan, hhmm
 from dispatcher.services.dataset import scenario_to_json
 from dispatcher.services.impact import overrun_impact, plan_risk
+from dispatcher.services.statuses import plannable
 from dispatcher.services.validate import validate
 
 router = APIRouter()
@@ -42,13 +43,14 @@ def validate_plan(region: str) -> dict:
     """Независимая перепроверка текущего плана на соблюдение ограничений ТЗ."""
     scenario_of(region)
     state = version_of(region)
-    report = validate(state.plan, state.orders, state.engineers)
+    orders = plannable(state.orders, state.statuses)
+    report = validate(state.plan, orders, state.engineers)
     payload = report.to_dict()
     # Правила проверяют то, что в плане. Заявки, которые в план не попали,
     # нарушением не являются, но зелёный ответ без их числа читается как
     # «весь день в порядке», хотя часть заявок сорвана.
-    payload["orders_total"] = len(state.orders)
-    payload["not_in_plan"] = len(state.orders) - report.checked_stops
+    payload["orders_total"] = len(orders)
+    payload["not_in_plan"] = len(orders) - report.checked_stops
     return ok(payload)
 
 

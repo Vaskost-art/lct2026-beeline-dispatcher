@@ -24,7 +24,7 @@ from dispatcher.services.replanning.freeze import (
     shifts_after_event,
 )
 from dispatcher.services.replanning.newcomer import newcomer_outcome, ordinary_newcomer
-from dispatcher.services.replanning.rebuild import rebuild_rest
+from dispatcher.services.replanning.rebuild import lost_by_rebuild, rebuild_rest
 from dispatcher.services.replanning.repair import MODE_MINIMAL, MODE_TITLES, _repair
 from dispatcher.services.statuses import frozen_by_status
 from dispatcher.services.statuses import plannable as plannable_by_status
@@ -57,6 +57,10 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     if ordinary_newcomer(event) is not None:
         mode = MODE_MINIMAL
     new_orders, new_engineers = apply_event(orders, engineers, event)
+    # Отменённая заявка остаётся в дне, но в расчёт не идёт: выброшенная из
+    # дня, она теряла отметку в счётчике, а её номер снова выдавался новой
+    # аварии, и та исчезала бесследно.
+    cancelled = [o for o in new_orders if o not in plannable_by_status(new_orders, marks)]
     new_orders = plannable_by_status(new_orders, marks)
 
     frozen = merge_frozen(_frozen_prefixes(current, now),
@@ -182,6 +186,10 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     if mode == MODE_MINIMAL:
         narrative.extend(stuck_emergencies(new_plan, new_orders))
+    elif lost := lost_by_rebuild(current, new_plan, plannable):
+        diff["lost"] = lost
+        narrative.append(f"Пересборка сняла заявки, которые были в плане: {', '.join(lost)}. "
+                         f"Точечная правка может их сохранить.")
 
     return ReplanResult(plan=new_plan, diff=diff, narrative=narrative,
-                        frozen=frozen, engineers=adjusted, orders=new_orders)
+                        frozen=frozen, engineers=adjusted, orders=new_orders + cancelled)

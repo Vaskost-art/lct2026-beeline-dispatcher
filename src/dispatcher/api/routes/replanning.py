@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from dispatcher.api.deps import STORE, day, scenario_of, version_of
-from dispatcher.api.envelope import ok
+from dispatcher.api.envelope import ApiError, ok
 from dispatcher.api.guard import solver_slot
 from dispatcher.api.payload import plan_payload
 from dispatcher.api.schemas import ReplanRequest
@@ -22,8 +22,13 @@ from dispatcher.services.replanning.events import (
     ReplanEvent,
     make_new_order,
 )
+from dispatcher.services.statuses import plannable
 
 router = APIRouter()
+
+#: День изменился после предпросмотра: применять нужно свежий расчёт.
+STALE_PREVIEW = ("day_changed", "День изменился после предпросмотра: посмотрите, "
+                 "что изменится, ещё раз и примените")
 
 
 # --- перепланирование --------------------------------------------------------
@@ -39,6 +44,11 @@ def do_replan(request: ReplanRequest) -> dict:
         at = parse_hhmm(request.at)
     except ValueError as error:
         raise HTTPException(400, "Время события должно быть в формате ЧЧ:ММ") from error
+    # Время смены идёт только вперёд: событие раньше уже учтённого снимало бы
+    # заморозку с работ, которые бригады к тому моменту начали.
+    if at < state.clock:
+        raise HTTPException(400, f"Событие в {hhmm(at)} раньше уже учтённого в "
+                                 f"{hhmm(state.clock)}: время смены идёт только вперёд")
 
     new_order = None
     if request.kind == KIND_URGENT:
@@ -95,6 +105,11 @@ def do_replan(request: ReplanRequest) -> dict:
     state_day = day(request.region)
     version_number = revision
     preview = state_day.preview
+    if (request.apply and preview is not None and preview.signature == signature
+            and preview.version_number != version_number):
+        # Диспетчер смотрел предпросмотр по прежнему дню: применить молча
+        # пересчитанное значило бы положить в день не то, что он видел.
+        raise ApiError(*STALE_PREVIEW, status=409)
     if (request.apply and preview is not None
             and preview.signature == signature
             and preview.version_number == version_number):
@@ -116,7 +131,8 @@ def do_replan(request: ReplanRequest) -> dict:
     new_orders = result.orders
     new_engineers = result.engineers
 
-    metrics = plan_metrics(result.plan, new_orders, new_engineers)
+    metrics = plan_metrics(result.plan, plannable(new_orders, state.statuses),
+                           new_engineers)
 
     if request.apply:
         # Смены сдвинулись: остаток дня начинается с момента события, у
@@ -126,7 +142,7 @@ def do_replan(request: ReplanRequest) -> dict:
             plan=result.plan, metrics=metrics,
             orders=new_orders, engineers=new_engineers,
             locked=dict(state.locked), issued=state.issued,
-            statuses=dict(state.statuses), manual=True))
+            statuses=dict(state.statuses), manual=True, clock=at))
         state_day.preview = None
         return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
@@ -141,7 +157,7 @@ def do_replan(request: ReplanRequest) -> dict:
                                  metrics=metrics, orders=new_orders,
                                  engineers=new_engineers,
                                  locked=dict(state.locked), issued=state.issued,
-                                 statuses=dict(state.statuses))
+                                 statuses=dict(state.statuses), clock=at)
     return ok(plan_payload(scenario, result.plan, metrics, extra={
         "diff": result.diff,
         "narrative": result.narrative,

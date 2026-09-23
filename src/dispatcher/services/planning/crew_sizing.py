@@ -95,7 +95,7 @@ def build_crews(count: int, orders: list[Order], office_lat: float,
     vehicles = assign_vehicles(skills, orders, min(count, cars_needed(orders)))
     return [Engineer(id=f"Бригада {index + 1}", name=f"Бригада {index + 1}",
                      lat=office_lat, lon=office_lon,
-                     start_address=office_address or "Офис участка",
+                     start_address=office_address or "Центр заявок участка",
                      shift_start=start, shift_end=end, skills=skills[index],
                      vehicle=vehicles[index],
                      break_min=shifts.break_minutes(start, end))

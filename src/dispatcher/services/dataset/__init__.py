@@ -1,11 +1,11 @@
 """Обмен наборами данных: запись в JSON и чтение присланных файлов."""
 from dispatcher.services.dataset.day import (
     DaySnapshot,
-    rebuild,
     snapshot_from_json,
     snapshot_of,
     snapshot_to_json,
 )
+from dispatcher.services.dataset.day_rebuild import rebuild
 from dispatcher.services.dataset.errors import FORMAT_VERSION, DatasetError
 from dispatcher.services.dataset.reader import (
                                                 engineer_from_json,

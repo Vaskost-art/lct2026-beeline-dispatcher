@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dispatcher.api.day import DayVersion
 from dispatcher.api.deps import STORE, manual_labels, undo_labels
-from dispatcher.domain import Order, Plan
+from dispatcher.domain import Plan, hhmm
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure import geo
 from dispatcher.services.equipment import issued_rows, pickup_list
@@ -26,12 +26,6 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
     # их нет в текущем дне, и ответ падал на объяснении её маршрута.
     orders = current.orders if current and current.orders else scenario.orders
     engineers = current.engineers if current and current.engineers else scenario.engineers
-    by_id: dict[str, Order | None] = dict(scenario.order_by_id)
-    # заявки, появившиеся после события, тоже должны попасть в ответ
-    for route in plan.routes:
-        for stop in route.stops:
-            by_id.setdefault(stop.order_id, None)
-
     assignment: dict[str, str] = {}
     for route in plan.routes:
         for stop in route.stops:
@@ -80,12 +74,16 @@ def plan_payload(scenario: Scenario, plan: Plan, metrics: dict,
                    else pickup_list(plan, orders)),
         "shortfall": crews_shortfall(
             plan, orders, solve_greedy,
-            scenario.office_lat, scenario.office_lon, scenario.office_address),
+            scenario.office_lat, scenario.office_lon, scenario.office_address,
+            current.clock if current else 0),
         "geo": geo_warning(orders),
         #: Что с заявками прямо сейчас и сколько уже закрыто: ход смены
         #: виден диспетчеру, а не выводится им из маршрутов.
         "statuses": dict(statuses),
         "progress": day_progress(orders, statuses),
+        # Время смены: момент последнего применённого события. Форма события
+        # начинает с него, а раньше него сервис событие не примет.
+        "clock": hhmm(current.clock) if current and current.clock else "",
     }
     if extra:
         payload.update(extra)

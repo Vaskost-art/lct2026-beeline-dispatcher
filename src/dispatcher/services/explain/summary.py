@@ -42,5 +42,5 @@ def _summary(order: Order, engineer: Engineer, stop: Stop, position: int,
     best_alt = next((a for a in alternatives if a["possible"]), None)
     if best_alt:
         tail += (f" Ближайшая альтернатива - {best_alt['engineer_id']}: "
-                 f"его маршрут вырос бы на {decimal(best_alt['extra_km'])} км.")
+                 f"её маршрут вырос бы на {decimal(best_alt['extra_km'])} км.")
     return head + tail

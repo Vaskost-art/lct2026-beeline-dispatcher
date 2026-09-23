@@ -1,6 +1,7 @@
 """Разбор файла, который диспетчер загрузил через интерфейс."""
 from __future__ import annotations
 
+import csv
 import json
 
 from dispatcher.domain.scenario import Scenario
@@ -11,9 +12,27 @@ from dispatcher.services.dataset.errors import DatasetError
 from dispatcher.services.dataset.reader import scenario_from_json
 from dispatcher.services.scenario import scenario_from_synthetic
 
+#: Сколько событий из набора держим: интерфейс их не читает, а без предела
+#: мегабайты событий уходили в каждый ответ со справочниками.
+MAX_EVENTS = 20
+
 
 def load_upload(filename: str, raw: bytes, region_key: str,
                 cache_path: str) -> tuple[Scenario, list[dict], str]:
+    """Разбирает присланный файл; любой сбой разбора становится понятным отказом."""
+    try:
+        scenario, events, detected = _load(filename, raw, region_key, cache_path)
+    except DatasetError:
+        raise
+    except RecursionError as error:
+        raise DatasetError("Файл вложен слишком глубоко, это не набор данных") from error
+    except (ValueError, csv.Error) as error:
+        raise DatasetError(f"Файл не разобран: {error}"[:300]) from error
+    return scenario, [e for e in events if isinstance(e, dict)][:MAX_EVENTS], detected
+
+
+def _load(filename: str, raw: bytes, region_key: str,
+          cache_path: str) -> tuple[Scenario, list[dict], str]:
     """Разбирает присланный файл, сам определяя формат.
 
     Возвращает (сценарий, события, описание распознанного формата).

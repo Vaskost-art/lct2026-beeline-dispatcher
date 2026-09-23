@@ -31,12 +31,17 @@ router = APIRouter()
 
 def build_plan(region: str, strategy: str, time_limit_sec: int,
                orders: list[Order], engineers: list[Engineer],
-               locked: dict[str, str]) -> Plan:
-    """Строит план выбранным способом."""
+               locked: dict[str, str],
+               issued: dict[str, dict[str, int]] | None = None) -> Plan:
+    """Строит план выбранным способом.
+
+    `issued` - выданное утром: посреди дня пересчёт не может отдать заявку
+    бригаде, у которой нужного устройства с собой нет.
+    """
     with solver_slot():
         if strategy == "optimized":
             return solve_optimized(orders, engineers, time_limit_sec=time_limit_sec,
-                                   locked=locked or None)
+                                   locked=locked or None, issued=issued or None)
         if strategy == "baseline":
             return solve_baseline(orders, engineers, locked=locked or None)
         return solve_greedy(orders, engineers, locked=locked or None)
@@ -62,14 +67,15 @@ def make_plan(request: PlanRequest) -> dict:
         solve_orders, engineers, pinned = settle_day(previous.plan, orders, engineers,
                                                      locked, statuses)
 
+    carried = {} if (previous is None or request.reset) else dict(previous.issued)
     plan = build_plan(request.region, request.strategy, request.time_limit_sec,
-                       solve_orders, engineers, pinned)
+                       solve_orders, engineers, pinned, carried)
 
     metrics = plan_metrics(plan, solve_orders, engineers)
     # Оборудование выдаётся в офисе один раз, по первому плану дня: бригада
     # уехала с этой сумкой, и пересчёт её не пополняет. Сброс дня начинает
     # утро заново, поэтому выдача считается снова.
-    issued = {} if (previous is None or request.reset) else dict(previous.issued)
+    issued = carried
     if not issued:
         issued = issued_items(plan, orders)
     label = ("Сброс ручных правок" if request.reset else
@@ -79,7 +85,8 @@ def make_plan(request: PlanRequest) -> dict:
     # диспетчер возвращается шагом назад, не пересчитывая заново.
     STORE.push_since(revision, request.region, DayVersion(
         label=label, plan=plan, metrics=metrics, orders=orders,
-        engineers=engineers, locked=locked, issued=issued, statuses=statuses))
+        engineers=engineers, locked=locked, issued=issued, statuses=statuses,
+        clock=0 if (previous is None or request.reset) else previous.clock))
     return ok(plan_payload(scenario, plan, metrics))
 
 
@@ -102,7 +109,8 @@ def compare_strategies(region: str,
     ответе полем `basis`.
     """
     scenario = scenario_of(region)
-    changed = len(day(region).versions) > 1
+    # День изменён решениями человека, а не повторным расчётом.
+    changed = bool(day(region).manual_labels)
     rows = []
 
     by_key: dict[str, dict[str, float]] = {}

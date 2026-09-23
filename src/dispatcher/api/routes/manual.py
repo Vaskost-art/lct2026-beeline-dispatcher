@@ -118,7 +118,7 @@ def reassign(request: ReassignRequest) -> dict:
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
         engineers=list(engineers), locked=locked, issued=state.issued,
-        statuses=dict(state.statuses), manual=True))
+        statuses=dict(state.statuses), manual=True, clock=state.clock))
     return ok(plan_payload(scenario, new_plan, metrics))
 
 

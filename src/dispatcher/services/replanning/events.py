@@ -60,16 +60,16 @@ class ReplanEvent:
             work = "" if o.type_hd.strip().lower() == kind else f"{o.type_hd}, "
             return (f"В {hhmm(self.at)} поступила {kind} {o.id}: "
                     f"{work}{o.district}, окно {o.window_text}, "
-                    f"{o.duration_min} мин.")
+                    f"работа {o.duration_min} мин.")
         if self.kind == KIND_CANCEL:
             return f"В {hhmm(self.at)} отменена заявка {self.order_id}."
         if self.kind == KIND_UNAVAILABLE:
-            return (f"В {hhmm(self.at)} исполнитель «{self.engineer_id}» "
-                    f"выбыл - оставшиеся заявки нужно передать другим.")
+            return (f"В {hhmm(self.at)} «{self.engineer_id}» выбыла из смены: "
+                    f"оставшиеся заявки нужно передать другим бригадам.")
         if self.kind == KIND_DELAYED:
-            return (f"В {hhmm(self.at)} бригада «{self.engineer_id}» "
-                    f"сообщила о задержке на {self.delay_min} мин: весь "
-                    f"остаток её маршрута уезжает на это время вперёд.")
+            return (f"В {hhmm(self.at)} «{self.engineer_id}» сообщила о "
+                    f"задержке на {self.delay_min} мин: остаток её маршрута "
+                    f"пересчитан с этой задержкой.")
         return f"Событие в {hhmm(self.at)}."
 
 
@@ -122,7 +122,7 @@ def make_new_order(order_id: str, lat: float, lon: float, address: str,
                     if skill == required_skill), "Глобальная проблема")
     defaults = {
         SKILL_EMERGENCY: "Авария",
-        SKILL_LOCAL: "Нет линка",
+        SKILL_LOCAL: "Ремонт у клиента",
         SKILL_CONNECT: "Заявка на подключение",
     }
     kind = type_hd or defaults.get(required_skill, "Авария")

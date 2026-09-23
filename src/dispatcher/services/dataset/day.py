@@ -12,13 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from dispatcher.domain import Engineer, Order, Plan, Route
-from dispatcher.services.dataset.errors import DatasetError
+from dispatcher.domain import Engineer, Order, Plan
 from dispatcher.services.dataset.reader import engineer_from_json, order_from_json
 from dispatcher.services.dataset.writer import engineer_to_json, order_to_json
-from dispatcher.services.metrics import plan_metrics
-from dispatcher.services.planning.reasons import diagnose
-from dispatcher.services.routing import evaluate_sequence
 
 #: Версия формата снимка. Меняется, когда старую запись уже не поднять.
 SNAPSHOT_FORMAT = "dispatcher-saved-plan/1"
@@ -45,6 +41,7 @@ class DaySnapshot:
     manual: bool = False
     name: str = ""
     saved_at: str = ""
+    clock: int = 0
     #: Заявки, которых не оказалось в наборе при подъёме дня.
     lost: list[str] = field(default_factory=list)
 
@@ -53,7 +50,7 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
                 orders: list[Order], engineers: list[Engineer],
                 locked: dict[str, str], manual: bool, name: str = "",
                 issued: dict[str, dict[str, int]] | None = None,
-                statuses: dict[str, str] | None = None) -> DaySnapshot:
+                statuses: dict[str, str] | None = None, clock: int = 0) -> DaySnapshot:
     """Собирает снимок из текущей версии дня."""
     return DaySnapshot(
         region_key=region_key,
@@ -70,6 +67,7 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
         solver_status=plan.solver_status,
         manual=manual,
         name=name or region_name,
+        clock=clock,
     )
 
 
@@ -86,6 +84,7 @@ def snapshot_to_json(snapshot: DaySnapshot) -> dict[str, object]:
         "strategy": snapshot.strategy,
         "solver_status": snapshot.solver_status,
         "manual": snapshot.manual,
+        "clock": snapshot.clock,
         "locked": dict(snapshot.locked),
         "issued": {key: dict(value) for key, value in snapshot.issued.items()},
         "statuses": dict(snapshot.statuses),
@@ -133,41 +132,8 @@ def snapshot_from_json(data: dict[str, object]) -> DaySnapshot:
         manual=bool(data.get("manual", True)),
         name=str(data.get("name") or ""),
         saved_at=str(data.get("saved_at") or ""),
+        clock=_whole(data.get("clock")),
     )
-
-
-def rebuild(snapshot: DaySnapshot) -> tuple[Plan, dict[str, object], list[str]]:
-    """Поднимает план по снимку, пересчитывая маршруты.
-
-    Третьим значением возвращает заявки, которых в наборе не нашлось: день
-    поднимется без них, но молчать об этом нельзя.
-    """
-    by_id = {order.id: order for order in snapshot.orders}
-    engineer_by_id = {engineer.id: engineer for engineer in snapshot.engineers}
-    routes: list[Route] = []
-    lost: list[str] = []
-    for engineer_id, sequence in snapshot.sequences.items():
-        engineer = engineer_by_id.get(engineer_id)
-        if engineer is None:
-            continue
-        known = [by_id[oid] for oid in sequence if oid in by_id]
-        lost.extend(oid for oid in sequence if oid not in by_id)
-        route, _ = evaluate_sequence(engineer, known)
-        if route is None:
-            raise DatasetError(
-                f"Сохранённый маршрут «{engineer.name}» не проходит проверку "
-                f"ограничений - запись не соответствует данным")
-        routes.append(route)
-    covered = {route.engineer_id for route in routes}
-    routes.extend(Route(engineer_id=engineer.id) for engineer in snapshot.engineers
-                  if engineer.id not in covered)
-
-    plan = Plan(routes=routes, strategy=snapshot.strategy,
-                solver_status=snapshot.solver_status)
-    assigned = {stop.order_id for route in plan.routes for stop in route.stops}
-    plan.unassigned = [diagnose(order, snapshot.engineers)
-                       for order in snapshot.orders if order.id not in assigned]
-    return plan, plan_metrics(plan, snapshot.orders, snapshot.engineers), lost
 
 
 def _issued(data: dict[str, object]) -> dict[str, dict[str, int]]:
@@ -194,3 +160,7 @@ def _mapping(data: dict[str, object], key: str) -> dict[str, str]:
     if not isinstance(value, dict):
         return {}
     return {str(k): str(v) for k, v in value.items()}
+
+
+def _whole(value: object) -> int:
+    return value if isinstance(value, int) and value > 0 else 0

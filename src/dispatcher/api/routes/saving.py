@@ -11,6 +11,7 @@ from dispatcher.api.deps import STORE, scenario_of, version_of
 from dispatcher.api.envelope import ok
 from dispatcher.api.paths import ROOT, SAVED_DIR
 from dispatcher.api.payload import plan_payload
+from dispatcher.api.routes.upload import admit_region
 from dispatcher.api.schemas import RegionRequest, SavePlanRequest
 from dispatcher.api.state import DayVersion
 from dispatcher.services.dataset import (
@@ -33,10 +34,14 @@ def _why(error: Exception) -> str:
     return "файл не читается" if isinstance(error, OSError) else str(error)
 
 
+def _clean(region: str) -> str:
+    return "".join(ch for ch in region if ch.isalnum() or ch in "-_")
+
+
 def _saved_path(region: str) -> str:
     # Имя файла собираем сами из ключа района: подставленный путь не должен
     # уводить запись за пределы каталога.
-    safe = "".join(ch for ch in region if ch.isalnum() or ch in "-_")
+    safe = _clean(region)
     if not safe:
         raise HTTPException(400, "Недопустимое имя района")
     if len(safe) > 48:
@@ -57,7 +62,8 @@ def save_plan(request: SavePlanRequest) -> dict:
     data = snapshot_to_json(snapshot_of(
         scenario.region_key, scenario.region_name, state.label, state.plan,
         state.orders, state.engineers, state.locked, state.manual,
-        name=request.name, issued=state.issued, statuses=state.statuses))
+        name=request.name, issued=state.issued, statuses=state.statuses,
+        clock=state.clock))
     # Пишем рядом и переименовываем: прямая запись усекает файл до того,
     # как в него лягут данные, и обрыв на этом месте стирает сохранённый день.
     tmp = f"{path}.tmp"
@@ -89,42 +95,41 @@ def saved_plan_info(region: str) -> dict:
 def restore_plan(request: RegionRequest) -> dict:
     """Поднимает сохранённый рабочий день и пересчитывает по нему маршруты."""
     path = _saved_path(request.region)
-    # Загруженный набор живёт в памяти процесса и после перезапуска сервиса
-    # не известен, а в файле сохранения лежит всё нужное, чтобы поднять район
-    # заново. Иначе интерфейс предлагает «Восстановить» и получает 404.
-    if not STORE.has(request.region) and os.path.exists(path):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                saved = json.load(fh)
-            restored_scenario, _ = scenario_from_json(
-                saved, region_key=request.region,
-                region_name=saved.get("region_name") or request.region)
-            STORE.replace_scenario(request.region, restored_scenario)
-        except (OSError, ValueError, DatasetError) as exc:
-            raise HTTPException(400, f"Файл сохранения повреждён: {_why(exc)}") from exc
-    scenario = scenario_of(request.region)
-    revision = STORE.revision(request.region)
     if not os.path.exists(path):
         raise HTTPException(404, "Сохранённого плана для этого района нет")
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
-    except (OSError, ValueError) as exc:
-        raise HTTPException(400, f"Файл сохранения повреждён: {_why(exc)}") from exc
-
-    # Разбор и подъём маршрутов общие с журналом дня: день, поднятый из файла,
-    # не должен отличаться от поднятого из базы.
-    try:
+        # Разбор и подъём маршрутов общие с журналом дня: день, поднятый из
+        # файла, не должен отличаться от поднятого из базы.
         snapshot = snapshot_from_json(data)
         plan, metrics, lost = rebuild(snapshot)
-    except DatasetError as exc:
-        raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
+    except (OSError, ValueError, RecursionError, DatasetError) as exc:
+        raise HTTPException(400, f"Файл сохранения повреждён: {_why(exc)}") from exc
+
+    # Загруженный набор живёт в памяти и после перезапуска не известен, а в
+    # файле лежит всё, чтобы поднять участок заново. Регистрируется он только
+    # после успешного подъёма и только под своим ключом: иначе битый файл
+    # или ключ «vostok!» оставляли в списке лишний участок.
+    if not STORE.has(request.region):
+        if _clean(request.region) != request.region:
+            raise HTTPException(400, "Недопустимое имя района")
+        try:
+            restored, _ = scenario_from_json(
+                data, region_key=request.region, allow_empty_shift=True,
+                region_name=data.get("region_name") or request.region)
+        except DatasetError as exc:
+            raise HTTPException(400, f"Файл сохранения повреждён: {exc}") from exc
+        admit_region(request.region, restored, [])
+    scenario = scenario_of(request.region)
+    revision = STORE.revision(request.region)
 
     STORE.push_since(revision, request.region, DayVersion(
         label="Восстановлен сохранённый день",
         plan=plan, metrics=metrics, orders=snapshot.orders,
         engineers=snapshot.engineers, locked=snapshot.locked,
-        issued=snapshot.issued, statuses=snapshot.statuses, manual=True))
+        issued=snapshot.issued, statuses=snapshot.statuses, manual=True,
+        clock=snapshot.clock))
     payload = plan_payload(scenario, plan, metrics)
     payload["restored"] = {"name": snapshot.name or request.region,
                            "saved_at": snapshot.saved_at, "lost": lost}

@@ -50,8 +50,8 @@ def order_from_json(data: dict) -> Order:
         duration = int(str(_require(data, "duration_min", where)))
     except (TypeError, ValueError) as error:
         raise DatasetError(f"{where}: «duration_min» должно быть числом минут") from error
-    if duration <= 0:
-        raise DatasetError(f"{where}: длительность работ должна быть больше нуля")
+    if not 0 < duration <= 24 * 60:
+        raise DatasetError(f"{where}: длительность работ должна быть от 1 до 1440 минут")
 
     window_start = _time(_require(data, "window_start", where), where, "window_start")
     window_end = _time(_require(data, "window_end", where), where, "window_end")
@@ -149,7 +149,8 @@ def _whole(value: object) -> int:
 
 
 def scenario_from_json(data: dict, region_key: str,
-                       region_name: str | None = None) -> tuple[Scenario, list[dict]]:
+                       region_name: str | None = None,
+                       allow_empty_shift: bool = False) -> tuple[Scenario, list[dict]]:
     if not isinstance(data, dict):
         raise DatasetError("Ожидался объект JSON с полями «orders» и «engineers»")
 
@@ -172,7 +173,7 @@ def scenario_from_json(data: dict, region_key: str,
     engineers: list[Engineer] = []
     seen_engineers: set[str] = set()
     for item in raw_engineers:
-        engineer = engineer_from_json(item)
+        engineer = engineer_from_json(item, allow_empty_shift)
         if engineer.id in seen_engineers:
             raise DatasetError(f"Исполнитель {engineer.id} встречается дважды")
         seen_engineers.add(engineer.id)

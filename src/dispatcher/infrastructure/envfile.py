@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import os
 
-#: Корень проекта: infrastructure -> dispatcher -> src -> корень. Раньше
-#: подъём был на уровень короче, и при запуске по README ключ Яндекс Карт из
-#: .env не подхватывался - работало только через run.sh, читающий файл сам.
+#: Корень проекта: infrastructure -> dispatcher -> src -> корень. Там .env
+#: велит положить README, и там же его ищет run.sh.
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 DEFAULT_PATH = os.path.join(ROOT, ".env")

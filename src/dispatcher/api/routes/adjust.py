@@ -82,12 +82,13 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
     time_limit = request.time_limit_sec or DEFAULT_TIME_LIMIT_SEC
     solve_orders, crews, pinned = settle_day(state.plan, new_orders, engineers,
                                              locked, state.statuses)
-    plan = build_plan(request.region, strategy, time_limit, solve_orders, crews, pinned)
+    plan = build_plan(request.region, strategy, time_limit, solve_orders, crews, pinned,
+                      state.issued)
     metrics = plan_metrics(plan, solve_orders, crews)
 
     STORE.push_since(revision, request.region, DayVersion(
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
         engineers=crews, locked=locked, issued=state.issued,
-        statuses=dict(state.statuses), manual=True))
+        statuses=dict(state.statuses), manual=True, clock=state.clock))
     return ok(plan_payload(scenario, plan, metrics))

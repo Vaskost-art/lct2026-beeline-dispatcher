@@ -38,9 +38,11 @@ def reaction(plan: Plan, event: ReplanEvent) -> dict[str, object] | None:
         for stop in route.stops:
             if stop.order_id == order.id:
                 minutes = stop.arrival - event.at
+                # «В срок» судится тем же сроком, по которому ставили аварию.
+                due = deadline_for(order, event.at)
                 return {"engineer_id": route.engineer_id, "minutes": minutes,
                         "target_min": REACTION_TARGET_MIN,
-                        "within": minutes <= REACTION_TARGET_MIN}
+                        "within": due is None or stop.arrival <= due}
     return None
 
 
@@ -75,13 +77,13 @@ def stuck_emergencies(plan: Plan, orders: list[Order]) -> list[str]:
 
 
 def delay_cost(order: Order, route: Route, now: int) -> float:
-    """Цена ожидания аварии в километрах - как в решателе.
+    """Цена ожидания аварии в километрах при выборе места точечной правкой.
 
-    Точечная правка выбирала место по приросту пробега и отправляла аварию
-    в конец чужого дня: реакция выходила 5-7 часов при ориентире
-    организаторов 1-2 часа. Минута ожидания стоит столько же, сколько в
-    целевой функции решателя, поэтому оба режима разменивают время и
-    километры одинаково. Для обычной заявки цена нулевая.
+    Минута ожидания стоит столько же, сколько отсрочка утренней аварии в
+    решателе (URGENT_DELAY_COST_PER_MIN): без этой цены место выбиралось по
+    пробегу и авария уезжала в конец чужого дня. Срок реакции точечная
+    правка держит отдельно, вытеснением (`place_in_time`); решатель держит
+    его мягкой границей. Для обычной заявки цена нулевая.
     """
     if order.priority != PRIORITY_URGENT:
         return 0.0
@@ -164,21 +166,23 @@ def settle(order: Order, best: tuple[float, str, Route], routes: dict[str, Route
 
 
 def credit_gave_way(before: Plan, after: Plan, deadlines: dict[str, int]) -> None:
-    """Называет честную причину, почему заявка выпала после пересборки дня.
+    """Называет заявки, которые после пересборки выпали ради аварии.
 
-    Пересборка ради аварии может снять ремонт, и общая диагностика писала
-    «нет свободного исполнителя» - диспетчер не видел, что заявку отдали
-    аварии. Выпавшими считаются те, что были в плане до события.
+    Уступившей считается только заявка, стоявшая до события у той бригады,
+    что теперь едет на аварию: остальные выпали по другим причинам, и их
+    объясняет общая диагностика.
     """
-    placed = {stop.order_id for route in after.routes for stop in route.stops}
-    arrived = [order_id for order_id in deadlines if order_id in placed]
-    if not arrived:
+    rescuers = {route.engineer_id: stop.order_id for route in after.routes
+                for stop in route.stops if stop.order_id in deadlines}
+    if not rescuers:
         return
-    was = {stop.order_id for route in before.routes for stop in route.stops}
+    gave_way = {stop.order_id: rescuers[route.engineer_id]
+                for route in before.routes if route.engineer_id in rescuers
+                for stop in route.stops}
     for index, item in enumerate(after.unassigned):
-        if item.order_id in was:
+        if item.order_id in gave_way:
             after.unassigned[index] = Unassigned(
                 order_id=item.order_id, reason=REASON_DISPLACED,
-                reason_text=f"Уступила место аварии {', '.join(arrived)}: без этого "
+                reason_text=f"Уступила место аварии {gave_way[item.order_id]}: её "
                             f"бригада не успевала к аварии в срок (ориентир "
-                            f"организаторов - 1-2 часа). {item.reason_text}")
+                            f"организаторов - 1-2 часа).")

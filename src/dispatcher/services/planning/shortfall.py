@@ -4,9 +4,9 @@
 правильный ответ сервиса на непомещающиеся заявки - «нужно ещё N
 исполнителей».
 
-Считается от плана, который видит диспетчер, а не от своего расчёта: раньше
-нехватка бралась по быстрому расчёту с нуля, и на Востоке экран одновременно
-показывал 66 из 66 заявок и «нужно ещё 2 бригады».
+Считается от плана, который видит диспетчер, а не от своего расчёта: иначе
+экран мог одновременно показать «все заявки разошлись» и «нужно ещё
+бригад».
 """
 from __future__ import annotations
 
@@ -31,15 +31,17 @@ MAX_EXTRA_CREWS = 20
 
 
 def _next_crew(number: int, pending: list[Order], orders: list[Order],
-               office_lat: float, office_lon: float, office_address: str) -> Engineer:
-    """Бригада под самую частую потребность среди нераспределённых заявок."""
+               office_lat: float, office_lon: float, office_address: str,
+               now: int = 0) -> Engineer:
+    """Бригада, умеющая всё, чего ждут оставшиеся заявки; выходит не раньше `now`."""
     start, end = day_bounds(orders)
+    start = min(max(start, now), end)
     skills = sorted({o.required_skill for o in pending})[:3] or None
     needs_car = any(o.required_vehicle for o in pending)
     return Engineer(
         id=f"Новая бригада {number}", name=f"Новая бригада {number}",
         lat=office_lat, lon=office_lon,
-        start_address=office_address or "Офис участка",
+        start_address=office_address or "Центр заявок участка",
         shift_start=start, shift_end=end,
         skills=skills or skills_for_index(number, number + 1),
         vehicle=VEHICLE_CAR if needs_car else vehicle_for_index(number, number + 1, 0),
@@ -49,7 +51,7 @@ def _next_crew(number: int, pending: list[Order], orders: list[Order],
 
 def crews_shortfall(plan: Plan, orders: list[Order], solve: Solver,
                     office_lat: float, office_lon: float,
-                    office_address: str) -> dict[str, object]:
+                    office_address: str, now: int = 0) -> dict[str, object]:
     """Сколько ещё бригад и каких нужно для заявок, оставшихся без исполнителя.
 
     Сложившиеся маршруты не пересчитываются: новые бригады подбираются
@@ -57,7 +59,8 @@ def crews_shortfall(plan: Plan, orders: list[Order], solve: Solver,
     пока каждая новая забирает хотя бы одну заявку. Если две подряд не
     забрали ничего, причина не в числе людей, и об этом говорится прямо.
     """
-    left_ids = {u.order_id for u in plan.unassigned}
+    # Заявку, чьё окно закрылось до события, не спасёт никакая бригада.
+    left_ids = {u.order_id for u in plan.unassigned if u.reason != "window_passed"}
     left = [o for o in orders if o.id in left_ids]
     if not left:
         # Форма ответа одна на обе ветки: экран не должен гадать, есть ли
@@ -71,7 +74,7 @@ def crews_shortfall(plan: Plan, orders: list[Order], solve: Solver,
     best, fruitless, pending = 0, 0, left
     while len(extra) < MAX_EXTRA_CREWS and fruitless < FRUITLESS_LIMIT and pending:
         extra.append(_next_crew(len(extra) + 1, pending, orders,
-                                office_lat, office_lon, office_address))
+                                office_lat, office_lon, office_address, now))
         attempt = solve(left, extra)
         if attempt.assigned_count > best:
             best, fruitless, added = attempt.assigned_count, 0, list(extra)

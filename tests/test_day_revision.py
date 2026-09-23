@@ -31,7 +31,11 @@ def test_stale_write_is_refused(scenarios):
 
 
 def test_preview_is_not_applied_to_a_changed_day():
-    """Правка, предпросмотр, шаг назад, другая правка - применяется свежий расчёт."""
+    """Правка, предпросмотр, шаг назад, другая правка: старый предпросмотр не применяется.
+
+    Диспетчер видел расчёт по прежнему дню, поэтому сервис отказывает (409),
+    а новый предпросмотр и применение считаются уже по свежему дню.
+    """
     from fastapi.testclient import TestClient
 
     from dispatcher.api import deps
@@ -55,7 +59,11 @@ def test_preview_is_not_applied_to_a_changed_day():
         client.post("/api/undo", json={"region": region})
         client.post("/api/order/status",
                     json={"region": region, "order_id": second, "status": STATUS_DONE})
+        stale = client.post("/api/replan", json={**event, "apply": True})
+        assert stale.status_code == 409
+        client.post("/api/replan", json={**event, "apply": False})
         applied = client.post("/api/replan", json={**event, "apply": True})
+        assert applied.status_code == 200
 
         placed = {stop["order_id"] for route in applied.json()["data"]["routes"]
                   for stop in route["stops"]}

@@ -226,7 +226,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 }
 .plain{list-style:none; margin:0; padding:0; display:grid; gap:9px; font-size:15.5px}
 .plain li{display:grid; grid-template-columns:auto 1fr; gap:11px; line-height:1.5}
-.plain li::before{content:"—"; color:var(--signal)}
+.plain li::before{content:"–"; color:var(--signal)}
 
 .quote{
   font-size:clamp(19px,2.4vw,26px); line-height:1.4; color:var(--ink);
@@ -265,7 +265,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 1 -->
 <section class="slide" id="s1">
-  <span class="page-no">01 / 13</span>
+  <span class="page-no">01 / 14</span>
   <div class="hero-case">Кейс «Билайн Бизнес» · планирование маршрутов выездных инженеров</div>
   <h1>Планировщик<br>выездных работ</h1>
   <p class="hero-lede">Помощник диспетчера: раздаёт заявки, строит маршруты,
@@ -273,7 +273,7 @@ tr.fact td{color:var(--muted); font-style:italic}
   <div class="hero-figures">
     <div class="figure"><span class="v">205</span><span class="k">заявок на трёх участках</span></div>
     <div class="figure"><span class="v">22</span><span class="k">бригады, подобранные под день</span></div>
-    <div class="figure win"><span class="v">≤1<span>мин</span></span><span class="k">на полный план участка</span></div>
+    <div class="figure win"><span class="v">≤1,5<span>мин</span></span><span class="k">на полный план участка</span></div>
     <div class="figure win"><span class="v">187</span><span class="k">заявок закрыто против 66 у базового варианта из ТЗ</span></div>
   </div>
   <p class="note">Работаем на обезличенных выгрузках организаторов за 17 августа. Заявки
@@ -282,7 +282,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 2 -->
 <section class="slide" id="s2">
-  <span class="page-no">02 / 13</span>
+  <span class="page-no">02 / 14</span>
   <div class="eyebrow">Задача</div>
   <h2>Утро диспетчера</h2>
   <p class="lead">Сто заявок, дюжина бригад. У каждой бригады свои навыки, свой транспорт
@@ -303,7 +303,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 3 -->
 <section class="slide" id="s3">
-  <span class="page-no">03 / 13</span>
+  <span class="page-no">03 / 14</span>
   <div class="eyebrow">Данные</div>
   <h2>Что дали и чего в данных нет</h2>
   <div class="cols cols-2">
@@ -335,7 +335,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 4 -->
 <section class="slide" id="s4">
-  <span class="page-no">04 / 13</span>
+  <span class="page-no">04 / 14</span>
   <div class="eyebrow">Допущения</div>
   <h2>Мы ничего не прячем</h2>
   <p class="lead">Всё достроенное собрано в коде в одном месте, показано в интерфейсе в
@@ -349,7 +349,7 @@ tr.fact td{color:var(--muted); font-style:italic}
         <tr><td>Длительность работ</td><td>Таблица нормативов заказчика: подключение 90 мин, авария 100, ремонт 50, дозаказ 40; дорога внутри норматива заменяется рассчитанной</td></tr>
         <tr><td><strong>Число бригад</strong></td><td>Расчётный минимум по объёму работ и по самому плотному часу: Восток 8, Юго-восток 9, Югоцентр 5</td></tr>
         <tr><td><strong>Навыки бригады</strong></td><td>Доли профилей, от 1 до 3 навыков по ТЗ; универсалов меньшинство</td></tr>
-        <tr><td><strong>Транспорт</strong></td><td>Машины тем, у кого допуск к заявкам, где машина обязательна, и одной аварийной бригаде; остальные пешком и на общественном транспорте</td></tr>
+        <tr><td><strong>Транспорт</strong></td><td>Машины тем, у кого допуск к заявкам, где машина обязательна, и одной аварийной бригаде; остальные по долям: общественный транспорт 45%, пешком 30%, машина 25%</td></tr>
         <tr><td>Старт и смена</td><td>Офис участка; одна смена на участок по окнам заявок, не короче восьми часов, обед 45 минут</td></tr>
       </tbody>
     </table>
@@ -358,10 +358,10 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 5 -->
 <section class="slide" id="s5">
-  <span class="page-no">05 / 13</span>
+  <span class="page-no">05 / 14</span>
   <div class="eyebrow">Алгоритм</div>
   <h2>Что оптимизируем</h2>
-  <p class="lead">Задача коммивояжёра с временными окнами, навыками и разнородным
+  <p class="lead">Задача маршрутизации бригад с временными окнами, навыками и разнородным
     транспортом. Решаем через OR-Tools: своя матрица времени на каждый тип транспорта,
     окна и смены как временнóе измерение, снятие заявки как штрафуемая альтернатива.</p>
   <ol class="steps">
@@ -379,14 +379,14 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 6 -->
 <section class="slide" id="s6">
-  <span class="page-no">06 / 13</span>
+  <span class="page-no">06 / 14</span>
   <div class="eyebrow">Честность сравнения</div>
   <h2>Три варианта, а не два</h2>
   <div class="cols cols-3">
     <div class="block"><h3>Базовый <span class="tag">по ТЗ</span></h3>
       <p>Реализован дословно: заявки по порядку поступления, первому подходящему
         исполнителю, объезд в порядке назначения.</p></div>
-    <div class="block limit"><h3>Быстрый расчёт <span class="tag">наш выбор</span></h3>
+    <div class="block limit"><h3>Быстрый расчёт <span class="tag">добавлен нами</span></h3>
       <p>Сортировка от срочных и ранних окон, вставка в позицию с минимальным
         приростом пробега. Добавлена намеренно.</p></div>
     <div class="block done"><h3>Оптимизатор <span class="tag">OR-Tools</span></h3>
@@ -399,7 +399,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 7 -->
 <section class="slide" id="s7">
-  <span class="page-no">07 / 13</span>
+  <span class="page-no">07 / 14</span>
   <div class="eyebrow">Результаты</div>
   <h2>Три района, один рабочий день</h2>
   <div class="table-wrap">
@@ -434,7 +434,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 8 -->
 <section class="slide" id="s8">
-  <span class="page-no">08 / 13</span>
+  <span class="page-no">08 / 14</span>
   <div class="eyebrow">Против базового варианта из ТЗ</div>
   <h2>Сколько заявок закрыто за день</h2>
   <svg class="chart" viewBox="0 0 760 290" role="img"
@@ -484,7 +484,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 9 -->
 <section class="slide" id="s9">
-  <span class="page-no">09 / 13</span>
+  <span class="page-no">09 / 14</span>
   <div class="eyebrow">Объяснимость</div>
   <h2>Почему эта заявка у этой бригады</h2>
   <div class="cols cols-2">
@@ -510,7 +510,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 10 -->
 <section class="slide" id="s10">
-  <span class="page-no">10 / 13</span>
+  <span class="page-no">10 / 14</span>
   <div class="eyebrow">Перепланирование</div>
   <h2>Событие в середине дня</h2>
   <p class="lead">Все три события из ТЗ и четвёртое сверх него - бригада задерживается.
@@ -527,7 +527,7 @@ tr.fact td{color:var(--muted); font-style:italic}
   </div>
   <p class="callout">Восток, бригада задержалась на 45 минут в 13:00. Минимальная правка
     сдвигает шесть визитов и теряет одну заявку; полная переоптимизация трогает вдвое
-    больше визитов и проезжает больше. В других событиях выигрывает полная. <strong>Обе
+    больше визитов и проезжает больше; полная пересборка ограничена минутой. <strong>Обе
     цены видны в предпросмотре до применения, выбор за диспетчером.</strong> Обычная
     новая заявка встаёт только в свободное окно; авария может сдвинуть чужие визиты,
     чтобы бригада приехала за два часа.</p>
@@ -535,7 +535,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 11 -->
 <section class="slide" id="s11">
-  <span class="page-no">11 / 13</span>
+  <span class="page-no">11 / 14</span>
   <div class="eyebrow">Прогноз опозданий</div>
   <h2>Где план порвётся первым</h2>
   <p class="lead">План по нормативам всегда выглядит выполнимым. В реальном дне работы
@@ -556,7 +556,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 
 <!-- 12 -->
 <section class="slide" id="s12">
-  <span class="page-no">12 / 13</span>
+  <span class="page-no">12 / 14</span>
   <div class="eyebrow">Проверка</div>
   <h2>А ограничения точно соблюдаются?</h2>
   <p class="lead">Этот вопрос эксперты задают первым. У нас на него машинный ответ:
@@ -569,7 +569,7 @@ tr.fact td{color:var(--muted); font-style:italic}
   </div>
   <p class="lead">Три района × три стратегии, плюс четыре события перепланирования
     в обоих режимах. Сверх этого - 908 проверок инвариантов на 25 вырожденных наборах
-    и 81 кривое обращение к API. Проверка встроена и в интерфейс кнопкой, и в скрипты,
+    и 80 кривых обращений к API. Проверка встроена и в интерфейс кнопкой, и в скрипты,
     которые падают с ошибкой, если найдут хоть одно нарушение.</p>
   <p class="callout">Аудит окупился сразу. Он поймал, что сервис после события
     <strong>пересобирал список заявок мимо результата перепланирования</strong>: план
@@ -579,7 +579,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 <!-- 13 -->
 <!-- экраны -->
 <section class="slide" id="s-ui">
-  <span class="page-no">MVP</span>
+  <span class="page-no">13 / 14</span>
   <div class="eyebrow">Как это выглядит</div>
   <h2>Рабочий день диспетчера на четырёх экранах</h2>
   <div class="shots">
@@ -606,7 +606,7 @@ tr.fact td{color:var(--muted); font-style:italic}
 </section>
 
 <section class="slide" id="s13">
-  <span class="page-no">13 / 13</span>
+  <span class="page-no">14 / 14</span>
   <div class="eyebrow">Границы</div>
   <h2>Чего здесь нет - и куда это растёт</h2>
   <div class="cols cols-2">

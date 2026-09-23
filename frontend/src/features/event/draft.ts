@@ -73,7 +73,9 @@ export function whatIsMissing(draft: EventDraft): string {
   }
   if (draft.kind === 'urgent_order') {
     if (!draft.district) return 'Выберите район';
-    if (draft.windowEnd <= draft.windowStart) return 'Окно должно заканчиваться позже начала';
+    if (draft.work !== 'emergency' && draft.windowEnd <= draft.windowStart) {
+      return 'Окно должно заканчиваться позже начала';
+    }
   }
   return '';
 }
@@ -120,8 +122,10 @@ export function toRequest(draft: EventDraft, plan: PlanPayload, apply: boolean):
       address: `${draft.district}, адрес уточняется`,
       district: draft.district,
       duration_min: draft.durationMin,
-      window_start: draft.windowStart,
-      window_end: draft.windowEnd,
+      // Авария начинается с момента поступления и ждёт бригаду до конца
+      // суток (организаторы, 19.09): окно ей не задают.
+      window_start: draft.work === 'emergency' ? draft.at : draft.windowStart,
+      window_end: draft.work === 'emergency' ? '23:59' : draft.windowEnd,
       required_skill: WORK_SKILL[draft.work],
       required_vehicle: null,
     },

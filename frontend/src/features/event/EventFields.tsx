@@ -120,6 +120,12 @@ export function EventFields({ plan, draft, onChange }: Props) {
             </select>
           </Label>
 
+          {draft.work === 'emergency' ? (
+            <p className="self-end pb-1.5 text-[12px] text-ink-3">
+              Окно: с момента поступления, бригада нужна как можно скорее
+            </p>
+          ) : (
+            <>
           <Label text="Окно с">
             <input
               type="time"
@@ -137,6 +143,9 @@ export function EventFields({ plan, draft, onChange }: Props) {
               onChange={(event) => onChange({ ...draft, windowEnd: event.target.value })}
             />
           </Label>
+
+            </>
+          )}
 
           <Label text="Работы, мин">
             <input

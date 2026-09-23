@@ -23,6 +23,7 @@ from dispatcher.services.planning.baseline import _finalize
 from dispatcher.services.planning.costs import (
     DEFAULT_TIME_LIMIT_SEC,
     ENGINEER_FIXED_COST,
+    LATE_EMERGENCY_COST_PER_MIN,
     URGENT_DELAY_COST_PER_MIN,
 )
 from dispatcher.services.planning.eligibility import restrict_crews
@@ -39,13 +40,15 @@ from dispatcher.services.planning.search import (
 def solve_optimized(orders: list[Order], engineers: list[Engineer],
                     time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
                     locked: dict[str, str] | None = None,
-                    frozen: dict[str, list[str]] | None = None) -> Plan:
+                    frozen: dict[str, list[str]] | None = None,
+                    deadlines: dict[str, int] | None = None) -> Plan:
     """Оптимизация маршрутов через OR-Tools Routing.
 
     locked — жёсткая привязка order_id -> engineer_id (ручное переназначение
     диспетчером и уже выполненные заявки при перепланировании).
     frozen — префиксы маршрутов, которые нельзя менять (заявки, к которым
     исполнитель уже выехал или которые уже выполнены на момент события).
+    deadlines — не позже какого момента начать аварию, поступившую днём.
     """
     started = time.perf_counter()
     if not orders or not engineers:
@@ -133,10 +136,17 @@ def solve_optimized(orders: list[Order], engineers: list[Engineer],
     # жёсткая выкинула бы заявку из плана, если бригада не успевает, а нам
     # нужно «как можно раньше», а не «либо рано, либо никак».
     earliest = min((e.shift_start for e in engineers), default=0)
+    deadlines = deadlines or {}
     for node, order in enumerate(orders):
         if order.priority != PRIORITY_URGENT:
             continue
         index = manager.NodeToIndex(node)
+        if order.id in deadlines:
+            # Авария, поступившая днём: до срока реакции ожидание бесплатно,
+            # после - дороже снятого ремонта за каждые полчаса.
+            time_dim.SetCumulVarSoftUpperBound(index, deadlines[order.id],
+                                               LATE_EMERGENCY_COST_PER_MIN)
+            continue
         bound = max(order.window_start, earliest)
         time_dim.SetCumulVarSoftUpperBound(index, bound, URGENT_DELAY_COST_PER_MIN)
 

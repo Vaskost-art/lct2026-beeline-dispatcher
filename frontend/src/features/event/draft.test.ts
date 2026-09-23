@@ -34,3 +34,29 @@ describe('новая заявка днём', () => {
     expect(WORK_MINUTES.local).toBeLessThan(WORK_MINUTES.emergency);
   });
 });
+
+describe('окно новой заявки', () => {
+  it('авария начинается с момента поступления, окно ей не задают', () => {
+    const draft = { ...EMPTY_DRAFT, district: 'Таганский', at: '13:10', windowStart: '16:00' };
+
+    const request = toRequest(draft, plan, false);
+
+    expect(request.new_order?.window_start).toBe('13:10');
+    expect(request.new_order?.window_end).toBe('23:59');
+  });
+
+  it('у обычной заявки окно то, что задал диспетчер', () => {
+    const draft = {
+      ...EMPTY_DRAFT,
+      work: 'connect' as const,
+      district: 'Таганский',
+      windowStart: '16:00',
+      windowEnd: '18:00',
+    };
+
+    const request = toRequest(draft, plan, false);
+
+    expect(request.new_order?.window_start).toBe('16:00');
+    expect(request.new_order?.window_end).toBe('18:00');
+  });
+});

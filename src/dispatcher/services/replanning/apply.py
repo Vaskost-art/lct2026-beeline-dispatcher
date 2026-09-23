@@ -7,6 +7,13 @@ from dispatcher.domain import Engineer, Order, Plan, Unassigned, hhmm
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.optimizer import solve_optimized
 from dispatcher.services.replanning.diff import build_diff, describe_diff
+from dispatcher.services.replanning.emergency import (
+    credit_gave_way,
+    deadline_for,
+    describe_reaction,
+    reaction,
+    stuck_emergencies,
+)
 from dispatcher.services.replanning.events import (
     KIND_DELAYED,
     KIND_UNAVAILABLE,
@@ -19,13 +26,7 @@ from dispatcher.services.replanning.freeze import (
     merge_frozen,
     shifts_after_event,
 )
-from dispatcher.services.replanning.newcomer import (
-    describe_reaction,
-    newcomer_outcome,
-    ordinary_newcomer,
-    reaction,
-    stuck_emergencies,
-)
+from dispatcher.services.replanning.newcomer import newcomer_outcome, ordinary_newcomer
 from dispatcher.services.replanning.repair import MODE_MINIMAL, MODE_TITLES, _repair
 from dispatcher.services.statuses import frozen_by_status
 from dispatcher.services.statuses import plannable as plannable_by_status
@@ -155,8 +156,11 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
         new_plan = _repair(plannable, adjusted, current, event, now, frozen,
                            issued)
     else:
-        new_plan = solve_optimized(plannable, adjusted,
-                                   time_limit_sec=time_limit_sec, frozen=frozen)
+        deadlines = {o.id: due for o in plannable
+                     if o.id not in frozen_ids and (due := deadline_for(o, now))}
+        new_plan = solve_optimized(plannable, adjusted, time_limit_sec=time_limit_sec,
+                                   frozen=frozen, deadlines=deadlines)
+        credit_gave_way(current, new_plan, deadlines)
 
         # Если модель с замороженными префиксами оказалась неразрешимой,
         # повторяем без заморозки: лучше перестроенный день, чем пустой план.

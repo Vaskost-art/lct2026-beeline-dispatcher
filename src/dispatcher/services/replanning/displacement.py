@@ -5,7 +5,14 @@
 """
 from __future__ import annotations
 
-from dispatcher.domain import PRIORITY_URGENT, Engineer, Order, Route
+from dispatcher.domain import (
+    PRIORITY_HIGH,
+    PRIORITY_NORMAL,
+    PRIORITY_URGENT,
+    Engineer,
+    Order,
+    Route,
+)
 from dispatcher.services.equipment import Stock
 from dispatcher.services.planning.costs import ENGINEER_FIXED_COST
 from dispatcher.services.routing import evaluate_sequence, insertion_cost
@@ -30,7 +37,8 @@ MAX_DISPLACED = 3          # сколько обычных заявок гото
 def _place_urgent_with_displacement(
         order: Order, routes: dict[str, Route], engineers: list[Engineer],
         by_id: dict[str, Order], frozen: dict[str, list[str]],
-        now: int, stock: Stock | None = None) -> tuple[str, list[Order]] | None:
+        now: int, stock: Stock | None = None,
+        deadline: int | None = None) -> tuple[str, list[Order]] | None:
     """Освобождает место под срочную заявку, сдвигая обычные.
 
     ТЗ: «Срочная заявка имеет более высокий приоритет при перепланировании».
@@ -44,6 +52,11 @@ def _place_urgent_with_displacement(
     если места не нашлось даже с вытеснением. `stock` — остаток оборудования
     в сумках: брать заявку может только бригада, у которой нужное устройство
     с собой, и вытеснение этот учёт ведёт само.
+
+    `deadline` — не позже какого момента бригада должна приехать на аварию.
+    Организаторы задали ориентир реакции 1-2 часа, и место, найденное позже,
+    не годится. Уступает место прежде всего ремонт, подключение - только если
+    иначе никак: порядок постановщика «Авария → Подключение → Ремонт».
     """
     best: tuple[float, str, Route, list[Order]] | None = None
 
@@ -63,20 +76,28 @@ def _place_urgent_with_displacement(
                 candidate = sequence[:position] + [order] + sequence[position:]
                 new_route, _ = evaluate_sequence(engineer, candidate)
                 if new_route is not None:
+                    if deadline is not None and new_route.stops[position].arrival > deadline:
+                        # Приезд определяют визиты до места вставки, а они не
+                        # меняются: снимать заявки дальше бесполезно.
+                        break
                     # стоимость: прирост пробега плюс плата за каждую сдвинутую
-                    # заявку — так вытесняем как можно меньше и как можно дешевле
+                    # заявку — так вытесняем как можно меньше и как можно дешевле;
+                    # подключение отдаётся дороже ремонта
                     cost = ((new_route.total_km - route.total_km)
                             + 10.0 * len(victims)
+                            + 15.0 * sum(1 for v in victims if v.priority == PRIORITY_HIGH)
                             + sum(v.duration_min for v in victims) / 60.0)
                     if best is None or cost < best[0]:
                         best = (cost, engineer.id, new_route, victims)
                     break
 
-                # снимаем первую обычную заявку, стоящую после места вставки
+                # снимаем первую обычную заявку после места вставки: сначала
+                # ремонт, подключение - только если ремонта не осталось
+                tail = range(position, len(sequence))
                 removable = next(
-                    (i for i in range(position, len(sequence))
-                     if sequence[i].priority != PRIORITY_URGENT),
-                    None,
+                    (i for i in tail if sequence[i].priority == PRIORITY_NORMAL),
+                    next((i for i in tail if sequence[i].priority != PRIORITY_URGENT),
+                         None),
                 )
                 if removable is None or len(victims) >= MAX_DISPLACED:
                     break
@@ -125,7 +146,8 @@ def _place_urgent_with_displacement(
 
 
 def _resequence_with(engineer: Engineer, route: Route, by_id: dict[str, Order],
-                     order: Order, first_free: int) -> tuple[float, Route] | None:
+                     order: Order, first_free: int,
+                     deadline: int | None = None) -> tuple[float, Route] | None:
     """Пересобирает незамороженный хвост маршрута, чтобы вместить заявку.
 
     Обычная вставка сохраняет порядок уже назначенных заявок, и этого часто
@@ -133,6 +155,9 @@ def _resequence_with(engineer: Engineer, route: Route, by_id: dict[str, Order],
     весь хвост можно просто переставить по времени окон. Здесь мы делаем ровно
     то, что сделал бы диспетчер вручную, — раскладываем оставшиеся заявки
     по возрастанию окна и пробуем поставить новую в каждую позицию.
+
+    `deadline` - для аварии: годятся только варианты, где бригада приезжает
+    не позже этого момента.
     """
     current = [by_id[s.order_id] for s in route.stops]
     head, tail = current[:first_free], current[first_free:]
@@ -143,6 +168,8 @@ def _resequence_with(engineer: Engineer, route: Route, by_id: dict[str, Order],
         candidate = head + ordered[:position] + [order] + ordered[position:]
         new_route, _ = evaluate_sequence(engineer, candidate)
         if new_route is None:
+            continue
+        if deadline is not None and new_route.stops[len(head) + position].arrival > deadline:
             continue
         delta = new_route.total_km - route.total_km
         if best is None or delta < best[0]:

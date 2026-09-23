@@ -8,9 +8,9 @@ from dispatcher.services.replanning.displacement import (
     _place_urgent_with_displacement,
     _resequence_with,
 )
+from dispatcher.services.replanning.emergency import deadline_for, delay_cost, settle
 from dispatcher.services.replanning.events import KIND_UNAVAILABLE, ReplanEvent
 from dispatcher.services.replanning.newcomer import (
-    delay_cost,
     keeps_schedule,
     ordinary_newcomer,
     repair_reason,
@@ -147,8 +147,7 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
                 if new_route is not None and (best is None or score < best[0]):
                     best = (score, engineer.id, new_route)
         if best is not None:
-            routes[best[1]] = best[2]
-            stock.take(best[1], order)
+            settle(order, best, routes, engineers, by_id, frozen, now, stock, displaced)
             continue
 
         if newcomer is not None and order.id == newcomer.id:
@@ -170,14 +169,17 @@ def _repair(orders: list[Order], engineers: list[Engineer], current: Plan,
             if best is None or score < best[0]:
                 best = (score, engineer.id, new_route)
         if best is not None:
-            routes[best[1]] = best[2]
-            stock.take(best[1], order)
+            settle(order, best, routes, engineers, by_id, frozen, now, stock, displaced)
             continue
 
-        # Срочная заявка не встала и после пересборки — освобождаем ей место.
+        # Срочная заявка не встала и после пересборки — освобождаем ей место:
+        # сначала так, чтобы бригада успела в срок, и только потом где угодно.
         if order.priority == PRIORITY_URGENT:
-            outcome = _place_urgent_with_displacement(
-                order, routes, engineers, by_id, frozen, now, stock)
+            outcome = (_place_urgent_with_displacement(
+                           order, routes, engineers, by_id, frozen, now, stock,
+                           deadline=deadline_for(order, now))
+                       or _place_urgent_with_displacement(
+                           order, routes, engineers, by_id, frozen, now, stock))
             if outcome is not None:
                 _, homeless = outcome
                 for victim in homeless:

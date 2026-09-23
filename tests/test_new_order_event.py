@@ -207,3 +207,37 @@ def test_event_does_not_delay_a_crew_already_on_its_way():
     for mode in ("minimal", "full"):
         result = replan(orders, [crew], plan, event, mode=mode, time_limit_sec=4)
         assert _starts(result.plan, {"far"}) == before, mode
+
+
+def _tight_day():
+    """Жёсткие окна: визит нельзя сдвинуть ни на минуту; смена до 19:00.
+
+    Авария, пришедшая в 11:30, без снятия заявки встаёт только в конец
+    дня - через пять часов. Уложиться в два часа можно, лишь освободив
+    место: ориентир организаторов для реакции на аварию - 1-2 часа.
+    """
+    from dispatcher.domain import Plan
+
+    crew = Engineer(id="crew", name="Бригада", lat=LAT, lon=LON, start_address="",
+                    shift_start=9 * 60, shift_end=19 * 60, skills=[SKILL_LOCAL],
+                    vehicle=VEHICLE_CAR)
+    orders = [_order(f"o{hour}", hour * 60, 90, window=0) for hour in (9, 11, 13, 15)]
+    route, _ = evaluate_sequence(crew, orders)
+    assert route is not None
+    return [crew], orders, Plan(routes=[route])
+
+
+def test_emergency_takes_the_place_of_an_ordinary_order_to_arrive_in_time():
+    """Авария важнее ремонта: ради приезда в срок ремонт уступает место."""
+    at = 11 * 60 + 30
+    emergency = _order("new", at, 80, PRIORITY_URGENT, window=12 * 60)
+    for mode in ("minimal", "full"):
+        engineers, orders, plan = _tight_day()
+        event = ReplanEvent(kind=KIND_URGENT, at=at, new_order=emergency)
+        result = replan(orders, engineers, plan, event, mode=mode, time_limit_sec=4)
+
+        info = result.diff.get("reaction")
+        assert info is not None and info["minutes"] <= 120, (mode, info)
+        gave_way = [u for u in result.plan.unassigned if u.order_id != "new"]
+        assert len(gave_way) == 1, (mode, [u.order_id for u in gave_way])
+        assert "авари" in gave_way[0].reason_text.lower(), (mode, gave_way[0].reason_text)

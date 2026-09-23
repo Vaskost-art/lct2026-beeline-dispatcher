@@ -13,7 +13,8 @@
   "window_end": "17:00",
   "priority": "Срочная",
   "required_skill": "Аварийные работы",
-  "required_vehicle": null,
+  "required_vehicle": "Автомобиль",
+  "equipment": [],
   "type_bk": "Глобальная проблема",
   "type_hd": "Авария",
   "geocode_precision": "manual"

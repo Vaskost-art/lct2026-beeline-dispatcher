@@ -11,19 +11,20 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
 
 # --- Python ------------------------------------------------------------------
-# Интерпретатор выбирается по тому, что он реально запускается и новее 3.11:
+# Интерпретатор выбирается по тому, что он реально запускается и не старше 3.12
+# (оператор `type` в коде появился в 3.12, тесты проверены на 3.12 и 3.13):
 # в Windows `python3` часто оказывается заглушкой Магазина, которая есть в
 # PATH, но ничего не исполняет.
 PYTHON=""
 for candidate in python3 python py; do
   if command -v "$candidate" >/dev/null 2>&1 \
-     && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then
+     && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 12))' >/dev/null 2>&1; then
     PYTHON="$candidate"
     break
   fi
 done
 if [ -z "$PYTHON" ]; then
-  echo "Нужен Python 3.11 или новее. Либо запустите через Docker: docker compose up --build" >&2
+  echo "Нужен Python 3.12 или новее. Либо запустите через Docker: docker compose up --build" >&2
   exit 1
 fi
 

@@ -59,7 +59,7 @@ def planning() -> Day:
 
     plan = expect("нормальный расчёт", "POST", "/api/plan", (200,),
                   body={"region": REGION, "strategy": "optimized",
-                        "time_limit_sec": TIME_LIMIT})
+                        "time_limit_sec": TIME_LIMIT, "reset": True})
     plan_is_valid("после расчёта")
 
     assigned = [s["order_id"] for r in plan["routes"] for s in r["stops"]]
@@ -164,20 +164,20 @@ def replanning(day: Day) -> None:
 
     print("\n  Задержка бригады: границы")
     expect("задержка без исполнителя", "POST", "/api/replan", (400,),
-           body={"region": REGION, "kind": "engineer_delayed", "at": "12:00"},
+           body={"region": REGION, "kind": "engineer_delayed", "at": "14:00"},
            must_explain=True)
     expect("задержка несуществующего", "POST", "/api/replan", (400,),
-           body={"region": REGION, "kind": "engineer_delayed", "at": "12:00",
+           body={"region": REGION, "kind": "engineer_delayed", "at": "14:00",
                  "engineer_id": "Бригада Призрак"}, must_explain=True)
     expect("задержка на ноль минут", "POST", "/api/replan", (422,),
-           body={"region": REGION, "kind": "engineer_delayed", "at": "12:00",
+           body={"region": REGION, "kind": "engineer_delayed", "at": "14:00",
                  "engineer_id": engineers[0], "delay_min": 0})
     expect("задержка на сутки", "POST", "/api/replan", (422,),
-           body={"region": REGION, "kind": "engineer_delayed", "at": "12:00",
+           body={"region": REGION, "kind": "engineer_delayed", "at": "14:00",
                  "engineer_id": engineers[0], "delay_min": 1440})
     for delay in (5, 90, 480):
         expect(f"задержка на {delay} мин", "POST", "/api/replan", (200,),
-               body={"region": REGION, "kind": "engineer_delayed", "at": "12:00",
+               body={"region": REGION, "kind": "engineer_delayed", "at": "14:00",
                      "engineer_id": engineers[0], "delay_min": delay,
                      "mode": "minimal", "apply": True,
                      "time_limit_sec": TIME_LIMIT})

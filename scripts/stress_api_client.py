@@ -56,7 +56,10 @@ def call(method: str, path: str, body=None, raw: bytes | None = None,
             text = response.read().decode("utf-8", "replace")
             return response.status, unwrap(json.loads(text) if text else None)
     except urllib.error.HTTPError as error:
-        text = error.read().decode("utf-8", "replace")
+        try:
+            text = error.read().decode("utf-8", "replace")
+        except OSError:                             # сервис ответил и закрыл соединение
+            return error.code, ""
         try:
             return error.code, unwrap(json.loads(text))
         except json.JSONDecodeError:

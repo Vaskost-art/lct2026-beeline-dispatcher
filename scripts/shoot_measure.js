@@ -1,5 +1,11 @@
 // Замер вёрстки на странице: читает shoot.py и исполняет в браузере.
 () => {
+  const pinned = (el) => {
+    for (let node = el; node && node !== document.body; node = node.parentElement) {
+      if (getComputedStyle(node).position === 'sticky' && node.tagName !== 'HEADER') return true;
+    }
+    return false;
+  };
   const problems = [];
   const doc = document.documentElement;
   if (doc.scrollWidth > doc.clientWidth + 1) {
@@ -165,7 +171,9 @@
     // Элемент, уехавший за край своего прокручиваемого контейнера, на экране
     // обрезан. Сравнивать его с видимыми соседями значит находить наложения
     // там, где человек видит аккуратный список.
-    if (text && el.children.length === 0 && !clipped(el, box)) {
+    // Закреплённый блок (кнопки решения внизу прокручиваемой панели) по
+    // замыслу лежит поверх прокрученного содержимого: это не наложение.
+    if (text && el.children.length === 0 && !clipped(el, box) && !pinned(el)) {
       boxes.push({box, text: text.slice(0, 30)});
     }
   }

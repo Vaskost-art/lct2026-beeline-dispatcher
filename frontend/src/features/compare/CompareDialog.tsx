@@ -1,6 +1,7 @@
 import { useCompare } from '../../api/queries';
 import type { CompareRow } from '../../api/types';
 import { Modal } from '../../components/Modal';
+import { decimal, plural } from '../../text';
 
 interface Props {
   region: string;
@@ -33,10 +34,10 @@ function Row({ row, best }: { row: CompareRow; best: boolean }) {
         {m.used_engineers}
       </td>
       <td className="px-3 py-2 text-right align-top text-[13px] tnum">
-        {m.total_km.toFixed(1)} <span className="unit">км</span>
+        {decimal(m.total_km)} <span className="unit">км</span>
       </td>
       <td className="px-3 py-2 text-right align-top text-[13px] tnum">
-        {m.avg_km_per_order.toFixed(1)} <span className="unit">км</span>
+        {decimal(m.avg_km_per_order)} <span className="unit">км</span>
       </td>
     </tr>
   );
@@ -54,6 +55,8 @@ export function CompareDialog({ region, open, onClose }: Props) {
   const baseline = rows.find((row) => row.key === 'baseline');
   const optimized = rows.find((row) => row.key === 'optimized');
   const greedy = rows.find((row) => row.key === 'greedy');
+  const saved =
+    optimized && greedy ? Math.round(greedy.metrics.total_km - optimized.metrics.total_km) : 0;
 
   return (
     <Modal open={open} title="Сравнение способов расчёта" onClose={onClose}>
@@ -118,20 +121,23 @@ export function CompareDialog({ region, open, onClose }: Props) {
               <p className="text-[13px] text-ink">
                 <span className="font-semibold">Задача нетривиальна.</span> Честное
                 последовательное распределение берёт{' '}
-                <span className="tnum">{baseline.metrics.orders_assigned}</span> заявок из{' '}
-                <span className="tnum">{baseline.metrics.orders_total}</span>: остальные не
-                помещаются в окна и смены.
+                <span className="tnum">{baseline.metrics.orders_assigned}</span> из{' '}
+                <span className="tnum">{baseline.metrics.orders_total}</span>{' '}
+                {plural(baseline.metrics.orders_total, 'заявки', 'заявок', 'заявок')}: остальные не
+                помещаются в окна клиентов и смены бригад.
               </p>
               <p className="text-[13px] text-ink">
-                <span className="font-semibold">Оптимизатор нужен.</span> Он делает ту же работу,
-                что быстрая эвристика (
-                <span className="tnum">{greedy.metrics.orders_assigned}</span> заявок), но берёт
-                больше (<span className="tnum">{optimized.metrics.orders_assigned}</span>) и
-                проезжает на{' '}
-                <span className="tnum">
-                  {Math.round(greedy.metrics.total_km - optimized.metrics.total_km)}
-                </span>{' '}
-                км меньше.
+                <span className="font-semibold">Перебор вариантов окупается.</span> Быстрый
+                расчёт по простому правилу берёт{' '}
+                <span className="tnum">{greedy.metrics.orders_assigned}</span>{' '}
+                {plural(greedy.metrics.orders_assigned, 'заявку', 'заявки', 'заявок')}, полный
+                расчёт <span className="tnum">{optimized.metrics.orders_assigned}</span>
+                {saved > 0 ? (
+                  <>
+                    {' '}и проезжает на <span className="tnum">{saved}</span> км меньше
+                  </>
+                ) : null}
+                .
               </p>
               {compare.data.changed ? null : (
                 <p className="text-[12px] text-ink-3">{compare.data.basis}</p>

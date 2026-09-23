@@ -1,4 +1,5 @@
 import type { Order, Stop } from '../../api/types';
+import { priorityMark } from '../../priority';
 
 interface Props {
   index: number;
@@ -28,16 +29,12 @@ const STATUS_TONE: Record<string, string> = {
 меткой. Выбор показывается полосой слева, а не рамкой: рамка сдвигает
 содержимое и строка дёргается.
 */
+/** Способы, которые не меняются от визита к визиту. */
+const SINGLE_MODE = new Set(['на машине', 'на велосипеде']);
+
 export function StopRow({ index, stop, order, status, selected, onSelect }: Props) {
   const tone = STATUS_TONE[status];
-  // Три ступени, заданные постановщиком: авария, подключение, остальное.
-  // Нижнюю не отмечаем вовсе - метка на каждой строке перестаёт значить что-либо.
-  const priority = order?.priority ?? '';
-  const mark = priority.toLowerCase().startsWith('срочн')
-    ? { text: 'авария', tone: 'bg-danger-soft text-danger' }
-    : priority.toLowerCase().startsWith('повыш')
-      ? { text: 'подключение', tone: 'bg-warn-soft text-warn' }
-      : null;
+  const mark = priorityMark(order?.priority);
 
   return (
     <li>
@@ -61,27 +58,29 @@ export function StopRow({ index, stop, order, status, selected, onSelect }: Prop
         </span>
 
         <span className="min-w-0 flex-1 pb-0.5">
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="text-[12px] font-semibold tnum">
+          {/* Строка переносится, а не сжимается: на узкой колонке метка
+              «подключение» наезжала на время в пути. */}
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="shrink-0 whitespace-nowrap text-[12px] font-semibold tnum">
               {stop.start}
               <span className="text-ink-3">–{stop.end}</span>
             </span>
             {tone ? (
-              <span className={'rounded-sm px-1 text-[10px] font-medium ' + tone}>
+              <span className={'shrink-0 rounded-sm px-1 text-[10px] font-medium ' + tone}>
                 {status.toLowerCase()}
               </span>
             ) : null}
             {mark ? (
               <span
                 className={
-                  'rounded-sm px-1 text-[10px] font-semibold uppercase ' +
+                  'shrink-0 rounded-sm px-1 text-[10px] font-semibold uppercase ' +
                   'tracking-[0.04em] ' + mark.tone
                 }
               >
                 {mark.text}
               </span>
             ) : null}
-            <span className="truncate text-[12px] text-ink-3">
+            <span className="min-w-0 truncate text-[12px] text-ink-3">
               {order ? order.district : 'район неизвестен'}
             </span>
           </span>
@@ -106,7 +105,9 @@ export function StopRow({ index, stop, order, status, selected, onSelect }: Prop
 
         <span className="shrink-0 pt-0.5 text-right text-[11px] text-ink-3 tnum">
           <span className="block">{stop.travel_min} мин в пути</span>
-          {stop.travel_mode ? (
+          {/* У машины и велосипеда способ один, и подпись в каждой строке
+              была шумом: транспорт бригады и так назван в её строке. */}
+          {stop.travel_mode && !SINGLE_MODE.has(stop.travel_mode) ? (
             <span className="block text-ink-3">{stop.travel_mode}</span>
           ) : null}
           {stop.wait_min > 0 ? (

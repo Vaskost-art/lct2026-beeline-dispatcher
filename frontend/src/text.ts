@@ -7,3 +7,8 @@ export function plural(count: number, one: string, few: string, many: string): s
   if (units >= 2 && units <= 4) return few;
   return many;
 }
+
+/** Дробное число по-русски: «158,5», а не «158.5». */
+export function decimal(value: number, digits = 1): string {
+  return value.toFixed(digits).replace('.', ',');
+}

@@ -3,15 +3,18 @@ import { CaretRight } from '@phosphor-icons/react';
 import type { Order, Route } from '../../api/types';
 
 /** Короткое имя транспорта: полное не помещается в колонку и обрезается
-    многоточием ровно там, где начинается смысл. */
+    многоточием ровно там, где начинается смысл. Пешая бригада и бригада на
+    транспорте ходят одинаково, быстрейшим из двух способов: подпись «пешком»
+    при двадцати пяти километрах за день читалась как ошибка. */
 const SHORT_VEHICLE: Record<string, string> = {
   Автомобиль: 'авто',
-  'Общественный транспорт': 'транспорт',
+  'Общественный транспорт': 'без машины',
   Велосипед: 'велосипед',
-  Пешеход: 'пешком',
+  Пешеход: 'без машины',
 };
 import { crewColor } from '../map/model';
 import { StopRow } from './StopRow';
+import { decimal } from '../../text';
 
 interface Props {
   route: Route;
@@ -22,6 +25,8 @@ interface Props {
   open: boolean;
   focused: boolean;
   selected: string | null;
+  /** Сколько устройств бригада берёт утром: та же ведомость, что в итоге. */
+  load: number;
   /** Отметки хода работ по заявкам этого участка. */
   statuses?: Record<string, string>;
   onToggle: () => void;
@@ -36,6 +41,7 @@ interface Props {
 export function RouteRow({
   route,
   orders,
+  load,
   vehicle,
   index,
   open,
@@ -46,10 +52,6 @@ export function RouteRow({
   onSelect,
 }: Props) {
   const byId = new Map(orders.map((order) => [order.id, order]));
-  const items = route.stops.reduce((total, stop) => {
-    const order = byId.get(stop.order_id);
-    return total + (order ? order.equipment.length : 0);
-  }, 0);
   const last = route.stops.at(-1);
   // Простой в строках визитов виден поштучно, а решение принимается по
   // сумме: три ожидания по часу это несделанная заявка.
@@ -87,9 +89,9 @@ export function RouteRow({
           ) : null}
         </span>
         <span className="text-right text-[12px] tnum">{route.stops.length}</span>
-        <span className="text-right text-[12px] tnum">{route.total_km.toFixed(1)}</span>
+        <span className="text-right text-[12px] tnum">{decimal(route.total_km)}</span>
         <span className="hidden text-right text-[12px] tnum lg:block">
-          {items > 0 ? items : <span className="text-ink-3">0</span>}
+          {load > 0 ? load : <span className="text-ink-3">0</span>}
         </span>
       </button>
 

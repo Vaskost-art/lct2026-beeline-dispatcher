@@ -1,39 +1,32 @@
 import {
-  ArrowCounterClockwise,
+  ArrowUUpLeft,
   ScalesIcon,
   ClipboardText,
   DownloadSimple,
-  FloppyDisk,
   Info,
+  ShieldCheck,
+  Timer,
+  Toolbox,
   UploadSimple,
 } from '@phosphor-icons/react';
 
-import { useRestoreDay, useSaveDay, useSavedDay } from '../../api/queries';
-import { Button } from '../../components/Button';
 import { Drawer } from '../../components/Drawer';
 import type { Panel, Theme } from '../../state/day';
-
-/** «2026-09-18T13:03:59» человек не читает: показываем время словами. */
-function whenSaved(stamp: string | undefined): string {
-  if (!stamp) return 'неизвестно когда';
-  const at = new Date(stamp);
-  if (Number.isNaN(at.getTime())) return stamp;
-  return at.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+import { SaveSection } from './SaveSection';
 
 interface Props {
   open: boolean;
   region: string | null;
   planned: boolean;
+  /** Пишет ли сервис версии дня в базу; до ответа сервиса неизвестно. */
+  journal?: boolean;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   onPanel: (panel: Panel) => void;
   onClose: () => void;
+  /** Что отменит шаг назад, если есть что отменять. */
+  undoLabel?: string;
+  onUndo?: () => void;
 }
 
 const THEMES: [Theme, string][] = [
@@ -74,11 +67,18 @@ function Item({
 }
 
 /** Меню смены: всё, что не нужно постоянно на глазах. */
-export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }: Props) {
-  const saved = useSavedDay(region, open);
-  const save = useSaveDay();
-  const restore = useRestoreDay();
-
+export function Menu({
+  open,
+  region,
+  planned,
+  journal,
+  theme,
+  onTheme,
+  onPanel,
+  onClose,
+  undoLabel,
+  onUndo,
+}: Props) {
   const go = (panel: Panel) => {
     onClose();
     onPanel(panel);
@@ -89,22 +89,35 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
       <nav className="flex flex-col gap-4">
         <section className="sm:hidden">
           <h3 className="eyebrow mb-1 px-2">Проверки</h3>
+          {/* На телефоне кнопок сводки нет, а откатить ошибочную отметку
+              нужно и там. */}
+          {undoLabel && onUndo ? (
+            <Item
+              icon={ArrowUUpLeft}
+              title="Шаг назад"
+              hint={`отменить: ${undoLabel}`}
+              onClick={() => {
+                onClose();
+                onUndo();
+              }}
+            />
+          ) : null}
           <Item
-            icon={Info}
+            icon={ShieldCheck}
             title="Проверить план"
             hint="окна, смены, навыки и транспорт заново"
             disabled={!planned}
             onClick={() => go('validate')}
           />
           <Item
-            icon={Info}
+            icon={Timer}
             title="Прогноз опозданий"
             hint="где план сломается от первой задержки"
             disabled={!planned}
             onClick={() => go('risk')}
           />
           <Item
-            icon={Info}
+            icon={Toolbox}
             title="Что взять в офисе"
             hint="ведомость на выдачу по бригадам"
             disabled={!planned}
@@ -148,42 +161,7 @@ export function Menu({ open, region, planned, theme, onTheme, onPanel, onClose }
           />
         </section>
 
-        <section className="flex flex-col gap-2">
-          <h3 className="eyebrow px-2">Сохранение</h3>
-          <div className="flex flex-wrap gap-2 px-2">
-            <Button
-              variant="quiet"
-              disabled={!region || !planned}
-              busy={save.isPending}
-              busyLabel="Сохраняем"
-              onClick={() => {
-                if (region) save.mutate({ region, name: 'Рабочий день' });
-              }}
-            >
-              <FloppyDisk size={15} weight="bold" aria-hidden />
-              Сохранить день
-            </Button>
-            <Button
-              variant="quiet"
-              disabled={!region || !saved.data?.exists}
-              busy={restore.isPending}
-              busyLabel="Восстанавливаем"
-              onClick={() => {
-                if (region) restore.mutate({ region });
-              }}
-            >
-              <ArrowCounterClockwise size={15} weight="bold" aria-hidden />
-              Восстановить
-            </Button>
-          </div>
-          <p className="px-2 text-[12px] text-ink-3">
-            {save.isSuccess
-              ? 'День сохранён.'
-              : saved.data?.exists
-                ? `Есть сохранение от ${whenSaved(saved.data.saved_at)}.`
-                : 'Сохранения пока нет.'}
-          </p>
-        </section>
+        <SaveSection open={open} region={region} planned={planned} journal={journal} />
 
         <section>
           <h3 className="eyebrow mb-1 px-2">Оформление</h3>

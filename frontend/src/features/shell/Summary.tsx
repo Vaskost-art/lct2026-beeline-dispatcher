@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { PlanPayload } from '../../api/types';
+import { decimal } from '../../text';
 
 interface Props {
   plan: PlanPayload;
@@ -8,7 +9,7 @@ interface Props {
   stale: boolean;
   /** Проверки дня: они нужны каждый день и живут на виду, а не в меню. */
   actions: ReactNode;
-  /** Когда этот план собран: иначе устаревшие числа не отличить от свежих. */
+  /** Когда пришли эти данные: иначе устаревшие числа не отличить от свежих. */
   builtAt: string;
 }
 
@@ -57,7 +58,8 @@ export function Summary({ plan, stale, actions, builtAt }: Props) {
   return (
     <section
       data-stale={stale}
-      className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-line bg-panel px-4 py-3"
+      className="flex flex-wrap items-center gap-x-8 gap-y-2 border-b border-line bg-panel px-4 py-2
+                 sm:gap-y-4 sm:py-3"
     >
       <div data-testid="metric-assigned" data-stale={stale} className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-3">Заявок в плане</span>
@@ -70,7 +72,7 @@ export function Summary({ plan, stale, actions, builtAt }: Props) {
             {Math.round(m.assigned_share * 100)} %
           </span>
         </span>
-        <span className="text-[11px] text-ink-3 tnum">план собран в {builtAt}</span>
+        <span className="text-[11px] text-ink-3 tnum">данные на {builtAt}</span>
         <span
           aria-hidden
           className="h-1.5 w-full min-w-[184px] overflow-hidden rounded-full bg-raised"
@@ -92,21 +94,26 @@ export function Summary({ plan, stale, actions, builtAt }: Props) {
       />
       <Figure
         label="Пробег"
-        value={m.total_km.toFixed(1)}
+        value={decimal(m.total_km)}
         unit="км"
         stale={stale}
         note={
           m.no_car_km > 0
-            ? `на авто ${m.car_km.toFixed(0)}, без авто ${m.no_car_km.toFixed(0)}`
+            ? `на авто ${decimal(m.car_km, 0)}, без авто ${decimal(m.no_car_km, 0)}`
             : undefined
         }
       />
-      <Figure
-        label="Время в пути"
-        value={String(Math.round(m.travel_share * 100))}
-        unit="% смены"
-        stale={stale}
-      />
+      {/* На телефоне сводка стоит над списком постоянно и съедала треть
+          экрана: справочная доля дороги там уходит. */}
+      <div className="hidden sm:block">
+        <Figure
+          label="Дорога"
+          value={String(Math.round(m.travel_share * 100))}
+          unit="%"
+          note="от занятого времени всех бригад"
+          stale={stale}
+        />
+      </div>
       {closed > 0 ? (
         <Figure
           label="Закрыто за смену"

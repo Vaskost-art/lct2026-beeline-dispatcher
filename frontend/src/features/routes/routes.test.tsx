@@ -21,7 +21,7 @@ const route: Route = {
 
 describe('список маршрутов', () => {
   it('показывает остановки с оборудованием', () => {
-    render(<RouteRow route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText(/Роутер/)).toBeInTheDocument();
     expect(screen.getByText(/Улица, дом/)).toBeInTheDocument();
@@ -30,7 +30,7 @@ describe('список маршрутов', () => {
   it('не ставит прочерк там, где значения нет', () => {
     // Прочерк читается как ноль. Обычная заявка просто не помечается,
     // а срочная получает явную метку.
-    render(<RouteRow route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[order]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(screen.queryByText('авария')).not.toBeInTheDocument();
@@ -42,14 +42,14 @@ describe('список маршрутов', () => {
   // диспетчеру важно «это авария», а не «это приоритет номер один».
   it('помечает аварию', () => {
     const urgent = { ...order, priority: 'Срочная' };
-    render(<RouteRow route={route} orders={[urgent]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[urgent]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('авария')).toBeInTheDocument();
   });
 
   it('помечает подключение', () => {
     const high = { ...order, priority: 'Повышенная' };
-    render(<RouteRow route={route} orders={[high]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
+    render(<RouteRow load={0} route={route} orders={[high]} vehicle="Автомобиль" index={0} open focused={false} onToggle={() => {}} onSelect={() => {}} selected={null} />);
 
     expect(screen.getByText('подключение')).toBeInTheDocument();
   });

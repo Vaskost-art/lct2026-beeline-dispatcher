@@ -5,6 +5,8 @@ import { Tabs } from '../../components/Tabs';
 import type { PlanPayload } from '../../api/types';
 import { UnassignedList } from '../unassigned/UnassignedList';
 import { RouteRow } from './RouteRow';
+import { IdleCrews } from './IdleCrews';
+import { decimal } from '../../text';
 
 interface Props {
   plan: PlanPayload;
@@ -112,7 +114,12 @@ export function WorkList({
           <span className="eyebrow">Бригада</span>
           <span className="eyebrow text-right">Заявок</span>
           <span className="eyebrow text-right">Км</span>
-          <span className="eyebrow hidden text-right lg:block">Груз</span>
+          <span
+            className="eyebrow hidden text-right lg:block"
+            title="Устройств на выдачу утром, штук, с запасом"
+          >
+            Устр.
+          </span>
         </div>
       ) : null}
 
@@ -130,6 +137,9 @@ export function WorkList({
                   route={route}
                   index={plan.routes.indexOf(route)}
                   orders={plan.orders}
+                  load={
+                    plan.pickup.find((row) => row.engineer_id === route.engineer_id)?.total ?? 0
+                  }
                   statuses={plan.statuses}
                   vehicle={
                     plan.engineers.find((engineer) => engineer.id === route.engineer_id)?.vehicle
@@ -145,7 +155,11 @@ export function WorkList({
               ))}
             </ul>
           )
-        ) : (
+        ) : null}
+        {tab === 'routes' && !matched ? (
+          <IdleCrews plan={plan} onUnassigned={() => onTab('unassigned')} />
+        ) : null}
+        {tab === 'routes' ? null : (
           <UnassignedList
             items={
               matched
@@ -171,7 +185,7 @@ export function WorkList({
             {used.reduce((sum, route) => sum + route.stops.length, 0)}
           </span>
           <span className="text-right text-[12px] font-semibold tnum">
-            {used.reduce((sum, route) => sum + route.total_km, 0).toFixed(1)}
+            {decimal(used.reduce((sum, route) => sum + route.total_km, 0))}
           </span>
           <span className="hidden text-right text-[12px] font-semibold tnum lg:block">
             {plan.pickup.reduce((sum, row) => sum + row.total, 0)}

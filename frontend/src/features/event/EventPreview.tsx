@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import type { PlanPayload, ReplanPayload } from '../../api/types';
 import { plural } from '../../text';
+import { Tile } from './Tile';
 
 interface Props {
   before: PlanPayload;
@@ -10,6 +11,8 @@ interface Props {
       вопрос, кому именно ломается день, и применять событие приходится
       вслепую. */
   onSelect: (orderId: string) => void;
+  /** Посчитано минимальной правкой: тогда опоздание к аварии лечится полной. */
+  minimal?: boolean;
 }
 
 /** Сколько изменений показывать сразу. */
@@ -24,47 +27,12 @@ const STATUS_TITLES: Record<string, string> = {
   frozen: 'уже начата, не трогаем',
 };
 
-interface TileProps {
-  label: string;
-  was: number;
-  now: number;
-  unit?: string;
-  /** Для пробега меньше значит лучше, для заявок наоборот. Без этого
-      признака сокращение километров красится как ухудшение. */
-  lessIsBetter?: boolean;
-}
-
-function Tile({ label, was, now, unit, lessIsBetter = false }: TileProps) {
-  const diff = now - was;
-  const better = lessIsBetter ? diff < 0 : diff > 0;
-  const tone = better ? 'text-ok' : 'text-danger';
-
-  return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-md border border-line bg-panel px-3 py-2">
-      <span className="text-[11px] font-medium text-ink-3">{label}</span>
-      <span className="flex items-baseline gap-1.5">
-        <span className="text-[22px] font-semibold leading-none tracking-[-0.02em] tnum">{now}</span>
-        {unit ? <span className="unit">{unit}</span> : null}
-        {diff === 0 ? null : (
-          <span className={`text-[13px] font-semibold tnum ${tone}`}>
-            {diff > 0 ? '+' : '−'}
-            {Math.abs(diff)}
-          </span>
-        )}
-      </span>
-      <span className="text-[11px] text-ink-3 tnum">
-        {diff === 0 ? 'без изменений' : `было ${was}`}
-      </span>
-    </div>
-  );
-}
-
 /** Что будет, если применить событие.
 
 Рабочий день при этом не меняется: пока не нажато «применить», это только
-предсказание, и подписано оно именно так.
+предпросмотр, и подписан он именно так.
 */
-export function EventPreview({ before, preview, onSelect }: Props) {
+export function EventPreview({ before, preview, onSelect, minimal = false }: Props) {
   const nameOf = (id: string | null) =>
     (id ? preview.engineers.find((engineer) => engineer.id === id)?.name : null) ?? id;
 
@@ -116,6 +84,10 @@ export function EventPreview({ before, preview, onSelect }: Props) {
                   {reaction.within
                     ? ' - в пределах ориентира 1-2 часа.'
                     : ' - дольше ориентира 1-2 часа.'}
+                  {!reaction.within && minimal
+                    ? ' Минимальная правка сдвигает не больше трёх заявок; полная пересборка '
+                      + 'остатка дня двигает больше визитов и чаще успевает в срок.'
+                    : null}
                 </>
               ) : null}
             </>
@@ -125,7 +97,9 @@ export function EventPreview({ before, preview, onSelect }: Props) {
         </p>
       ) : null}
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      {/* Три плитки в ряд и на телефоне: столбиком они выталкивали кнопку
+          «Применить к дню» за край экрана. */}
+      <div className="grid grid-cols-3 gap-2">
         <Tile
           label="Назначено заявок"
           was={before.metrics.orders_assigned}
@@ -170,8 +144,12 @@ export function EventPreview({ before, preview, onSelect }: Props) {
                       <span className="tnum">
                         {' '}
                         {change.shift_min > 0 ? 'позже' : 'раньше'} на {Math.abs(change.shift_min)} мин
+                        {/* Визит раньше при задержке бригады выглядит ошибкой,
+                            если не сказать, откуда взялось время. */}
+                        {change.shift_min < 0 ? ': впереди освободилось время' : ''}
                       </span>
                     ) : null}
+                    {change.status === 'dropped' ? ': откройте, чтобы назначить вручную' : null}
                   </span>
                   {change.from_engineer && change.to_engineer &&
                   change.from_engineer !== change.to_engineer ? (
@@ -187,8 +165,8 @@ export function EventPreview({ before, preview, onSelect }: Props) {
             <button
               type="button"
               onClick={() => setAll(!all)}
-              className="-mx-1 w-fit rounded px-1 py-1 text-[12px] font-medium text-accent
-                         hover:bg-raised hover:underline"
+              className="-mx-1 w-fit rounded px-1 py-1 text-[12px] font-medium text-ink
+                         underline underline-offset-2 hover:bg-raised"
             >
               {all ? 'Свернуть список' : `Показать все ${touched.length}`}
             </button>
@@ -199,8 +177,8 @@ export function EventPreview({ before, preview, onSelect }: Props) {
       {frozen > 0 ? (
         <p className="text-[12px] text-ink-3">
           Ещё <span className="tnum">{frozen}</span>{' '}
-          {plural(frozen, 'заявку', 'заявки', 'заявок')} бригады уже начали - событие их
-          не трогает.
+          {plural(frozen, 'заявка', 'заявки', 'заявок')} на участке уже{' '}
+          {plural(frozen, 'начата', 'начаты', 'начаты')}, событие их не трогает.
         </p>
       ) : null}
     </div>

@@ -1,6 +1,7 @@
 import { ArrowRight, CheckCircle, Timer, UserMinus, WarningOctagon } from '@phosphor-icons/react';
 
 import type { PlanPayload } from '../../api/types';
+import { priorityMark } from '../../priority';
 import { plural } from '../../text';
 
 interface Props {
@@ -9,10 +10,6 @@ interface Props {
   onRisk: () => void;
   onShortfall: () => void;
 }
-
-/** Сколько минут запаса считается опасным: ниже этого маршрут рвётся от
-    первой же задержки на месте. */
-const TIGHT_MIN = 10;
 
 interface RowProps {
   icon: typeof Timer;
@@ -62,8 +59,13 @@ function Row({ icon: Icon, tone, title, hint, onClick }: RowProps) {
 export function Decisions({ plan, onUnassigned, onRisk, onShortfall }: Props) {
   const left = plan.metrics.orders_unassigned;
   const missing = plan.shortfall.missing;
-  const tight = plan.risk.routes.filter(
-    (route) => route.used && route.tolerance_min < TIGHT_MIN,
+  // Порог опасности один на весь экран: берём оценку сервера, по которой
+  // рисует и окно прогноза. Свой порог давал «4 маршрута» против шести
+  // «высоких» в окне.
+  const tight = plan.risk.routes.filter((route) => route.used && route.risk === 'высокий').length;
+  const byId = new Map(plan.orders.map((order) => [order.id, order]));
+  const emergencies = plan.unassigned.filter(
+    (item) => priorityMark(byId.get(item.order_id)?.priority)?.text === 'авария',
   ).length;
 
   const nothing = left === 0 && tight === 0 && missing === 0;
@@ -87,7 +89,11 @@ export function Decisions({ plan, onUnassigned, onRisk, onShortfall }: Props) {
           icon={WarningOctagon}
           tone="danger"
           title={`${left} ${plural(left, 'заявка', 'заявки', 'заявок')} без исполнителя`}
-          hint="посмотреть причины и что с ними делать"
+          hint={
+            emergencies > 0
+              ? `из них ${emergencies} ${plural(emergencies, 'авария', 'аварии', 'аварий')}: причины и что делать`
+              : 'посмотреть причины и что с ними делать'
+          }
           onClick={onUnassigned}
         />
       ) : null}
@@ -107,7 +113,7 @@ export function Decisions({ plan, onUnassigned, onRisk, onShortfall }: Props) {
           icon={Timer}
           tone="warn"
           title={`${tight} ${plural(tight, 'маршрут', 'маршрута', 'маршрутов')} без запаса времени`}
-          hint={`порвутся от задержки больше ${TIGHT_MIN} минут`}
+          hint="высокий риск опоздания: кого предупредить"
           onClick={onRisk}
         />
       ) : null}

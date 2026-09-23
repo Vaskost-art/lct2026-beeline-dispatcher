@@ -2,6 +2,7 @@ import { CaretDown, List } from '@phosphor-icons/react';
 
 import { Button } from '../../components/Button';
 import type { RegionSummary } from '../../api/types';
+import { plural } from '../../text';
 
 interface Props {
   regions: RegionSummary[];
@@ -63,20 +64,22 @@ export function Header({ regions, region, onRegion, onMenu, onPlan, busy, planne
 
         {current ? (
           <span className="hidden whitespace-nowrap text-[11px] text-shell-muted lg:inline tnum">
-            {current.orders} заявок · {current.engineers} бригад
+            {current.orders} {plural(current.orders, 'заявка', 'заявки', 'заявок')} ·{' '}
+            {current.engineers} {plural(current.engineers, 'бригада', 'бригады', 'бригад')}
           </span>
         ) : null}
 
-        {/* Пока плана нет, построить его - единственное осмысленное действие
-            на экране. Как только план есть, главным становится разбор очереди
-            решений, а повторный расчёт - служебным: акцент с него снимается,
-            иначе самая яркая кнопка экрана отменяет работу дня. */}
+        {/* Акцента здесь нет никогда. До плана главное действие стоит на самом
+            экране, и две оранжевые кнопки рядом спорили бы; после плана
+            главным становится разбор очереди решений, а самая яркая кнопка
+            экрана не должна отменять работу дня. */}
         <Button
-          variant={planned ? 'shell' : 'primary'}
+          variant="shell"
           data-testid="plan"
           onClick={onPlan}
           busy={busy}
           disabled={!region}
+          title={region ? undefined : 'Сначала выберите участок'}
         >
           {planned ? 'Собрать заново' : 'Спланировать'}
         </Button>

@@ -69,7 +69,10 @@ export function ShortfallDialog({ plan, open, onClose, onShowUnassigned, onExpor
                   className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-3 py-2"
                 >
                   <span className="text-[13px] font-medium">
-                    Бригада {index + 1}: {profile.vehicle.toLowerCase()}
+                    {/* Буква, а не номер: «Бригада 1» это имя действующей бригады, и
+                        строка читалась как «бригаде 1 нужна машина». */}
+                    Новая бригада {'АБВГДЕЖЗИК'[index] ?? index + 1}:{' '}
+                    {profile.vehicle.toLowerCase()}
                   </span>
                   <span className="text-[12px] text-ink-3">смена {profile.shift}</span>
                   <span className="flex flex-wrap gap-1">

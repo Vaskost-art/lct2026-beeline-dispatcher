@@ -110,7 +110,12 @@ export function toRequest(draft: EventDraft, plan: PlanPayload, apply: boolean):
 
   const point = districtCenter(plan, draft.district);
   const prefix = draft.work === 'emergency' ? 'АВАРИЯ' : 'НОВАЯ';
-  const id = `${prefix}-${draft.at.replace(':', '')}`;
+  // Номер не должен совпасть с уже заведённым: две аварии в одну минуту
+  // иначе получали один номер, и вторая затирала первую.
+  const stem = `${prefix}-${draft.at.replace(':', '')}`;
+  const taken = new Set(plan.orders.map((order) => order.id));
+  let id = stem;
+  for (let copy = 2; taken.has(id); copy += 1) id = `${stem}-${copy}`;
   return {
     ...base,
     // Пересобрать остаток дня можно ради аварии, но не ради обычной заявки.

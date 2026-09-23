@@ -52,7 +52,7 @@ describe('событие дня', () => {
 
     await waitFor(() => expect(screen.getByTestId('event-preview')).toBeInTheDocument());
 
-    // Запрос ушёл с apply: false — рабочий день не тронут.
+    // Запрос ушёл с apply: false - рабочий день не тронут.
     const sent = JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)) as { apply: boolean };
     expect(sent.apply).toBe(false);
     expect(screen.getByText(/Рабочий день пока не изменился/)).toBeInTheDocument();

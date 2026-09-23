@@ -1,5 +1,5 @@
 import type { Alternative } from '../../api/types';
-import { plural } from '../../text';
+import { decimal, plural } from '../../text';
 
 interface Props {
   items: Alternative[];
@@ -43,7 +43,7 @@ export function Alternatives({ items, total, collapsed = false }: Props) {
               </span>
               {item.extra_km === undefined ? null : (
                 <span className="shrink-0 text-[12px] text-ink-2 tnum">
-                  +{item.extra_km.toFixed(1)} <span className="text-ink-3">км</span>
+                  +{decimal(item.extra_km)} <span className="text-ink-3">км</span>
                 </span>
               )}
             </li>

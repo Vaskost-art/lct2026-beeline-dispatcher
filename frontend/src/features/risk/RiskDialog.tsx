@@ -5,6 +5,8 @@ interface Props {
   plan: PlanPayload;
   open: boolean;
   onClose: () => void;
+  /** Открыть маршрут бригады: из прогноза идут звонить её клиентам. */
+  onShowCrew: (crew: string) => void;
 }
 
 /** Риск это состояние маршрута, а не оттенок текста: бейдж читается с
@@ -21,7 +23,7 @@ const BADGE: Record<string, string> = {
 };
 
 /** Прогноз опозданий: где план сломается от первой же задержки. */
-export function RiskDialog({ plan, open, onClose }: Props) {
+export function RiskDialog({ plan, open, onClose, onShowCrew }: Props) {
   const routes = plan.risk.routes.filter((route) => route.used);
 
   return (
@@ -59,6 +61,13 @@ export function RiskDialog({ plan, open, onClose }: Props) {
               </span>
             </span>
             <span className="max-w-[68ch] text-[12px] text-ink-2">{route.text}</span>
+            <button
+              type="button"
+              onClick={() => onShowCrew(route.engineer_id)}
+              className="min-h-6 w-fit py-1 text-[12px] font-medium text-ink underline underline-offset-2 hover:text-accent"
+            >
+              Показать маршрут
+            </button>
           </li>
         ))}
       </ul>

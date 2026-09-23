@@ -1,6 +1,7 @@
 import { CheckCircle } from '@phosphor-icons/react';
 
 import type { Order, Unassigned } from '../../api/types';
+import { priorityMark } from '../../priority';
 import { plural } from '../../text';
 
 interface Props {
@@ -8,23 +9,23 @@ interface Props {
   orders: Order[];
   selected: string | null;
   onSelect: (orderId: string) => void;
-  /** Разбор нехватки людей: туда ведёт совет «добавить бригаду». */
+  /** Расчёт нехватки: сколько бригад и с чем добавить. */
   onShortfall: () => void;
 }
 
 /** Что делать с отказом. Причина называет препятствие, а диспетчеру нужно
     действие: этот список переводит одно в другое. */
 const WHAT_TO_DO: { match: RegExp; text: string }[] = [
-  { match: /транспорт/i, text: 'Добавить бригаду с автомобилем или снять требование транспорта' },
-  { match: /навык/i, text: 'Добавить бригаду с нужным навыком' },
-  { match: /окн/i, text: 'Согласовать с клиентом другое окно или добавить бригаду' },
-  { match: /смен|врем/i, text: 'Продлить смену или передать заявку на завтра' },
+  { match: /транспорт/i, text: 'дать машину бригаде с навыком или навык бригаде с машиной' },
+  { match: /навык/i, text: 'вывести бригаду с нужным навыком' },
+  { match: /окн/i, text: 'согласовать с клиентом другое окно или вывести ещё бригаду' },
+  { match: /смен|врем/i, text: 'продлить смену или перенести заявку на завтра' },
 ];
 
 function advice(reason: string): string {
   return (
     WHAT_TO_DO.find((rule) => rule.match.test(reason))?.text ??
-    'Добавить бригаду или перенести заявку'
+    'вывести ещё бригаду или перенести заявку'
   );
 }
 
@@ -68,13 +69,14 @@ export function UnassignedList({ items, orders, selected, onSelect, onShortfall 
               </span>
               <span className="min-w-0 text-[12px] text-ink-2">{reason}</span>
             </span>
+            <span className="text-[12px] text-ink-3">Что можно сделать: {advice(reason)}.</span>
             <button
               type="button"
               onClick={onShortfall}
               className="w-fit rounded-md border border-line bg-panel px-2 py-1 text-[12px]
                          font-medium text-ink transition-colors duration-[120ms] hover:border-accent"
             >
-              {advice(reason)}
+              Сколько бригад не хватает
             </button>
           </header>
 
@@ -82,6 +84,7 @@ export function UnassignedList({ items, orders, selected, onSelect, onShortfall 
             {group.map((item) => {
               const order = byId.get(item.order_id);
               const active = selected === item.order_id;
+              const mark = priorityMark(order?.priority);
               return (
                 <li key={item.order_id}>
                   <button
@@ -89,15 +92,24 @@ export function UnassignedList({ items, orders, selected, onSelect, onShortfall 
                     onClick={() => onSelect(item.order_id)}
                     aria-current={active || undefined}
                     className={
-                      'grid h-9 w-full grid-cols-[minmax(0,1fr)_92px_minmax(0,110px)] items-center gap-2 ' +
+                      'grid h-9 w-full grid-cols-[auto_auto_auto_minmax(0,1fr)] items-center gap-2 ' +
                       'border-l-2 px-3 text-left transition-colors duration-[120ms] ' +
                       (active
                         ? 'border-danger bg-danger-soft'
                         : 'border-transparent hover:border-line-2 hover:bg-raised')
                     }
                   >
-                    <span className="truncate text-[13px] font-medium tnum">№ {item.order_id}</span>
-                    <span className="text-[12px] text-ink-3 tnum">
+                    <span className="whitespace-nowrap text-[13px] font-medium tnum">
+                      № {item.order_id}
+                    </span>
+                    {mark ? (
+                      <span className={`rounded-sm px-1 text-[11px] font-medium ${mark.tone}`}>
+                        {mark.text}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="whitespace-nowrap text-[12px] text-ink-3 tnum">
                       {order ? `${order.window_start}–${order.window_end}` : ''}
                     </span>
                     <span className="truncate text-right text-[12px] text-ink-3">

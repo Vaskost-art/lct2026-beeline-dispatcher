@@ -122,7 +122,8 @@ export function EventFields({ plan, draft, onChange }: Props) {
 
           {draft.work === 'emergency' ? (
             <p className="self-end pb-1.5 text-[12px] text-ink-3">
-              Окно: с момента поступления, бригада нужна как можно скорее
+              Окно: с момента поступления, бригада нужна за два часа. Точка
+              ставится в центр района, время приезда в предпросмотре оценочное.
             </p>
           ) : (
             <>

@@ -1,14 +1,11 @@
 import { X } from '@phosphor-icons/react';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 
-import { useExplanation, useOrderStatus, useReassign } from '../../api/queries';
-import type { ApiError } from '../../api/client';
+import { useExplanation } from '../../api/queries';
 import type { Order } from '../../api/types';
-import { Button } from '../../components/Button';
 import { Alternatives } from './Alternatives';
-
-/** Состояния заявки в порядке смены: наряд, дорога, работа, закрытие. */
-const MARKS = ['Отправлено', 'В пути', 'Выполняется', 'Завершено', 'Отменена'];
+import { ReassignBox } from './ReassignBox';
+import { StatusMarks } from './StatusMarks';
 
 interface Props {
   region: string;
@@ -28,18 +25,21 @@ interface Props {
 */
 export function OrderDetail({ region, orderId, order, status, crews, onClose }: Props) {
   const explain = useExplanation(region, orderId);
-  const reassign = useReassign();
-  const mark = useOrderStatus();
+  const panel = useRef<HTMLElement>(null);
   const closed = status === 'Завершено' || status === 'Отменена';
   const started = status === 'В пути' || status === 'Выполняется';
-  // Выбор бригады и подтверждение разделены: список без кнопки не говорит,
-  // применится ли решение и когда.
-  const [picked, setPicked] = useState('');
   const data = explain.data;
+
+  // Фокус переходит в карточку: иначе с клавиатуры до неё не добраться.
+  useEffect(() => panel.current?.focus(), []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      // Поверх карточки может быть открыто окно: Escape закрывает его, а не
+      // обе панели сразу.
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -50,9 +50,11 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
   // действие «Передать другой бригаде».
   return (
     <aside
+      ref={panel}
+      tabIndex={-1}
       data-testid="detail"
       aria-label={`Заявка ${orderId}`}
-      className="fixed inset-x-0 bottom-0 z-30 flex max-h-[82dvh] flex-col overflow-hidden
+      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[82dvh] flex-col overflow-hidden outline-none
                  rounded-t-lg border border-line bg-panel
                  shadow-[0_12px_40px_rgb(10_14_20/0.18)]
                  lg:absolute lg:inset-y-2 lg:bottom-auto lg:left-auto lg:right-2
@@ -76,34 +78,7 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
       </header>
 
       <div className="scroll-fade min-h-0 flex-1 overflow-auto px-3 py-3">
-        <div className="mb-3 border-b border-line pb-3">
-          <span className="text-[12px] font-medium text-ink-3">Ход работ</span>
-          <div role="group" aria-label="Ход работ" className="mt-1 flex flex-wrap gap-1">
-            {MARKS.map((name) => (
-              <button
-                key={name}
-                type="button"
-                aria-pressed={status === name}
-                disabled={mark.isPending}
-                onClick={() => mark.mutate({ region, order_id: orderId, status: name })}
-                className={
-                  'min-h-6 rounded-md border px-2 py-1 text-[12px] transition-colors ' +
-                  (status === name
-                    ? 'border-accent bg-accent-soft font-medium text-ink'
-                    : 'border-line bg-panel text-ink-2 hover:bg-raised')
-                }
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          {mark.error ? (
-            <p role="alert" className="mt-1.5 text-[12px] text-danger">
-              {(mark.error as ApiError).message}
-            </p>
-          ) : null}
-
-        </div>
+        <StatusMarks region={region} orderId={orderId} status={status} />
 
         {explain.isPending ? <p className="text-[13px] text-ink-3">Собираем объяснение…</p> : null}
 
@@ -180,48 +155,14 @@ export function OrderDetail({ region, orderId, order, status, crews, onClose }: 
             <p className="text-[12px] text-ink-3">
               Заявка в состоянии «{status}»: переносить её другой бригаде поздно.
             </p>
-          ) : reassign.isSuccess ? (
-            <p className="rounded-md bg-ok-soft px-2 py-1.5 text-[12px] text-ink">
-              Заявка передана бригаде «{crews.find((crew) => crew.id === picked)?.name ?? picked}».
-              Она закреплена и останется у неё при следующем пересчёте.
-            </p>
           ) : (
-            <>
-              <span className="text-[12px] font-medium text-ink-3">Передать другой бригаде</span>
-              <div className="mt-1 flex gap-2">
-                <select
-                  aria-label="Передать бригаде"
-                  value={picked}
-                  onChange={(event) => setPicked(event.target.value)}
-                  className="h-8 min-w-0 flex-1 rounded-md border border-line bg-panel px-2 text-[13px]"
-                >
-                  <option value="">Выберите бригаду</option>
-                  {crews
-                    .filter((crew) => crew.id !== data.engineer_id)
-                    .map((crew) => (
-                      <option key={crew.id} value={crew.id}>
-                        {crew.name}
-                      </option>
-                    ))}
-                </select>
-                <Button
-                  variant="primary"
-                  disabled={!picked}
-                  busy={reassign.isPending}
-                  busyLabel="Переносим"
-                  onClick={() =>
-                    reassign.mutate({ region, order_id: orderId, engineer_id: picked })
-                  }
-                >
-                  Передать
-                </Button>
-              </div>
-              {reassign.error ? (
-                <p role="alert" className="mt-1.5 text-[12px] text-danger">
-                  {(reassign.error as ApiError).message}
-                </p>
-              ) : null}
-            </>
+            <ReassignBox
+              region={region}
+              orderId={orderId}
+              holder={data.assigned ? data.engineer_id : undefined}
+              crews={crews}
+              alternatives={data.alternatives}
+            />
           )}
           </div>
         </div>

@@ -29,6 +29,17 @@ describe('новая заявка днём', () => {
     expect(request.new_order?.id.startsWith('АВАРИЯ-')).toBe(true);
   });
 
+  it('вторая авария в ту же минуту получает свой номер', () => {
+    const draft = { ...EMPTY_DRAFT, district: 'Таганский', at: '13:00' };
+    const first = toRequest(draft, plan, false).new_order?.id ?? '';
+    const withFirst = {
+      ...plan,
+      orders: [...plan.orders, { ...plan.orders[0], id: first }],
+    } as PlanPayload;
+
+    expect(toRequest(draft, withFirst, false).new_order?.id).not.toBe(first);
+  });
+
   it('длительность по умолчанию берётся из норматива заказчика', () => {
     expect(EMPTY_DRAFT.durationMin).toBe(WORK_MINUTES.emergency);
     expect(WORK_MINUTES.local).toBeLessThan(WORK_MINUTES.emergency);

@@ -86,6 +86,7 @@ export function Workspace({ plan, day, apiKey }: Props) {
           и внутри неё объяснение оставалось бы невидимым. */}
       {day.selectedOrder ? (
         <OrderDetail
+          key={day.selectedOrder}
           region={plan.region}
           orderId={day.selectedOrder}
           order={plan.orders.find((item) => item.id === day.selectedOrder)}

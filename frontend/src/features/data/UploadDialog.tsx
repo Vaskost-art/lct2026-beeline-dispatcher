@@ -6,6 +6,10 @@ import { ApiError } from '../../api/client';
 import type { RegionSummary } from '../../api/types';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
+import { plural } from '../../text';
+
+/** Тот же предел, что у сервиса (`MAX_UPLOAD_BYTES` в api/routes/upload.py). */
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 interface Props {
   open: boolean;
@@ -32,11 +36,22 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
+      // Предел проверяется до отправки: сервис на слишком большой файл
+      // отвечает сразу и рвёт соединение, и браузер показал бы «нет связи»
+      // вместо настоящей причины.
+      if (file.size > MAX_UPLOAD_BYTES) {
+        throw new ApiError(
+          'too_large',
+          `Файл больше ${MAX_UPLOAD_BYTES / (1024 * 1024)} МБ: сервис рассчитан на один рабочий день участка`,
+        );
+      }
       const query = new URLSearchParams({ filename: file.name, name });
       const answer = await fetch(`/api/dataset/upload?${query.toString()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
         body: await file.arrayBuffer(),
+      }).catch(() => {
+        throw new ApiError('network', 'Файл не отправлен: нет связи с сервисом. Попробуйте ещё раз');
       });
       const body = (await answer.json().catch(() => null)) as
         | { ok: boolean; data?: UploadAnswer; error?: { code: string; message: string } }
@@ -82,6 +97,9 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) upload.mutate(file);
+            // Без сброса тот же файл после исправления не выбрать: браузер
+            // не присылает изменение, если имя совпало.
+            event.target.value = '';
           }}
         />
 
@@ -97,8 +115,10 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
           </Button>
           {upload.data ? (
             <span className="text-[13px] text-ink-2 tnum">
-              Загружено: {upload.data.summary.orders} заявок,{' '}
-              {upload.data.summary.engineers} бригад.
+              Загружено: {upload.data.summary.orders}{' '}
+              {plural(upload.data.summary.orders, 'заявка', 'заявки', 'заявок')},{' '}
+              {upload.data.summary.engineers}{' '}
+              {plural(upload.data.summary.engineers, 'бригада', 'бригады', 'бригад')}.
             </span>
           ) : null}
         </div>

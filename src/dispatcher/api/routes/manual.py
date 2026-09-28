@@ -15,6 +15,7 @@ from dispatcher.domain import Plan
 from dispatcher.services.equipment import missing_for, name_listing
 from dispatcher.services.metrics import plan_metrics
 from dispatcher.services.planning.reasons import diagnose
+from dispatcher.services.roster import roster_of
 from dispatcher.services.routing import evaluate_sequence
 from dispatcher.services.statuses import is_closed, is_started, status_of
 
@@ -118,7 +119,9 @@ def reassign(request: ReassignRequest) -> dict:
         label=f"Ручное назначение заявки {request.order_id}",
         plan=new_plan, metrics=metrics, orders=list(orders),
         engineers=list(engineers), locked=locked, issued=state.issued,
-        statuses=dict(state.statuses), manual=True, clock=state.clock))
+        statuses=dict(state.statuses), manual=True, clock=state.clock,
+        # Ручное назначение и есть вызов с выходного: бригада выходит на смену.
+        on_shift=None if state.on_shift is None else roster_of(new_plan, state.on_shift)))
     return ok(plan_payload(scenario, new_plan, metrics))
 
 

@@ -18,6 +18,7 @@ from dispatcher.api.state import DayVersion
 from dispatcher.services.metrics import plan_metrics
 from dispatcher.services.planning.costs import DEFAULT_TIME_LIMIT_SEC
 from dispatcher.services.planning.strategies import STRATEGIES
+from dispatcher.services.roster import roster_of
 from dispatcher.services.statuses import settle_day
 
 router = APIRouter()
@@ -90,5 +91,6 @@ def adjust_order(request: AdjustOrderRequest) -> dict:
         label=f"Заявка {request.order_id}: " + ", ".join(changes),
         plan=plan, metrics=metrics, orders=new_orders,
         engineers=crews, locked=locked, issued=state.issued,
-        statuses=dict(state.statuses), manual=True, clock=state.clock))
+        statuses=dict(state.statuses), manual=True, clock=state.clock,
+        on_shift=None if state.on_shift is None else roster_of(plan, state.on_shift)))
     return ok(plan_payload(scenario, plan, metrics))

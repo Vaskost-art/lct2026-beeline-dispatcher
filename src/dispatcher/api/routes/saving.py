@@ -63,7 +63,7 @@ def save_plan(request: SavePlanRequest) -> dict:
         scenario.region_key, scenario.region_name, state.label, state.plan,
         state.orders, state.engineers, state.locked, state.manual,
         name=request.name, issued=state.issued, statuses=state.statuses,
-        clock=state.clock))
+        clock=state.clock, on_shift=state.on_shift))
     # Пишем рядом и переименовываем: прямая запись усекает файл до того,
     # как в него лягут данные, и обрыв на этом месте стирает сохранённый день.
     tmp = f"{path}.tmp"
@@ -129,7 +129,7 @@ def restore_plan(request: RegionRequest) -> dict:
         plan=plan, metrics=metrics, orders=snapshot.orders,
         engineers=snapshot.engineers, locked=snapshot.locked,
         issued=snapshot.issued, statuses=snapshot.statuses, manual=True,
-        clock=snapshot.clock))
+        clock=snapshot.clock, on_shift=snapshot.on_shift))
     payload = plan_payload(scenario, plan, metrics)
     payload["restored"] = {"name": snapshot.name or request.region,
                            "saved_at": snapshot.saved_at, "lost": lost}

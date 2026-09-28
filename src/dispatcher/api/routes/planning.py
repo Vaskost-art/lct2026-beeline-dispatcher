@@ -22,6 +22,7 @@ from dispatcher.services.planning.strategies import (
     STRATEGY_METHODS,
     STRATEGY_TITLES,
 )
+from dispatcher.services.roster import roster_of
 from dispatcher.services.statuses import settle_day
 
 router = APIRouter()
@@ -83,10 +84,14 @@ def make_plan(request: PlanRequest) -> dict:
              f"{STRATEGY_TITLES.get(request.strategy, request.strategy).lower()}")
     # Пересчёт это тоже изменение: прежняя версия остаётся в истории, и к ней
     # диспетчер возвращается шагом назад, не пересчитывая заново.
+    clock = 0 if (previous is None or request.reset) else previous.clock
+    # До первого события состав смены ещё не решён и следует за планом.
+    # После него бригады уже в поле: состав только пополняется.
+    carried_shift = (previous.on_shift or []) if previous and clock else []
     STORE.push_since(revision, request.region, DayVersion(
         label=label, plan=plan, metrics=metrics, orders=orders,
         engineers=engineers, locked=locked, issued=issued, statuses=statuses,
-        clock=0 if (previous is None or request.reset) else previous.clock))
+        clock=clock, on_shift=roster_of(plan, carried_shift)))
     return ok(plan_payload(scenario, plan, metrics))
 
 

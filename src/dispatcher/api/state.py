@@ -88,7 +88,7 @@ class DayStore:
                 orders=snapshot.orders, engineers=snapshot.engineers,
                 locked=snapshot.locked, issued=snapshot.issued,
                 statuses=snapshot.statuses, manual=snapshot.manual,
-                clock=snapshot.clock))
+                clock=snapshot.clock, on_shift=snapshot.on_shift))
         day.revision = next(_REVISIONS)
         return len(day.versions)
 
@@ -162,7 +162,7 @@ class DayStore:
                             version.label, version.plan, version.orders,
                             version.engineers, version.locked, version.manual,
                             issued=version.issued, statuses=version.statuses,
-                            clock=version.clock)))
+                            clock=version.clock, on_shift=version.on_shift)))
 
     def step_back(self, region: str) -> DayVersion | None:
         """Возвращает предыдущую версию дня, снимая последнюю."""
@@ -191,4 +191,5 @@ class DayStore:
             issued={key: dict(value) for key, value in current.issued.items()},
             statuses=dict(current.statuses),
             clock=current.clock,
+            on_shift=None if current.on_shift is None else list(current.on_shift),
         )

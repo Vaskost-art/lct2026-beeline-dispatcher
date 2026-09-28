@@ -42,6 +42,8 @@ class DaySnapshot:
     name: str = ""
     saved_at: str = ""
     clock: int = 0
+    #: Кто вышел на смену; None - запись без состава, на смене все.
+    on_shift: list[str] | None = None
     #: Заявки, которых не оказалось в наборе при подъёме дня.
     lost: list[str] = field(default_factory=list)
 
@@ -50,7 +52,8 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
                 orders: list[Order], engineers: list[Engineer],
                 locked: dict[str, str], manual: bool, name: str = "",
                 issued: dict[str, dict[str, int]] | None = None,
-                statuses: dict[str, str] | None = None, clock: int = 0) -> DaySnapshot:
+                statuses: dict[str, str] | None = None, clock: int = 0,
+                on_shift: list[str] | None = None) -> DaySnapshot:
     """Собирает снимок из текущей версии дня."""
     return DaySnapshot(
         region_key=region_key,
@@ -68,6 +71,7 @@ def snapshot_of(region_key: str, region_name: str, label: str, plan: Plan,
         manual=manual,
         name=name or region_name,
         clock=clock,
+        on_shift=None if on_shift is None else list(on_shift),
     )
 
 
@@ -85,6 +89,7 @@ def snapshot_to_json(snapshot: DaySnapshot) -> dict[str, object]:
         "solver_status": snapshot.solver_status,
         "manual": snapshot.manual,
         "clock": snapshot.clock,
+        "on_shift": snapshot.on_shift,
         "locked": dict(snapshot.locked),
         "issued": {key: dict(value) for key, value in snapshot.issued.items()},
         "statuses": dict(snapshot.statuses),
@@ -133,6 +138,7 @@ def snapshot_from_json(data: dict[str, object]) -> DaySnapshot:
         name=str(data.get("name") or ""),
         saved_at=str(data.get("saved_at") or ""),
         clock=_whole(data.get("clock")),
+        on_shift=_names(data.get("on_shift"), {e.id for e in engineers}),
     )
 
 
@@ -148,6 +154,13 @@ def _issued(data: dict[str, object]) -> dict[str, dict[str, int]]:
                                         for name, count in items.items()
                                         if isinstance(count, int)}
     return result
+
+
+def _names(value: object, known: set[str]) -> list[str] | None:
+    """Состав смены из записи: только известные бригады. Нет списка - None."""
+    if not isinstance(value, list):
+        return None
+    return [str(name) for name in value if str(name) in known]
 
 
 def _items(data: dict[str, object], key: str) -> list[dict[str, object]]:

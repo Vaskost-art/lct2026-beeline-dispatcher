@@ -120,7 +120,7 @@ def do_replan(request: ReplanRequest) -> dict:
                             mode=request.mode,
                             time_limit_sec=request.time_limit_sec,
                             issued=state.issued, statuses=state.statuses,
-                            locked=state.locked)
+                            locked=state.locked, on_shift=state.on_shift)
         if not request.apply:
             state_day.preview = PreviewCache(signature, version_number, result)
 
@@ -142,7 +142,8 @@ def do_replan(request: ReplanRequest) -> dict:
             plan=result.plan, metrics=metrics,
             orders=new_orders, engineers=new_engineers,
             locked=dict(state.locked), issued=state.issued,
-            statuses=dict(state.statuses), manual=True, clock=at))
+            statuses=dict(state.statuses), manual=True, clock=at,
+            on_shift=state.on_shift))
         state_day.preview = None
         return ok(plan_payload(scenario, result.plan, metrics, extra={
             "diff": result.diff,
@@ -157,7 +158,8 @@ def do_replan(request: ReplanRequest) -> dict:
                                  metrics=metrics, orders=new_orders,
                                  engineers=new_engineers,
                                  locked=dict(state.locked), issued=state.issued,
-                                 statuses=dict(state.statuses), clock=at)
+                                 statuses=dict(state.statuses), clock=at,
+                                 on_shift=state.on_shift)
     return ok(plan_payload(scenario, result.plan, metrics, extra={
         "diff": result.diff,
         "narrative": result.narrative,

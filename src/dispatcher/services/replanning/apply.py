@@ -26,6 +26,7 @@ from dispatcher.services.replanning.freeze import (
 from dispatcher.services.replanning.newcomer import newcomer_outcome, ordinary_newcomer
 from dispatcher.services.replanning.rebuild import lost_by_rebuild, rebuild_rest
 from dispatcher.services.replanning.repair import MODE_MINIMAL, MODE_TITLES, _repair
+from dispatcher.services.roster import add_home_crews, working_crews
 from dispatcher.services.statuses import frozen_by_status
 from dispatcher.services.statuses import plannable as plannable_by_status
 
@@ -35,7 +36,8 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
            time_limit_sec: int = DEFAULT_TIME_LIMIT_SEC,
            issued: dict[str, dict[str, int]] | None = None,
            statuses: dict[str, str] | None = None,
-           locked: dict[str, str] | None = None) -> ReplanResult:
+           locked: dict[str, str] | None = None,
+           on_shift: list[str] | None = None) -> ReplanResult:
     """Строит новый план на остаток дня и объясняет, что изменилось.
 
     mode='minimal' - точечно встроить изменение, не трогая остальные назначения;
@@ -44,6 +46,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
     `issued` - что бригады получили в офисе утром: днём заявку берёт только
     та, у кого нужное оборудование с собой. `locked` - заявки, которые
     диспетчер закрепил за бригадой: они остаются у неё в обоих режимах.
+    `on_shift` - кто вышел на смену: остальных событие из дома не вызывает.
 
     `statuses` - что диспетчер отметил со слов бригад: отменённая заявка
     уходит из дня, а начатая и завершённая остаются на своих местах, даже
@@ -140,8 +143,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     frozen_ids = {oid for ids in frozen.values() for oid in ids}
 
-    # Заявки, чьё окно закрылось к моменту события и которые ещё не начаты,
-    # спланировать уже нельзя - показываем это явной причиной.
+    # Незапущенные заявки с закрывшимся окном - явной причиной.
     expired: list[Unassigned] = []
     plannable: list[Order] = []
     for order in new_orders:
@@ -155,12 +157,13 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
             plannable.append(order)
 
     adjusted = shifts_after_event(current, new_orders, new_engineers, frozen, now)
+    working = working_crews(adjusted, on_shift, frozen)
 
     if mode == MODE_MINIMAL:
-        new_plan = _repair(plannable, adjusted, current, event, now, frozen,
+        new_plan = _repair(plannable, working, current, event, now, frozen,
                            issued, locked)
     else:
-        new_plan, frozen = rebuild_rest(current, plannable, adjusted, event, now,
+        new_plan, frozen = rebuild_rest(current, plannable, working, event, now,
                                         frozen, time_limit_sec, issued, locked)
     # Запасной расчёт без заморозки переставляет и начатое: список
     # изменений не должен называть такие заявки нетронутыми.
@@ -168,6 +171,7 @@ def replan(orders: list[Order], engineers: list[Engineer], current: Plan,
 
     new_plan.unassigned = [u for u in new_plan.unassigned
                            if u.order_id not in {e.order_id for e in expired}]
+    add_home_crews(new_plan, adjusted, plannable, working)
     new_plan.unassigned.extend(expired)
     new_plan.strategy = "replanned"
 

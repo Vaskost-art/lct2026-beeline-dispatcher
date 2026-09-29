@@ -16,12 +16,16 @@
     python3 scripts/geocode.py --provider nominatim
     python3 scripts/geocode.py --force             # перегеокодировать всё
 
-Около 200 уникальных адресов: у Яндекса примерно минута, у Nominatim около
-четырёх - он просит не чаще одного запроса в секунду.
+Адреса берутся из выгрузок `data/raw` и из дополнительных дней
+`data/extra`. Около 700 уникальных адресов: у Яндекса несколько минут, у
+Nominatim дольше - он просит не чаще одного запроса в секунду.
 """
 from __future__ import annotations
 
 import argparse
+import csv
+import glob
+import io
 import json
 import os
 import sys
@@ -33,18 +37,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from geo_queries import build_query, collect_addresses, fallback_queries  # noqa: E402
-
+from dispatcher.domain.distance import normalize_address  # noqa: E402
 from dispatcher.infrastructure import envfile  # noqa: E402
+from dispatcher.infrastructure.csvfile import (  # noqa: E402
+    CSV_DELIMITER,
+    _clean_address,
+    decode_csv,
+)
+from dispatcher.infrastructure.geo_online import yandex_fetch  # noqa: E402
+from dispatcher.infrastructure.geo_queries import build_query, fallback_queries  # noqa: E402
 
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
-YANDEX_GEOCODER = "https://geocode-maps.yandex.ru/1.x/"
 USER_AGENT = "dispatcher-route-planner/1.0 (field service routing prototype)"
 
 # Nominatim просит не чаще одного запроса в секунду; у Яндекса лимит мягче.
 RATE_LIMIT_SEC = {"nominatim": 1.1, "yandex": 0.25}
 
-RAW_DIR = os.path.join(ROOT, "data", "raw")
+DATA_FILES = (os.path.join(ROOT, "data", "raw", "*.csv"),
+              os.path.join(ROOT, "data", "extra", "*.csv"))
 CACHE_PATH = os.path.join(ROOT, "data", "geo_cache.json")
 
 
@@ -77,23 +87,25 @@ def geocode_nominatim(query: str, _key: str) -> tuple[float, float] | None:
 
 
 def geocode_yandex(query: str, api_key: str) -> tuple[float, float] | None:
-    """HTTP Геокодер Яндекса. Координаты приходят строкой «долгота широта»."""
-    params = urllib.parse.urlencode({
-        "apikey": api_key, "geocode": query, "format": "json",
-        "results": 1, "lang": "ru_RU",
-    })
-    data = _request(f"{YANDEX_GEOCODER}?{params}")
-    if not data:
-        return None
-    try:
-        members = data["response"]["GeoObjectCollection"]["featureMember"]
-        if not members:
-            return None
-        lon, lat = members[0]["GeoObject"]["Point"]["pos"].split()
-        return float(lat), float(lon)
-    except (KeyError, IndexError, ValueError) as exc:
-        print(f"    ! неожиданный ответ геокодера: {exc}")
-        return None
+    """HTTP Геокодер Яндекса: тот же запрос, что делает сервис при загрузке файла."""
+    return yandex_fetch(api_key)(query)
+
+
+def collect_addresses() -> list[tuple[str, str, str]]:
+    """Уникальные (ключ, исходный адрес, район) из всех выгрузок проекта."""
+    seen: dict[str, tuple[str, str, str]] = {}
+    for pattern in DATA_FILES:
+        for path in sorted(glob.glob(pattern)):
+            with open(path, "rb") as fh:
+                text = decode_csv(fh.read())
+            for row in csv.DictReader(io.StringIO(text), delimiter=CSV_DELIMITER):
+                if not (row.get("Заявка") or "").strip():
+                    continue
+                address = _clean_address(row.get("Адрес") or "")
+                key = normalize_address(address)
+                if key and key not in seen:
+                    seen[key] = (key, address, (row.get("Район") or "").strip())
+    return list(seen.values())
 
 
 PROVIDERS = {"yandex": geocode_yandex, "nominatim": geocode_nominatim}
@@ -160,6 +172,10 @@ def main() -> int:
             cache[key] = {"lat": None, "lon": None, "query": query,
                           "source": "not_found"}
             print("    -> не найден, останется приблизительная точка района")
+        if i == 10 and ok == 0:
+            # Десять подряд мимо - это ключ или сеть, а не адреса: не портим кэш.
+            print("Первые 10 адресов не нашлись: проверьте ключ и сеть. Кэш не изменён.")
+            return 3
         if i % 20 == 0:
             with open(CACHE_PATH, "w", encoding="utf-8") as fh:
                 json.dump(cache, fh, ensure_ascii=False, indent=1)

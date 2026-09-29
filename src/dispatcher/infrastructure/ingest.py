@@ -34,6 +34,8 @@ from dispatcher.infrastructure.csvfile import (
     decode_csv,
 )
 from dispatcher.infrastructure.geo import Geocoder
+from dispatcher.infrastructure.geo_online import Fetch, fill_missing
+from dispatcher.infrastructure.orders_csv import row_places
 
 REGIONS = {
     "vostok": "Восток",
@@ -53,7 +55,8 @@ def load_control_scenario(region_key: str, raw_dir: str, cache_path: str) -> Sce
 
 
 def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
-                      region_name: str | None = None) -> Scenario:
+                      region_name: str | None = None,
+                      fetch: Fetch | None = None) -> Scenario:
     """Разбирает выгрузку в формате организаторов из байтов файла."""
     text = decode_csv(raw)
     rows = [
@@ -62,6 +65,8 @@ def parse_control_csv(raw: bytes, region_key: str, cache_path: str,
     ]
 
     geocoder = Geocoder(cache_path)
+    if fetch is not None:
+        fill_missing(geocoder, row_places(rows), fetch)
     orders: list[Order] = []
     cancelled: list[str] = []
     # сырые данные по бригадам для последующего восстановления профиля

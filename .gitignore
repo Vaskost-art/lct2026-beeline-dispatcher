@@ -20,3 +20,7 @@ reports/
 
 # Локальный адрес базы разработчика
 alembic/versions/__pycache__/
+
+# адреса загруженных файлов, найденные геокодером на лету
+data/geo_cache.local.json
+data/geo_cache.local.json.tmp

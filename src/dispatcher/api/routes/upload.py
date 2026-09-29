@@ -13,8 +13,9 @@ from fastapi.concurrency import run_in_threadpool
 
 from dispatcher.api.deps import STORE
 from dispatcher.api.envelope import ok
-from dispatcher.api.paths import CACHE_PATH
+from dispatcher.api.paths import CACHE_PATH, GEOCODER_API_KEY
 from dispatcher.domain.scenario import Scenario
+from dispatcher.infrastructure.geo_online import yandex_fetch
 from dispatcher.infrastructure.ingest import REGIONS
 from dispatcher.services.dataset import DatasetError, load_upload
 
@@ -105,7 +106,8 @@ async def upload_dataset(request: Request, filename: str = "dataset",
     try:
         # Разбор идёт в потоке: в цикле событий он останавливал весь сервис.
         scenario, events, detected = await run_in_threadpool(
-            load_upload, filename, raw, region_key, CACHE_PATH)
+            load_upload, filename, raw, region_key, CACHE_PATH,
+            yandex_fetch(GEOCODER_API_KEY) if GEOCODER_API_KEY else None)
     except DatasetError as exc:
         raise HTTPException(400, str(exc)) from exc
 

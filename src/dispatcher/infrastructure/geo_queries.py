@@ -6,42 +6,9 @@
 """
 from __future__ import annotations
 
-import csv
-import io
-import os
 import re
 
-from dispatcher.domain.distance import normalize_address, normalize_district
-from dispatcher.infrastructure.csvfile import (
-    CSV_DELIMITER,
-    RAW_ENCODING,
-    _clean_address,
-)
-from dispatcher.infrastructure.ingest import REGIONS
-
-RAW_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       "data", "raw")
-
-
-def collect_addresses() -> list[tuple[str, str, str]]:
-    """Уникальные (ключ, исходный адрес, район) из всех выгрузок."""
-    seen: dict[str, tuple[str, str, str]] = {}
-    for key in REGIONS:
-        path = os.path.join(RAW_DIR, f"{key}_control.csv")
-        if not os.path.exists(path):
-            continue
-        with open(path, "rb") as fh:
-            text = fh.read().decode(RAW_ENCODING)
-        for row in csv.DictReader(io.StringIO(text), delimiter=CSV_DELIMITER):
-            if not (row.get("Заявка") or "").strip():
-                continue
-            address = _clean_address(row.get("Адрес", ""))
-            district = row.get("Район", "").strip()
-            k = normalize_address(address)
-            if k and k not in seen:
-                seen[k] = (k, address, district)
-    return list(seen.values())
-
+from dispatcher.domain.distance import normalize_district
 
 GENERIC = "улица|проспект|переулок|бульвар|набережная|проезд|шоссе|площадь"
 
@@ -67,7 +34,9 @@ def build_query(address: str, district: str) -> str:
     addr = addr.replace("пр-зд.", "проезд ").replace("пр-д.", "проезд ")
     addr = addr.replace("ш.", "шоссе ").replace("пл.", "площадь ")
     addr = re.sub(r"\bд\.\s*", "", addr)
-    addr = re.sub(r"\s*к\s*(\d+)", r" к\1", addr)
+    # Корпус стоит после номера дома: без цифры слева правило съедало «к» из
+    # «переулок 1-й» и отдавало геокодеру «переуло к1-й».
+    addr = re.sub(r"(\d)\s*к\s*(\d+)", r"\1 к\2", addr)
     addr = re.sub(r"\s+", " ", addr).strip(" ,")
 
     # Запятых может не быть вовсе: «Москва Булатниковский проезд 6 к1».

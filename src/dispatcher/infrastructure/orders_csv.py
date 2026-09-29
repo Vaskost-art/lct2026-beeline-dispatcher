@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import csv
 import io
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from dispatcher.domain import Order, norms
@@ -39,6 +39,11 @@ class ParsedOrders:
 
 #: Как подписана строка с адресом офиса в хвосте выгрузки.
 OFFICE_MARKER = "адрес офиса"
+
+
+def row_places(rows: Sequence[Mapping[str, str | None]]) -> list[tuple[str, str]]:
+    """Адрес и район каждой строки: то, что ищет геокодер."""
+    return [(_clean_address(_cell(row, "Адрес")), _cell(row, "Район")) for row in rows]
 
 
 def read_rows(text: str) -> list[Mapping[str, str | None]]:

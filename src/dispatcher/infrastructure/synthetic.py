@@ -17,7 +17,13 @@ from dataclasses import dataclass, field
 from dispatcher.domain import Order
 from dispatcher.infrastructure.csvfile import CSV_DELIMITER, decode_csv
 from dispatcher.infrastructure.geo import Geocoder
-from dispatcher.infrastructure.orders_csv import OFFICE_MARKER, parse_orders, read_rows
+from dispatcher.infrastructure.geo_online import Fetch, fill_missing
+from dispatcher.infrastructure.orders_csv import (
+    OFFICE_MARKER,
+    parse_orders,
+    read_rows,
+    row_places,
+)
 
 
 @dataclass
@@ -42,13 +48,21 @@ def read_office_address(text: str) -> str:
     return ""
 
 
-def parse_synthetic(raw: bytes, region_key: str, cache_path: str) -> SyntheticInput:
-    """Разбирает синтетическую выгрузку из байтов файла."""
+def parse_synthetic(raw: bytes, region_key: str, cache_path: str,
+                    fetch: Fetch | None = None) -> SyntheticInput:
+    """Разбирает синтетическую выгрузку из байтов файла.
+
+    `fetch` - геокодер для адресов, которых нет в кэше; без него такие
+    адреса ставятся в центр района.
+    """
     text = decode_csv(raw)
     geocoder = Geocoder(cache_path)
-    parsed = parse_orders(read_rows(text), geocoder)
-
+    rows = read_rows(text)
     address = read_office_address(text)
+    if fetch is not None:
+        fill_missing(geocoder, [*row_places(rows), (address, "")], fetch)
+    parsed = parse_orders(rows, geocoder)
+
     # Офис участка стоит вне района заявок: на Юго-востоке он в Бирюлёво, а
     # заявки доходят до Каширы. Сверять его координату с районом нельзя,
     # иначе верная точка будет отвергнута как неправдоподобная.

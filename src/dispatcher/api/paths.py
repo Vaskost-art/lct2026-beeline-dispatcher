@@ -16,3 +16,6 @@ SAVED_DIR = os.path.join(ROOT, "data", "saved")
 envfile.load()
 #: Без ключа интерфейс рисует собственную схему и честно об этом говорит.
 MAP_API_KEY = os.environ.get("YANDEX_MAPS_API_KEY", "").strip()
+#: Без ключа адреса загруженного файла, которых нет в кэше, ставятся в центр
+#: района; с ключом их ищет Яндекс Геокодер.
+GEOCODER_API_KEY = os.environ.get("YANDEX_GEOCODER_API_KEY", "").strip()

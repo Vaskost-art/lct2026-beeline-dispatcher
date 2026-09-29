@@ -6,6 +6,7 @@ import json
 
 from dispatcher.domain.scenario import Scenario
 from dispatcher.infrastructure.csvfile import decode_csv
+from dispatcher.infrastructure.geo_online import Fetch
 from dispatcher.infrastructure.ingest import parse_control_csv
 from dispatcher.infrastructure.synthetic import parse_synthetic
 from dispatcher.services.dataset.errors import DatasetError
@@ -17,11 +18,14 @@ from dispatcher.services.scenario import scenario_from_synthetic
 MAX_EVENTS = 20
 
 
-def load_upload(filename: str, raw: bytes, region_key: str,
-                cache_path: str) -> tuple[Scenario, list[dict], str]:
-    """Разбирает присланный файл; любой сбой разбора становится понятным отказом."""
+def load_upload(filename: str, raw: bytes, region_key: str, cache_path: str,
+                fetch: Fetch | None = None) -> tuple[Scenario, list[dict], str]:
+    """Разбирает присланный файл; любой сбой разбора становится понятным отказом.
+
+    `fetch` ищет координаты адресов, которых нет в кэше.
+    """
     try:
-        scenario, events, detected = _load(filename, raw, region_key, cache_path)
+        scenario, events, detected = _load(filename, raw, region_key, cache_path, fetch)
     except DatasetError:
         raise
     except RecursionError as error:
@@ -32,7 +36,7 @@ def load_upload(filename: str, raw: bytes, region_key: str,
 
 
 def _load(filename: str, raw: bytes, region_key: str,
-          cache_path: str) -> tuple[Scenario, list[dict], str]:
+          cache_path: str, fetch: Fetch | None = None) -> tuple[Scenario, list[dict], str]:
     """Разбирает присланный файл, сам определяя формат.
 
     Возвращает (сценарий, события, описание распознанного формата).
@@ -68,11 +72,11 @@ def _load(filename: str, raw: bytes, region_key: str,
             # исполнителей в ней нет, состав бригад собирается тем же
             # правилом, что и для встроенных участков.
             scenario = scenario_from_synthetic(
-                parse_synthetic(raw, region_key, cache_path), region_name=region_key)
+                parse_synthetic(raw, region_key, cache_path, fetch), region_name=region_key)
             if not scenario.orders:
                 raise DatasetError("В CSV не нашлось ни одной заявки")
             return scenario, [], "CSV, синтетическая выгрузка организаторов"
-        scenario = parse_control_csv(raw, region_key, cache_path)
+        scenario = parse_control_csv(raw, region_key, cache_path, fetch=fetch)
         if not scenario.orders:
             raise DatasetError("В CSV не нашлось ни одной заявки")
         if not scenario.engineers:

@@ -3,8 +3,9 @@
 Схема двухуровневая и работает офлайн:
 
 1. `data/geo_cache.json` - кэш точных координат (адрес -> lat/lon). Заполняется
-   один раз скриптом `scripts/geocode.py` через OpenStreetMap/Nominatim и
-   коммитится в репозиторий. Демонстрация после этого не зависит от сети.
+   скриптом `scripts/geocode.py` и коммитится в репозиторий. Демонстрация
+   после этого не зависит от сети. Адреса загруженных файлов, найденные
+   геокодером на лету (`geo_online.py`), лежат рядом в `geo_cache.local.json`.
 2. Если адреса в кэше нет - координата собирается из центроида района
    (справочник ниже) плюс детерминированное смещение по хэшу адреса.
    Точка помечается как приблизительная, интерфейс показывает это явно.
@@ -70,6 +71,20 @@ DISTRICT_CENTROIDS = {
 }
 MOSCOW_CENTER = (55.7558, 37.6176)
 
+
+def local_cache_path(cache_path: str) -> str:
+    """Локальный кэш рядом с эталонным: адреса, найденные при загрузке файлов."""
+    root, ext = os.path.splitext(cache_path)
+    return f"{root}.local{ext or '.json'}"
+
+
+def read_cache(path: str) -> dict[str, dict[str, float | str | None]]:
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return data if isinstance(data, dict) else {}
+
 # Радиус разброса точек внутри района при приблизительном геокодировании, км.
 APPROX_SPREAD_KM = 1.2
 
@@ -80,10 +95,11 @@ class Geocoder:
 
     def __init__(self, cache_path: str):
         self.cache_path = cache_path
-        self.cache: dict[str, dict[str, float | str | None]] = {}
-        if os.path.exists(cache_path):
-            with open(cache_path, encoding="utf-8") as f:
-                self.cache = json.load(f)
+        # Эталон главнее: локальный кэш только дополняет его адресами
+        # загруженных файлов.
+        self.cache: dict[str, dict[str, float | str | None]] = {
+            **read_cache(local_cache_path(cache_path)), **read_cache(cache_path)}
+        self.fetched = 0
         self.stats = {PRECISION_EXACT: 0, PRECISION_APPROX: 0}
         # координаты из кэша, которым мы не поверили
         self.rejected: list[dict[str, str | float]] = []
@@ -112,6 +128,15 @@ class Geocoder:
         lat, lon = self._approximate(key, district)
         self.stats[PRECISION_APPROX] += 1
         return lat, lon, PRECISION_APPROX
+
+    def knows(self, key: str) -> bool:
+        """Адрес уже искали: он есть в кэше, найденный или нет."""
+        return key in self.cache
+
+    def remember(self, found: dict[str, dict[str, float | str | None]]) -> None:
+        """Добавляет найденные при загрузке координаты к кэшу в памяти."""
+        self.cache.update(found)
+        self.fetched += len(found)
 
     def _plausible(self, lat: float, lon: float, district: str) -> bool:
         """Похожа ли координата на адрес в этом районе.
@@ -157,6 +182,8 @@ class Geocoder:
             # на которой запущен сервис, всякому, кто откроет /api/meta.
             "cache_path": os.path.basename(self.cache_path),
             "cache_size": len(self.cache),
+            # найдено геокодером при этой загрузке, а не взято из кэша
+            "fetched": self.fetched,
             # координаты, которым не поверили: лежат в кэше как точные, но
             # указывают далеко за пределы своего района
             "rejected": len(self.rejected),

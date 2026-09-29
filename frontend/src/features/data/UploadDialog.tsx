@@ -20,7 +20,8 @@ interface Props {
 interface UploadAnswer {
   region: string;
   format: string;
-  summary: RegionSummary;
+  /** Для CSV сервис сообщает, сколько адресов нашлось на карте точно. */
+  summary: RegionSummary & { geocoding?: { exact?: number; approx?: number } };
   events: unknown[];
 }
 
@@ -121,6 +122,7 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
               {plural(upload.data.summary.orders, 'заявка', 'заявки', 'заявок')},{' '}
               {upload.data.summary.engineers}{' '}
               {plural(upload.data.summary.engineers, 'бригада', 'бригады', 'бригад')}.
+              <GeoNote geocoding={upload.data.summary.geocoding} />
             </span>
           ) : null}
         </div>
@@ -132,5 +134,17 @@ export function UploadDialog({ open, onClose, onLoaded }: Props) {
         ) : null}
       </div>
     </Modal>
+  );
+}
+
+/** Сколько адресов нашлось точно: остальные стоят в центре района, и маршрут по ним грубее. */
+function GeoNote({ geocoding }: { geocoding?: { exact?: number; approx?: number } }) {
+  const approx = geocoding?.approx ?? 0;
+  if (approx === 0) return null;
+  const total = approx + (geocoding?.exact ?? 0);
+  return (
+    <>
+      {' '}Точный адрес найден у {total - approx} из {total}, остальные стоят в центре района.
+    </>
   );
 }

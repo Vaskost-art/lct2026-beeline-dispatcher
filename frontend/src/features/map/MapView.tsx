@@ -106,7 +106,8 @@ export function MapView({
       data-testid="map"
       className="relative min-h-[320px] w-full min-w-0 overflow-hidden rounded-lg border border-line bg-panel"
     >
-      <div ref={box} className="absolute inset-0" />
+      {/* isolate: слои Leaflet со своими z-index не перекрывают легенду и карточки. */}
+      <div ref={box} className="absolute inset-0 isolate" />
       {yandex ? (
         <span className="absolute right-3 top-3 rounded-md border border-line bg-panel/90 px-2 py-1 text-[11px] text-ink-3">
           Карта: Яндекс Карты

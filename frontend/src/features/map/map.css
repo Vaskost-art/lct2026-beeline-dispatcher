@@ -126,7 +126,24 @@
   opacity: 0.8;
 }
 
-/* Один и тот же вид метки и на Яндекс Картах, и на схеме. */
+/* Подложка OpenStreetMap пёстрая: приглушаем, чтобы цвета бригад читались.
+   В тёмной теме та же карта инвертируется. */
+.leaflet-tile-pane {
+  filter: grayscale(0.75) contrast(0.95) brightness(1.03);
+}
+
+.osm-dark .leaflet-tile-pane {
+  filter: grayscale(0.8) invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+/* Метку на OpenStreetMap ставит обёртка нулевого размера: сама метка
+   центрируется на точке тем же сдвигом, что и на схеме. */
+.osm-pin-anchor {
+  background: none;
+  border: none;
+}
+
+/* Один и тот же вид метки на всех трёх картах. */
 .scheme-pin {
   position: absolute;
   transform: translate(-50%, -50%);

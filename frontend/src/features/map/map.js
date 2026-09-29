@@ -2,8 +2,9 @@
 
 /* Картографический слой.
  *
- * Две реализации за одним интерфейсом:
+ * Три реализации за одним интерфейсом:
  *   «Яндекс Карты»  - JS API 3.0, российский сервис, нужен ключ;
+ *   «OpenStreetMap» - подложка OpenStreetMap на Leaflet, без ключа и без платы;
  *   «Схема»         - собственная отрисовка на SVG, без сторонних библиотек
  *                     и без обращений наружу, работает офлайн.
  *
@@ -28,14 +29,21 @@
 import { createSchemeMap } from './scheme.js';
 import { createYandexMap } from './yandex.js';
 
-/* Возвращает карту, готовую к работе. Если ключ Яндекс Карт не задан или
-   сервис не отвечает, молча переходит на схему и сообщает об этом
-   через options.onFallback - чтобы интерфейс мог честно назвать источник. */
+/* Возвращает карту, готовую к работе. Яндекс Карты при ключе, иначе
+   OpenStreetMap, а без сети - собственная схема. О каждом переходе
+   сообщает через options.onFallback, чтобы интерфейс честно назвал источник. */
+/* Leaflet грузится отдельным файлом и только когда нужен. */
+async function createOsmMap(container, options) {
+  const { createOsmMap: create } = await import('./osm.js');
+  return create(container, options);
+}
+
 export async function createDispatcherMap(container, options) {
   const opts = options || {};
-  if (opts.apiKey) {
+  const attempts = opts.apiKey ? [createYandexMap, createOsmMap] : [createOsmMap];
+  for (const create of attempts) {
     try {
-      return await createYandexMap(container, opts);
+      return await create(container, opts);
     } catch (error) {
       if (opts.onFallback) opts.onFallback(error.message);
     }

@@ -37,7 +37,7 @@ export interface MapOptions {
 }
 
 export interface DispatcherMap {
-  kind: 'yandex' | 'scheme';
+  kind: 'yandex' | 'osm' | 'scheme';
   title: string;
   ready: Promise<unknown>;
   render(model: MapModel): void;

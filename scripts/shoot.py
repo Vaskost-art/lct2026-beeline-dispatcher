@@ -48,7 +48,8 @@ _MEASURE = (Path(__file__).parent / "shoot_measure.js").read_text(encoding="utf-
 #: Адреса внешней карты. При съёмке они отклоняются сразу: недоступная карта
 #: отваливается по таймауту соединения и держит интерфейс десятками секунд, а
 #: результат съёмки начинает зависеть от сети.
-MAP_HOSTS = ("**api-maps.yandex.ru**", "**yandex.ru/maps**", "**yastatic.net**")
+MAP_HOSTS = ("**api-maps.yandex.ru**", "**yandex.ru/maps**", "**yastatic.net**",
+             "**tile.openstreetmap.org**")
 
 
 async def _block_map(page: Page) -> None:

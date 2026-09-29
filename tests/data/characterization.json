@@ -15,30 +15,30 @@
   },
   "yugo_vostok": {
     "baseline": {
-      "assigned": 35,
-      "total_km": 641.54,
-      "unassigned": 48,
+      "assigned": 37,
+      "total_km": 605.78,
+      "unassigned": 46,
       "used_engineers": 9
     },
     "greedy": {
-      "assigned": 66,
-      "total_km": 563.83,
-      "unassigned": 17,
+      "assigned": 61,
+      "total_km": 530.23,
+      "unassigned": 22,
       "used_engineers": 9
     }
   },
   "yugocentr": {
     "baseline": {
-      "assigned": 13,
-      "total_km": 77.27,
-      "unassigned": 43,
-      "used_engineers": 5
+      "assigned": 19,
+      "total_km": 106.61,
+      "unassigned": 37,
+      "used_engineers": 6
     },
     "greedy": {
-      "assigned": 47,
-      "total_km": 260.85,
-      "unassigned": 9,
-      "used_engineers": 5
+      "assigned": 53,
+      "total_km": 261.04,
+      "unassigned": 3,
+      "used_engineers": 6
     }
   }
 }

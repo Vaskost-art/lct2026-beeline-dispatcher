@@ -9,6 +9,7 @@ from dispatcher.domain.catalog import (
     VEHICLE_FOOT,
     VEHICLE_TRANSIT,
 )
+from dispatcher.domain.clock import hhmm
 from dispatcher.domain.crew_profiles import SKILL_PROFILES, VEHICLE_SHARES
 from dispatcher.domain.equipment import (
     BY_TYPE_HD,
@@ -88,7 +89,8 @@ ASSUMPTIONS = [
      "Одна на участок, по окнам его заявок: за "
      f"{SHIFT_LEAD_MIN} мин до первого окна на дорогу, {SHIFT_TAIL_MIN} мин после "
      f"последнего, не короче {SHIFT_MIN_LENGTH_MIN // 60} часов и в пределах "
-     f"{SHIFT_EARLIEST // 60:02d}:00-{SHIFT_LATEST // 60:02d}:00."),
+     f"{hhmm(SHIFT_EARLIEST)}-{hhmm(SHIFT_LATEST)}: ориентир организаторов "
+     f"для графика 2/2 - 10:00-22:00, расширение на дорогу и доделку допустимо."),
     ("Перерыв на обед",
      f"{BREAK_MIN} минут за смену, если смена не короче "
      f"{BREAK_MIN_SHIFT_MIN // 60} часов. Время обеда не фиксируется: эти минуты "
